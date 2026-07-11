@@ -12,6 +12,7 @@ import {
   getMindmapNode,
   getMindmapNodesByKind,
   getNodeDetailModel,
+  individualVacancies,
   jobSources,
   mindmapBranches,
   mindmapEdges,
@@ -54,11 +55,12 @@ test('all eight kinds exist and canonical nodes carry kind-specific required fie
   }
 })
 
-test('the minimum 12 families have exactly 12 detailed canonical roles with valid refs', () => {
+test('all 12 job families expose detailed roles, including eight separate GRC and privacy roles', () => {
   const families = getMindmapNodesByKind('jobFamily')
   const roles = getMindmapNodesByKind('role')
   assert.equal(families.length, 12)
-  assert.equal(roles.length, 12)
+  assert.ok(roles.length >= 19)
+  assert.equal(getMindmapNode('family-grc-privacy').representativeRoleIds.length, 8)
 
   const roleArrayFields = ['actualWork', 'foundationConceptIds', 'skillIds', 'technologyIds', 'standardIds', 'deliverables', 'collaborators', 'entryExpectations', 'preferredExperience', 'learningStages', 'portfolioExamples', 'relatedWeekIds', 'jobSourceIds']
   for (const role of roles) {
@@ -125,6 +127,13 @@ test('unknown kinds and neutral concepts never receive attack or defense fallbac
 
 test('no source fabricates active vacancy status and unsupported market counts are gone', () => {
   assert.ok(jobSources.every(({ activeStatus }) => activeStatus !== 'active'))
+  assert.deepEqual(individualVacancies, [])
+  for (const role of getMindmapNodesByKind('role')) {
+    assert.equal(role.jobEvidence.evidenceStatus, 'unavailable')
+    assert.equal(role.jobEvidence.totalPostings, null)
+    assert.equal(role.jobEvidence.activePostingCount, null)
+    assert.match(role.jobEvidence.limitations, /개별 채용공고/)
+  }
   assert.equal('marketJobs' in weekZeroData, false)
   assert.equal(weekZeroData.jobCaptures.length, 3)
   assert.ok(weekZeroData.jobCaptures.every(({ activeStatus, isIndividualVacancy }) => activeStatus === 'unknown' && isIndividualVacancy === false))

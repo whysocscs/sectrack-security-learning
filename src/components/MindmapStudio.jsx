@@ -24,6 +24,8 @@ import {
   mindmapNodes,
   mindmapReferences,
 } from '../mindmapData'
+import CareerEvidenceView from './CareerEvidenceView'
+import CareerGraph from './CareerGraph'
 
 const viewModes = [
   ['roles', '직무로 보기'],
@@ -62,6 +64,7 @@ export default function MindmapStudio({ progress, updateProgress, notify, fullPa
   const nodeRefs = useRef(new Map())
 
   const mode = view.mode || 'roles'
+  const careerView = view.careerView || (fullPage ? 'graph' : 'study')
   const zoom = Number(view.zoom) || 100
   const selectedId = view.selectedNodeId || null
   const selected = getMindmapNode(selectedId) || (mapState.customNodes || []).find((node) => node.id === selectedId) || null
@@ -97,6 +100,7 @@ export default function MindmapStudio({ progress, updateProgress, notify, fullPa
   const expandedGroups = view.expandedGroups || {}
   const isGroupExpanded = (group) => normalizedQuery || expandedGroups[group.id] !== false
   const setSelectedId = (nodeId) => updateView({ selectedNodeId: nodeId })
+  const setCareerView = (next) => updateView({ careerView: next })
   const setZoom = (value) => updateView({ zoom: Math.max(60, Math.min(140, value)) })
   const toggleGroup = (groupId) => updateView({ expandedGroups: { ...expandedGroups, [groupId]: expandedGroups[groupId] === false } })
 
@@ -199,16 +203,21 @@ export default function MindmapStudio({ progress, updateProgress, notify, fullPa
         <b>{complete ? 'Week 0 탐색 완료' : '직무 지도를 탐색하는 중'}</b>
       </section>
 
-      <div className="mindmap-toolbar">
+      <section className="career-explorer">
+        <header className="career-explorer-header"><div><span>CAREER EVIDENCE EXPLORER</span><h2>직무를 연결하고, 근거의 한계를 함께 읽기</h2><p>Graph View는 모든 직무군과 세부 역할을 보여 줍니다. 역할을 선택하면 필요한 개념·기술·표준 연결이 추가됩니다.</p></div><div className="career-explorer-tabs" role="tablist" aria-label="직무 탐색 보기"><button type="button" role="tab" aria-selected={careerView === 'graph'} className={careerView === 'graph' ? 'active' : ''} onClick={() => setCareerView('graph')}>Graph View</button><button type="button" role="tab" aria-selected={careerView === 'evidence'} className={careerView === 'evidence' ? 'active' : ''} onClick={() => setCareerView('evidence')}>Evidence View</button><button type="button" role="tab" aria-selected={careerView === 'study'} className={careerView === 'study' ? 'active' : ''} onClick={() => setCareerView('study')}>Study Map</button></div></header>
+        {careerView !== 'study' && <div className="career-explorer-workspace"><div>{careerView === 'graph' ? <CareerGraph selectedId={selectedId} onSelect={setSelectedId} /> : <CareerEvidenceView selectedId={selectedId} onSelect={setSelectedId} />}</div>{selected && <NodeInspector node={selected} mapState={mapState} updateMindmap={updateMindmap} close={() => updateView({ selectedNodeId: null })} openReference={(item, trigger) => setReference({ item, trigger })} />}</div>}
+      </section>
+
+      {careerView === 'study' && <div className="mindmap-toolbar">
         <div className="map-view-tabs" role="group" aria-label="지도 보기 모드">{viewModes.map(([id, label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} aria-pressed={mode === id} onClick={() => updateView({ mode: id, selectedNodeId: null })}>{label}</button>)}</div>
         <label className="map-search"><Search size={16} /><input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="직무·개념·기술 검색" />{query && <button type="button" onClick={() => { setQuery(''); searchRef.current?.focus() }} aria-label="검색어 지우기"><X size={14} /></button>}</label>
         <div className="zoom-control"><button type="button" onClick={() => setZoom(zoom - 10)} title="축소" aria-label="지도 축소"><Minus size={16} /></button><input type="range" min="60" max="140" step="5" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} aria-label="지도 확대 비율" /><span>{zoom}%</span><button type="button" onClick={() => setZoom(zoom + 10)} title="확대" aria-label="지도 확대"><Plus size={16} /></button><button type="button" onClick={fitMap} title="전체 맞춤" aria-label="지도 전체 맞춤"><Focus size={16} /></button><button type="button" onClick={centerSelected} disabled={!selectedId} title="선택 노드 중심" aria-label="선택 노드를 화면 중앙으로"><LocateFixed size={16} /></button></div>
         <div className="map-commands"><button type="button" onClick={toggleFullscreen} title="전체 화면"><Maximize2 size={15} /><span>전체 화면</span></button><button type="button" onClick={exportMap}><Download size={15} /><span>JSON</span></button><button type="button" onClick={() => importRef.current?.click()}><Upload size={15} /><span>가져오기</span></button><input ref={importRef} type="file" accept="application/json" hidden onChange={(event) => importMap(event.target.files?.[0])} /><button type="button" onClick={() => window.print()} title="인쇄"><Printer size={15} /><span>인쇄</span></button></div>
-      </div>
+      </div>}
 
-      {searchResults.length > 0 && <div className="map-search-results" aria-label="검색 결과">{searchResults.map((node) => <button type="button" key={node.id} onClick={() => selectAndCenter(node.id)}><Search size={13} /><strong>{node.title}</strong><span>{kindLabels[node.kind]}</span></button>)}</div>}
+      {careerView === 'study' && searchResults.length > 0 && <div className="map-search-results" aria-label="검색 결과">{searchResults.map((node) => <button type="button" key={node.id} onClick={() => selectAndCenter(node.id)}><Search size={13} /><strong>{node.title}</strong><span>{kindLabels[node.kind]}</span></button>)}</div>}
 
-      <div ref={workspaceRef} className={`mindmap-workspace ${selected ? 'has-inspector' : 'map-expanded'}`}>
+      {careerView === 'study' && <div ref={workspaceRef} className={`mindmap-workspace ${selected ? 'has-inspector' : 'map-expanded'}`}>
         <div ref={canvasRef} className="mindmap-canvas" aria-label="인터랙티브 정보보안 직무 지도">
           <div className="mindmap-zoom-layer" style={{ transform: `scale(${zoom / 100})`, width: `${10000 / zoom}%` }}>
             <button type="button" className={`mindmap-root-node root-${view.rootMode || 'expanded'}`} onClick={() => updateView({ rootMode: view.rootMode === 'compact' ? 'expanded' : 'compact' })} aria-expanded={view.rootMode !== 'compact'}>
@@ -225,16 +234,16 @@ export default function MindmapStudio({ progress, updateProgress, notify, fullPa
         </div>
 
         {selected && <NodeInspector node={selected} mapState={mapState} updateMindmap={updateMindmap} close={() => updateView({ selectedNodeId: null })} openReference={(item, trigger) => setReference({ item, trigger })} />}
-      </div>
+      </div>}
 
-      <section className="mindmap-below-grid">
+      {careerView === 'study' && <section className="mindmap-below-grid">
         <div className="career-interest"><header><span>MY CAREER MAP</span><h2>관심 직무</h2><p>직무 노드의 상세 패널에서 관심 여부를 저장합니다. 두 개를 고른 뒤 필요한 기초 개념을 비교해 보세요.</p></header>{(mapState.roleInterests || []).length ? (mapState.roleInterests || []).map((id) => { const role = getMindmapNode(id); return role ? <button type="button" key={id} className="saved-role" onClick={() => selectAndCenter(id)}><BriefcaseBusiness size={16} /><span><strong>{role.title}</strong><small>{getMindmapNode(role.jobFamilyId)?.title}</small></span><ChevronRight size={15} /></button> : null }) : <p className="empty-state-copy">아직 고른 직무가 없습니다.</p>}</div>
         <div className="custom-node-form"><header><span>PERSONAL TOPIC</span><h2>개인 탐색 주제 추가</h2><p>수업 중 더 알아보고 싶은 주제를 추가하고 메모를 남길 수 있습니다.</p></header><label><span>주제 이름</span><input value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} placeholder="예: 위성 통신 보안" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomNode() } }} /></label><button className="button primary" type="button" onClick={addCustomNode}><Plus size={16} />노드 추가</button></div>
-      </section>
+      </section>}
 
-      <details className="mindmap-text-view"><summary>텍스트 목록으로 보기</summary>{groups.map((group) => <section key={group.id}><h3>{group.title}</h3><ul>{group.nodes.map((node) => <li key={node.id}><button type="button" onClick={() => selectAndCenter(node.id)}><strong>{node.title}</strong> · {node.summary}</button></li>)}</ul></section>)}</details>
+      {careerView === 'study' && <details className="mindmap-text-view"><summary>텍스트 목록으로 보기</summary>{groups.map((group) => <section key={group.id}><h3>{group.title}</h3><ul>{group.nodes.map((node) => <li key={node.id}><button type="button" onClick={() => selectAndCenter(node.id)}><strong>{node.title}</strong> · {node.summary}</button></li>)}</ul></section>)}</details>}
 
-      <section className="mindmap-reference-gallery"><header><span>REFERENCE IMAGES</span><h2>분류 구조 참고 이미지</h2><p>업로드된 참고 이미지는 구조 비교용이며, 현재 직무 설명과 출처 상태는 확인 가능한 데이터로 별도 구성했습니다.</p></header><div>{mindmapReferences.map((item) => <button type="button" key={item.image} onClick={(event) => setReference({ item, trigger: event.currentTarget })}><img src={publicAsset(item.image)} alt={item.title} /><span><ImageIcon size={15} />{item.title}<Maximize2 size={14} /></span></button>)}</div></section>
+      {careerView === 'study' && <section className="mindmap-reference-gallery"><header><span>REFERENCE IMAGES</span><h2>분류 구조 참고 이미지</h2><p>업로드된 참고 이미지는 구조 비교용이며, 현재 직무 설명과 출처 상태는 확인 가능한 데이터로 별도 구성했습니다.</p></header><div>{mindmapReferences.map((item) => <button type="button" key={item.image} onClick={(event) => setReference({ item, trigger: event.currentTarget })}><img src={publicAsset(item.image)} alt={item.title} /><span><ImageIcon size={15} />{item.title}<Maximize2 size={14} /></span></button>)}</div></section>}
 
       {reference && <ImageDialog item={reference.item} trigger={reference.trigger} close={() => setReference(null)} />}
     </div>
@@ -351,7 +360,8 @@ function LearningStages({ stages = [] }) {
 }
 
 function SourceCards({ sources, node, openReference }) {
-  return <section className="job-source-section"><h3>채용·직무 근거</h3><p className="source-status-copy">{node.sourceStatusNote}</p>{sources.length ? <div className="job-source-cards">{sources.map((source) => <article key={source.id}><header><strong>{source.company || source.organization}</strong><span>{sourceTypeLabel(source.sourceType)}</span></header><p>{source.title}</p><dl><div><dt>확인일</dt><dd>{source.checkedDate || '미확인'}</dd></div><div><dt>활성 상태</dt><dd>{activeStatusLabel(source.activeStatus)}</dd></div><div><dt>개별 공고</dt><dd>{source.isIndividualVacancy ? '예' : '아니오'}</dd></div></dl>{source.archivedAsset && <button type="button" onClick={(event) => openReference({ title: source.title, image: source.archivedAsset.path }, event.currentTarget)}><ImageIcon size={14} />로컬 캡처 보기</button>}<small>{source.note}</small></article>)}</div> : <p>연결된 출처가 없습니다.</p>}</section>
+  const evidence = node.jobEvidence || {}
+  return <section className="job-source-section"><h3>채용·직무 근거</h3><p className="source-status-copy">{node.sourceStatusNote}</p><div className="job-evidence-limit"><strong>{evidence.evidenceStatus === 'unavailable' ? '개별 공고 표본 미확보' : '개별 공고 근거'}</strong><p>{evidence.methodology}</p><small>{evidence.limitations}</small></div>{sources.length ? <div className="job-source-cards">{sources.map((source) => <article key={source.id}><header><strong>{source.company || source.organization}</strong><span>{sourceTypeLabel(source.sourceType)}</span></header><p>{source.title}</p><dl><div><dt>확인일</dt><dd>{source.checkedDate || '미확인'}</dd></div><div><dt>활성 상태</dt><dd>{activeStatusLabel(source.activeStatus)}</dd></div><div><dt>개별 공고</dt><dd>{source.isIndividualVacancy ? '예' : '아니오'}</dd></div></dl>{source.archivedAsset && <button type="button" onClick={(event) => openReference({ title: source.title, image: source.archivedAsset.path }, event.currentTarget)}><ImageIcon size={14} />로컬 캡처 보기</button>}<small>{source.note}</small></article>)}</div> : <p>연결된 출처가 없습니다.</p>}</section>
 }
 
 function ImageDialog({ item, trigger, close }) {

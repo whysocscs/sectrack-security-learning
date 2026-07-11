@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowDown,
@@ -11,18 +11,12 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
-  Clipboard,
-  Code2,
   ExternalLink,
   Eye,
-  FileCode2,
-  FileText,
   FlaskConical,
-  Globe2,
   Lightbulb,
   LockKeyhole,
   Play,
-  RefreshCw,
   Save,
   ShieldCheck,
   Terminal,
@@ -66,9 +60,10 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   const derivedPassed = lab.id === 'w0-map'
     ? Object.keys(progress.mindmap.statuses).length >= 10 && Object.values(progress.mindmap.notes).filter((item) => String(item).length >= 5).length >= 3 && progress.mindmap.interests.length >= 2
     : lab.id === 'w0-baseline' ? Object.keys(progress.baseline).length >= 6
-      : lab.id === 'w0-roe' ? Object.keys(progress.roeAnswers).length >= 5 : false
+      : lab.id === 'w0-roe' ? Object.keys(progress.roeAnswers).length >= roeCases.length : false
   const validationPassed = Boolean(state.validationPassed || derivedPassed)
   const recordReady = isActivityRecordReady(lab.activityType, record)
+  const tone = state.tone || 'teal'
 
   const complete = () => {
     if (!validationPassed || !recordReady) {
@@ -80,11 +75,11 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   }
 
   return (
-    <div className="page-width lab-page">
+    <div className={`page-width lab-page lab-tone-${tone}`}>
       <button className="back-link" type="button" onClick={() => navigate({ page: 'labs' })}><ArrowLeft size={16} />실습실</button>
       <header className="lab-header">
         <div><span>WEEK {String(lab.week).padStart(2, '0')} · {activityTypeLabels[lab.activityType]?.kicker || 'LEARNING ACTIVITY'}</span><h2>{lab.title}</h2><p>{lab.objective}</p></div>
-        <div><Status state={state.status || 'attempted'} /><span><Clock3Icon />{lab.estimatedMinutes}분</span></div>
+        <div><Status state={state.status || 'attempted'} /><span><Clock3Icon />{lab.estimatedMinutes}분</span><div className="lab-tone-picker" role="radiogroup" aria-label="실습 화면 색상">{[['teal', '청록'], ['blue', '청색'], ['amber', '호박색'], ['rose', '적색']].map(([value, label]) => <button type="button" role="radio" aria-checked={tone === value} className={tone === value ? 'active' : ''} key={value} onClick={() => updateLab({ tone: value })} title={`${label} 색상`} aria-label={`${label} 색상 선택`}><i /></button>)}</div></div>
       </header>
       <div className="lab-scope"><ShieldCheck size={18} /><div><strong>안전한 실습 범위</strong><p>{lab.safeScope}</p></div></div>
 
@@ -115,6 +110,8 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
     case 'permission': return <PermissionLab state={state} updateLab={updateLab} onPass={validate} />
     case 'pipeline': return <PipelineLab state={state} updateLab={updateLab} onPass={validate} />
     case 'request-editor': return <RequestEditorLab state={state} updateLab={updateLab} onPass={validate} />
+    case 'http-baseline': return <HttpBaselineLab state={state} updateLab={updateLab} onPass={validate} />
+    case 'tool-triangle': return <ToolTriangleLab state={state} updateLab={updateLab} onPass={validate} />
     case 'http-label': return <HttpLabelLab state={state} updateLab={updateLab} onPass={validate} />
     case 'timeline': return <SequenceLab state={state} updateLab={updateLab} onPass={validate} variant="http" />
     case 'cookie': return <CookieLab state={state} updateLab={updateLab} onPass={validate} />
@@ -223,7 +220,8 @@ const roeCases = [
   ['bandit', '공식 Bandit 서버에서 제공된 계정으로 해당 레벨을 해결한다.', 'allow', '제공 기관이 대상과 계정을 명시한 교육 범위입니다.'],
   ['school', '허가 없이 학교 홈페이지에 자동 취약점 스캐너를 실행한다.', 'deny', '공개된 서비스라도 명시적 허가가 없으면 테스트할 수 없습니다.'],
   ['local', '로컬 DVWA·WebGoat에서 테스트 계정으로 XSS를 확인한다.', 'allow', '의도적으로 취약한 로컬 교육 환경입니다.'],
-  ['cookie', '실습 제출 스크린샷에 실제 세션 Cookie를 그대로 노출한다.', 'deny', '증거에서도 자격 증명과 개인정보는 마스킹해야 합니다.'],
+  ['cookie', '실습 제출 스크린샷에 실제 세션 Cookie를 그대로 노출한다.', 'mask', '증거는 필요한 최소 범위만 남기고 Cookie·토큰·개인정보를 마스킹해야 합니다.'],
+  ['time', '테스트 대상과 기법은 승인됐지만 가능한 시간대가 계획서에 없다.', 'confirm', '기술이 허용돼도 시간·변경 창·중단 조건이 불명확하면 담당자 확인이 먼저입니다.'],
   ['minimal', '범위 내 취약점을 무해한 PoC로 재현하고 필요한 최소 증거만 수집한다.', 'allow', '허가 범위와 최소 영향·최소 수집 원칙을 지켰습니다.'],
 ]
 
@@ -232,8 +230,8 @@ function RoeLab({ progress, updateProgress, onPass }) {
   const [checked, setChecked] = useState(false)
   const score = roeCases.filter(([id, , answer]) => answers[id] === answer).length
   const choose = (id, value) => { setChecked(false); updateProgress((current) => ({ ...current, roeAnswers: { ...current.roeAnswers, [id]: value } })) }
-  const verify = () => { setChecked(true); if (score >= 4) onPass({ score, total: 5 }) }
-  return <section className="roe-lab"><header><span>CLASSIFY</span><h2>허용과 금지 사례</h2><p>기술 수준이 아니라 허가·범위·영향·데이터 처리를 기준으로 판단합니다.</p></header>{roeCases.map(([id, text, answer, reason], index) => <article key={id}><span>{String(index + 1).padStart(2, '0')}</span><p>{text}</p><div><button type="button" className={answers[id] === 'allow' ? 'selected' : ''} onClick={() => choose(id, 'allow')}>허용</button><button type="button" className={answers[id] === 'deny' ? 'selected' : ''} onClick={() => choose(id, 'deny')}>금지</button></div>{checked && <small className={answers[id] === answer ? 'correct' : 'wrong'}>{answers[id] === answer ? '판단 일치' : '다시 확인'} · {reason}</small>}</article>)}<footer><span>{checked ? `${score} / 5 · ${score >= 4 ? '통과' : '재시도'}` : '모든 사례를 분류하세요.'}</span><button className="button primary" type="button" disabled={Object.keys(answers).length < 5} onClick={verify}>판단 확인<CheckCircle2 size={16} /></button></footer></section>
+  const verify = () => { setChecked(true); if (score >= 5) onPass({ score, total: roeCases.length }) }
+  return <section className="roe-lab"><header><span>CLASSIFY</span><h2>ROE 사례 판별</h2><p>기술 수준이 아니라 허가·범위·영향·시간·데이터 처리를 기준으로 판단합니다.</p></header>{roeCases.map(([id, text, answer, reason], index) => <article key={id}><span>{String(index + 1).padStart(2, '0')}</span><p>{text}</p><div><button type="button" className={answers[id] === 'allow' ? 'selected' : ''} onClick={() => choose(id, 'allow')}>허용</button><button type="button" className={answers[id] === 'deny' ? 'selected' : ''} onClick={() => choose(id, 'deny')}>금지</button><button type="button" className={answers[id] === 'confirm' ? 'selected' : ''} onClick={() => choose(id, 'confirm')}>확인 필요</button><button type="button" className={answers[id] === 'mask' ? 'selected' : ''} onClick={() => choose(id, 'mask')}>마스킹 후 기록</button></div>{checked && <small className={answers[id] === answer ? 'correct' : 'wrong'}>{answers[id] === answer ? '판단 일치' : '다시 확인'} · {reason}</small>}</article>)}<footer><span>{checked ? `${score} / ${roeCases.length} · ${score >= 5 ? '통과' : '재시도'}` : '모든 사례를 분류하세요.'}</span><button className="button primary" type="button" disabled={Object.keys(answers).length < roeCases.length} onClick={verify}>판단 확인<CheckCircle2 size={16} /></button></footer></section>
 }
 
 const baselineFields = [['linux', 'Linux 터미널'], ['http', 'HTTP 요청·응답'], ['html', 'HTML·JavaScript'], ['git', 'Git'], ['report', '보안 보고서'], ['interest', '가장 관심 있는 분야']]
@@ -282,7 +280,7 @@ function LinuxShellLab({ state, updateLab, onPass }) {
     if (raw === '~') return '/home/bandit0'
     const parts = raw.startsWith('/') ? [] : cwd.split('/').filter(Boolean)
     raw.replace(/^~\/?/, '/home/bandit0/').split('/').forEach((part) => { if (!part || part === '.') return; if (part === '..') parts.pop(); else parts.push(part) })
-    return `/${parts.join('/')}` || '/'
+    return `/${parts.join('/')}`
   }
   const completeInput = () => {
     const parts = input.split(/\s+/)
@@ -390,6 +388,44 @@ function PipelineLab({ state, updateLab, onPass }) {
   const stage = state.stage || 0
   const runNext = () => { const next = Math.min(pipelineStages.length, stage + 1); updateLab({ stage: next }); if (next === pipelineStages.length) onPass({ pipeline: pipelineStages.map((item) => item.command).join(' | ') }) }
   return <section className="pipeline-lab"><header><span>PIPELINE BUILDER</span><h2>404 경로 빈도 요약</h2><p>처음부터 한 줄로 쓰지 않고 각 단계의 입출력을 확인합니다.</p></header><div className="log-source"><span>access.log</span><pre>{sampleLogs.join('\n')}</pre></div><div className="pipeline-stage-list">{pipelineStages.map((item, index) => <article className={index < stage ? 'done' : index === stage ? 'current' : ''} key={item.command}><span>{index + 1}</span><div><code>{item.command}</code>{index < stage ? <pre>{item.output}</pre> : <p>{index === stage ? '이 단계를 실행할 차례입니다.' : '이전 단계 실행 후 공개됩니다.'}</p>}</div>{index < stage && <CheckCircle2 size={17} />}</article>)}</div><footer><button className="button primary" type="button" disabled={stage >= pipelineStages.length} onClick={runNext}>{stage >= pipelineStages.length ? '파이프라인 완성' : `단계 ${stage + 1} 실행`}<Play size={15} /></button></footer></section>
+}
+
+const httpBaselineFields = [
+  ['url', 'URL', '요청 대상 경로'],
+  ['method', 'Method', 'HTTP 동작'],
+  ['headers', 'Headers', 'Content-Type·Accept·Cookie 등 메타데이터'],
+  ['body', 'Body', '빈 줄 아래 메시지 데이터'],
+  ['status', 'Status', '서버가 처리 결과로 보낸 상태선'],
+  ['redaction', '마스킹', 'Cookie·Authorization·개인정보를 원문 대신 [REDACTED]로 기록'],
+]
+
+function HttpBaselineLab({ state, updateLab, onPass }) {
+  const checked = state.checked || {}
+  const toggle = (id) => {
+    const next = { ...checked, [id]: !checked[id] }
+    updateLab({ checked: next })
+    if (httpBaselineFields.every(([field]) => next[field])) onPass({ baselineFields: Object.keys(next).filter((field) => next[field]) })
+  }
+  return <section className="http-baseline-lab"><header><span>NORMAL REQUEST BASELINE</span><h2>CodeCureLAB 프로필 조회</h2><p>고정된 정상 메시지를 읽는 실습입니다. 값을 바꾸거나 외부 요청을 보내지 않습니다.</p></header><div className="http-baseline-message"><section><span>REQUEST</span><pre>{'GET /api/profile HTTP/1.1\nHost: training.local\nAccept: application/json\nCookie: cc_session=[REDACTED]\n\n'}</pre></section><section><span>RESPONSE</span><pre>{'HTTP/1.1 200 OK\nContent-Type: application/json\nCache-Control: no-store\n\n{"id":"student-102","displayName":"training-user"}'}</pre></section></div><div className="baseline-field-checks">{httpBaselineFields.map(([id, label, description]) => <label key={id}><input type="checkbox" checked={Boolean(checked[id])} onChange={() => toggle(id)} /><span><strong>{label}</strong><small>{description}</small></span></label>)}</div><footer><span>{Object.values(checked).filter(Boolean).length} / {httpBaselineFields.length} 기준선 항목</span>{httpBaselineFields.every(([id]) => checked[id]) && <strong><CheckCircle2 size={16} />정상 기준선 저장</strong>}</footer></section>
+}
+
+const toolTriangleChecks = [
+  ['curl', 'curl은 명령줄에서 재현 가능한 정상 요청 기준선을 남긴다.'],
+  ['devtools', 'DevTools Network는 브라우저가 실제로 만든 요청, initiator, 실행 후 브라우저 맥락을 관찰한다.'],
+  ['burp', 'Burp는 명시된 training 범위에서 선택 요청을 기록하고 비교하는 도구다.'],
+  ['fields', '세 도구에서 URL, method, headers, body, status, response body를 공통 비교한다.'],
+  ['redaction', 'Cookie, Authorization, 개인정보는 값 대신 [REDACTED]로 기록한다.'],
+  ['handoff', 'Week 4에서는 이 요청의 입력이 어떤 Source·Transform·Sink·Context로 이어지는지 확인한다.'],
+]
+
+function ToolTriangleLab({ state, updateLab, onPass }) {
+  const checked = state.checked || {}
+  const toggle = (id) => {
+    const next = { ...checked, [id]: !checked[id] }
+    updateLab({ checked: next })
+    if (toolTriangleChecks.every(([field]) => next[field])) onPass({ verified: toolTriangleChecks.map(([field]) => field) })
+  }
+  return <section className="tool-triangle-lab"><header><span>HTTP TOOL TRIANGLE</span><h2>같은 정상 요청, 다른 관찰 지점</h2><p>세 패널은 고정된 CodeCureLAB training 메시지입니다. 실제 네트워크 요청이나 값 변경을 수행하지 않습니다.</p></header><div className="tool-triangle-grid"><section><span>CURL · BASELINE</span><pre>{'$ curl -i https://training.local/api/profile\nHTTP/1.1 200 OK\nContent-Type: application/json\n\n{"id":"student-102"}'}</pre><p>명령과 원문 기준선을 남긴다.</p></section><section><span>DEVTOOLS · BROWSER</span><pre>{'Request URL: https://training.local/api/profile\nMethod: GET\nInitiator: profile.js\nStatus: 200\nCookie: [REDACTED]'}</pre><p>브라우저가 만든 요청과 initiator를 본다.</p></section><section><span>BURP · IN-SCOPE</span><pre>{'Proxy history\nGET /api/profile\nHost: training.local\nCookie: [REDACTED]\n\nRepeater: compare a selected training request'}</pre><p>허가된 요청을 기록·비교한다.</p></section></div><div className="tool-triangle-checks">{toolTriangleChecks.map(([id, label]) => <label key={id}><input type="checkbox" checked={Boolean(checked[id])} onChange={() => toggle(id)} /><span>{label}</span></label>)}</div><footer><span>{Object.values(checked).filter(Boolean).length} / {toolTriangleChecks.length} 비교 항목</span>{toolTriangleChecks.every(([id]) => checked[id]) && <strong><CheckCircle2 size={16} />Tool Triangle 기록 완료</strong>}</footer></section>
 }
 
 function RequestEditorLab({ state, updateLab, onPass }) {

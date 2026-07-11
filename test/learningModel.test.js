@@ -19,7 +19,7 @@ test('Week 0-4 activities, paths, workloads, and references are valid', () => {
     const workload = calculateWeekWorkload(week)
     assert.equal(workload.totalMinutes, week.estimatedMinutes)
     return [workload.requiredMinutes, workload.extensionMinutes]
-  }), [[250, 0], [420, 120], [390, 265], [650, 35], [640, 120]])
+  }), [[255, 0], [420, 120], [385, 265], [695, 35], [640, 120]])
   assert.deepEqual(validateLearningData(), { valid: true, errors: [] })
 })
 

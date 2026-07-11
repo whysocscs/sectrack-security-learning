@@ -346,14 +346,107 @@ const fourLearningStages = (foundation, core, practice, portfolio) => [
   { id: 'portfolio', title: '포트폴리오', outcomes: [portfolio] },
 ]
 
-const roleNode = ({ jobSourceIds, ...role }) => ({
-  kind: 'role', sourceRefs: [...jobSourceIds], sourceCheckedDate: '2026-07-11', jobSourceIds, ...role,
+const defaultJobEvidence = Object.freeze({
+  checkedDate: '2026-07-11',
+  methodology: '공식 진로 가이드와 명시적으로 구분된 참가기업 프로필만 연결했습니다. 검증된 개별 채용공고가 없는 경우 반복 요구사항과 모집 건수는 집계하지 않습니다.',
+  evidenceStatus: 'unavailable',
+  totalPostings: null,
+  activePostingCount: null,
+  repeatedResponsibilities: [],
+  repeatedRequirements: [],
+  repeatedPreferredExperience: [],
+  repeatedTools: [],
+  repeatedStandards: [],
+  representativePostingIds: [],
+  limitations: '현재 연결된 자료는 직무 가이드 또는 참가기업 프로필이며, 개별 채용공고의 모집 상태·근무지·마감일을 뜻하지 않습니다.',
 })
+
+const roleNode = ({ jobSourceIds, jobEvidence, ...role }) => ({
+  kind: 'role', sourceRefs: [...jobSourceIds], sourceCheckedDate: '2026-07-11', jobSourceIds,
+  jobEvidence: { ...defaultJobEvidence, ...(jobEvidence || {}) },
+  ...role,
+})
+
+export const individualVacancies = Object.freeze([])
+
+const governanceRole = ({ id, title, summary, actualWork, projectExample, deliverables, foundationConceptIds = ['governance-program', 'risk-management'], skillIds = ['security-policy', 'security-audit'], relatedWeekIds = [0, 15] }) => roleNode({
+  id,
+  jobFamilyId: 'family-grc-privacy',
+  title,
+  summary,
+  relatedWeekIds,
+  actualWork,
+  projectExample,
+  foundationConceptIds,
+  skillIds,
+  technologyIds: ['tech-grc-register'],
+  standardIds: ['iso27001', 'standard-isms-p'],
+  deliverables,
+  collaborators: ['서비스 책임자', '법무·개인정보 담당자', '보안 엔지니어', '내부감사와 경영진'],
+  entryExpectations: ['위험과 통제의 차이를 설명', '근거가 남는 문서 작성', '요구사항과 실제 운영의 차이 확인'],
+  preferredExperience: ['가상 서비스의 위험·통제 mapping', '공개 가능한 점검표 또는 개선 계획 작성'],
+  learningStages: fourLearningStages('자산·위협·위험·통제를 구분합니다.', '담당 영역의 요구사항과 증적을 연결합니다.', '한 서비스의 통제와 검증 결과를 추적합니다.', '범위·근거·제한사항이 있는 sample을 정리합니다.'),
+  portfolioExamples: ['CodeCureLAB 위험·통제·검증 매핑', '업무 흐름과 증적 기준이 있는 개선 계획'],
+  jobSourceIds: ['source-kisa-career-guide'],
+  sourceStatus: 'career-guide-only',
+  sourceStatusNote: '공식 진로 가이드 근거이며 현재 개별 공고 근거는 아닙니다.',
+})
+
+const additionalGovernanceRoles = [
+  governanceRole({
+    id: 'role-grc-risk', title: '보안 위험관리·GRC 담당자', summary: '사업 목표와 보안 위험을 평가하고 통제 소유자·기한·잔여 위험을 운영합니다.',
+    actualWork: ['위험 등록부와 통제 이행 상태를 관리합니다.', '예외·위험 수용의 근거와 승인 흐름을 유지합니다.', '보안 지표와 개선 과제를 경영진에 보고합니다.'],
+    projectExample: 'CodeCureLAB의 프로필·과제·관리자 기능을 대상으로 위험 시나리오, 통제 담당자, 재시험 기준을 정리합니다.',
+    deliverables: ['위험 등록부', '통제 이행 계획', '예외·위험 수용 기록', '경영진 보고 자료'],
+  }),
+  governanceRole({
+    id: 'role-isms-compliance', title: 'ISMS-P·컴플라이언스 담당자', summary: '관리체계 요구사항을 실제 운영 절차와 증적으로 연결하고 심사 준비를 조정합니다.',
+    actualWork: ['적용 범위와 요구사항을 관리합니다.', '정책·절차·운영 기록의 증적성을 점검합니다.', '부적합과 개선조치의 완료 조건을 추적합니다.'],
+    projectExample: '접근권한 관리 통제를 요구사항, 운영 절차, 표본 증적, 개선조치로 매핑합니다.',
+    deliverables: ['요구사항 매핑표', '심사 증적 목록', '부적합·개선조치 관리표', '적용범위 문서'],
+    foundationConceptIds: ['governance-program', 'security-audit', 'accountability'],
+  }),
+  governanceRole({
+    id: 'role-privacy-operations', title: '개인정보보호 운영 담당자', summary: '개인정보 처리의 목적·보유·열람·파기와 사고 대응 절차를 운영합니다.',
+    actualWork: ['개인정보 처리 흐름과 보유기간을 관리합니다.', '정보주체 요청과 위탁·제공 절차를 조정합니다.', '접근권한과 접속기록 보관 기준을 확인합니다.'],
+    projectExample: '학생 프로필 처리 흐름에서 수집 항목, 접근 주체, 보유기간, 파기·열람 절차를 점검합니다.',
+    deliverables: ['개인정보 처리 흐름도', '보유·파기 기준', '접근권한 점검표', '위탁·제공 관리 기록'],
+    foundationConceptIds: ['privacy', 'governance-program', 'accountability'],
+  }),
+  governanceRole({
+    id: 'role-privacy-engineering', title: 'Privacy Engineering·데이터 거버넌스 담당자', summary: '제품과 데이터 흐름에 프라이버시 요구와 검증 가능한 기술 통제를 설계합니다.',
+    actualWork: ['데이터 분류, 최소 수집, 보유기간 요구를 제품 설계에 반영합니다.', '식별자·로그·분석 데이터의 접근과 가명처리 요구를 검토합니다.', '개발·데이터 팀과 프라이버시 설계 검토를 운영합니다.'],
+    projectExample: '검색 로그의 식별자, 보유기간, 접근 권한과 마스킹 기준을 설계 리뷰에서 확인합니다.',
+    deliverables: ['프라이버시 설계 검토', '데이터 분류 기준', '수집·보유·파기 요구사항', '검증 시나리오'],
+    foundationConceptIds: ['privacy', 'risk-management', 'authorization'],
+    skillIds: ['security-policy', 'accountability'],
+  }),
+  governanceRole({
+    id: 'role-third-party-risk', title: '제3자·공급망 위험관리 담당자', summary: '협력사·SaaS·외주·공급망의 보안 책임과 검증 기준을 운영합니다.',
+    actualWork: ['제3자 처리 범위와 데이터 접근을 분류합니다.', '계약·보안 설문·증적을 근거로 위험을 평가합니다.', '개선 요청과 재평가 일정을 추적합니다.'],
+    projectExample: '파일 업로드 서비스를 외부 저장소에 위탁할 때 접근 권한, 로그, 사고 통지, 종료 시 데이터 처리 조건을 검토합니다.',
+    deliverables: ['제3자 위험평가', '보안 요구사항 목록', '계약·증적 체크리스트', '재평가 계획'],
+  }),
+  governanceRole({
+    id: 'role-audit-controls', title: '보안 감사·통제 검증 담당자', summary: '정책 문서가 아니라 실제 운영 표본과 로그를 통해 통제가 동작하는지 검증합니다.',
+    actualWork: ['표본·인터뷰·설정·로그를 교차 검증합니다.', '관찰, 기준, 발견사항, 개선 완료 기준을 구분합니다.', '재시험 결과와 미해결 위험을 보고합니다.'],
+    projectExample: '관리자 권한 변경 표본에서 승인, 변경 기록, 최소 권한, 재검토가 모두 남는지 확인합니다.',
+    deliverables: ['감사 계획', '통제 테스트 기록', '발견사항', '재시험·개선 완료 증적'],
+    foundationConceptIds: ['security-audit', 'accountability', 'risk-management'],
+  }),
+  governanceRole({
+    id: 'role-security-consulting', title: '보안 컨설팅 담당자', summary: '사업·기술·운영의 제약을 함께 읽고 실현 가능한 보안 개선안을 설계합니다.',
+    actualWork: ['현황 인터뷰와 기술·관리 증적을 수집합니다.', '요구사항 대비 gap과 위험 우선순위를 설명합니다.', '담당자·기한·검증 방법이 있는 개선 로드맵을 합의합니다.'],
+    projectExample: '신규 학습 서비스의 인증·로그·개인정보 요구를 검토해 단계별 개선 계획을 제시합니다.',
+    deliverables: ['현황 진단서', 'gap·위험 분석', '개선 로드맵', '이행 검증 기준'],
+    foundationConceptIds: ['risk-management', 'security-consulting', 'security-audit'],
+  }),
+]
 
 const roleNodes = [
   roleNode({
-    id: 'role-grc-privacy', jobFamilyId: 'family-grc-privacy', title: '정보보호 기획·GRC·개인정보 담당자',
-    summary: '사업 위험과 법·인증 요구를 정책, 통제, 책임과 증적으로 운영합니다.', relatedWeekIds: [0, 15],
+    id: 'role-grc-privacy', jobFamilyId: 'family-grc-privacy', title: '정보보호 기획·CISO Office',
+    summary: '보안 전략, 예산, 책임, 위험 보고를 조직의 의사결정과 운영 계획으로 연결합니다.', relatedWeekIds: [0, 15],
     actualWork: ['자산·위험·법적 요구를 식별하고 처리 계획을 관리합니다.', '정책과 예외 승인 절차를 개정하고 통제 이행 증적을 검토합니다.', '개인정보 처리 수명주기와 감사·인증 개선 과제를 조정합니다.'],
     projectExample: '신규 서비스의 개인정보 흐름과 위험을 분석해 통제 담당자, 완료 기준과 경영진 승인 항목을 정합니다.',
     foundationConceptIds: ['governance-program', 'risk-management', 'privacy'], skillIds: ['security-policy', 'security-audit'],
@@ -366,6 +459,7 @@ const roleNodes = [
     portfolioExamples: ['가상 서비스 위험평가와 통제 매핑', '개인정보 처리 흐름·보유기간 점검표'],
     jobSourceIds: ['source-kisa-career-guide'], sourceStatus: 'career-guide-only', sourceStatusNote: '공식 진로 가이드 근거이며 현재 개별 공고 근거는 아닙니다.',
   }),
+  ...additionalGovernanceRoles,
   roleNode({
     id: 'role-consulting-audit', jobFamilyId: 'family-consulting-audit', title: '보안 컨설턴트·감사 담당자',
     summary: '고객 환경의 기술·관리 통제를 근거로 평가하고 실행 가능한 개선안을 합의합니다.', relatedWeekIds: [0, 3, 15],
@@ -502,13 +596,13 @@ const roleNodes = [
   }),
 ]
 
-const familyNode = (id, title, summary, roleId, assets, collaborators, learningAreaIds, relatedWeekIds) => ({
+const familyNode = (id, title, summary, roleIds, assets, collaborators, learningAreaIds, relatedWeekIds) => ({
   id, kind: 'jobFamily', title, summary, description: summary, relatedWeekIds, sourceRefs: ['source-kisa-career-guide'],
-  representativeRoleIds: [roleId], assets, collaborators, learningAreaIds,
+  representativeRoleIds: Array.isArray(roleIds) ? roleIds : [roleIds], assets, collaborators, learningAreaIds,
 })
 
 const jobFamilyNodes = [
-  familyNode('family-grc-privacy', '보안 기획·GRC·개인정보', '위험·규정·정책을 조직의 책임과 통제로 운영합니다.', 'role-grc-privacy', ['정보자산', '개인정보 처리 흐름', '정책·증적'], ['경영진', '법무·감사', '기술 조직'], ['risk-management', 'privacy'], [0, 15]),
+  familyNode('family-grc-privacy', '보안 기획·GRC·개인정보', '위험·규정·정책을 조직의 책임과 통제로 운영합니다.', ['role-grc-privacy', 'role-grc-risk', 'role-isms-compliance', 'role-privacy-operations', 'role-privacy-engineering', 'role-third-party-risk', 'role-audit-controls', 'role-security-consulting'], ['정보자산', '개인정보 처리 흐름', '정책·증적'], ['경영진', '법무·감사', '기술 조직'], ['risk-management', 'privacy'], [0, 15]),
   familyNode('family-consulting-audit', '보안 컨설팅·감사', '요구사항과 실제 운영을 근거로 비교해 개선 방향을 제시합니다.', 'role-consulting-audit', ['고객 시스템', '관리체계', '감사 증적'], ['고객 담당자', '운영자', '감사·인증기관'], ['security-audit', 'security-consulting'], [0, 15]),
   familyNode('family-app-product-devsecops', '애플리케이션·제품 보안·DevSecOps', '소프트웨어 수명주기에 예방·검증·배포 통제를 내장합니다.', 'role-app-product-security', ['소스코드', 'API', '빌드·배포 파이프라인'], ['개발자', '제품 관리자', 'SRE'], ['secure-coding', 'sdlc'], [3, 4, 5, 6, 14, 15]),
   familyNode('family-vulnerability-redteam', '취약점 진단·모의침투·레드팀', '허가된 범위에서 공격 가능성과 영향을 안전하게 검증합니다.', 'role-vulnerability-redteam', ['애플리케이션', '인프라', '제품 인터페이스'], ['자산 소유자', '개발팀', 'Blue·Purple Team'], ['scope-roe', 'vulnerability-assessment'], [0, 3, 4, 5, 6, 10, 11, 14]),

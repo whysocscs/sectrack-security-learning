@@ -1,3 +1,8 @@
+import { week0LessonBlocks } from './content/week0Blocks.js'
+import { week1LessonBlocks } from './content/week1Blocks.js'
+import { week2LessonBlocks } from './content/week2Blocks.js'
+import { week3LessonBlocks } from './content/week3Blocks.js'
+
 export const masteryLabels = {
   unknown: '아직 모름',
   heard: '들어본 적 있음',
@@ -47,6 +52,8 @@ const labActivityTypes = {
   timeline: 'simulation',
   cookie: 'simulation',
   'http-label': 'investigation',
+  'http-baseline': 'investigation',
+  'tool-triangle': 'investigation',
   'request-editor': 'investigation',
   'source-sink': 'investigation',
   'threat-model': 'investigation',
@@ -60,6 +67,10 @@ const labActivityTypes = {
 function normalizeWeek(week) {
   const modules = week.modules.map((module) => ({
     ...module,
+    ...(week0LessonBlocks[module.id] ? { blocks: week0LessonBlocks[module.id] } : {}),
+    ...(week1LessonBlocks[module.id] ? { blocks: week1LessonBlocks[module.id] } : {}),
+    ...(week2LessonBlocks[module.id] ? { blocks: week2LessonBlocks[module.id] } : {}),
+    ...(week3LessonBlocks[module.id] ? { blocks: week3LessonBlocks[module.id] } : {}),
     activityType: module.activityType || 'lesson',
     path: module.path || 'required',
     estimatedMinutes: module.estimatedMinutes ?? module.duration,
@@ -191,10 +202,11 @@ const rawWeekContent = {
     ],
     labs: [
       { ...commonLabFields, id: 'w0-map', week: 0, title: '나의 보안 지도 만들기', kind: 'mindmap', estimatedMinutes: 35, objective: '최소 10개 노드의 현재 이해 상태를 기록하고 관심 직무와 필요한 개념을 연결합니다.', prerequisites: ['핵심 보안 언어 읽기'], requiredTools: ['브라우저'], safeScope: '개인 학습 상태와 메모만 저장합니다.', successCriteria: ['노드 10개 이상 상태 지정', '관심 직무 2개 선택', '개인 메모 3개 이상'], hints: ['먼저 들어본 용어부터 상태를 표시하세요.', '관심 직무를 검색하고 연결된 기술 노드를 확인하세요.', '모르는 노드 3개에 궁금한 점을 한 문장씩 적으세요.'], relatedConceptIds: ['w0-language', 'w0-flow'], nextRecommendations: ['Rules of Engagement 판별'] },
-      { ...commonLabFields, id: 'w0-roe', week: 0, title: 'Rules of Engagement 판별', kind: 'roe', estimatedMinutes: 15, objective: '실습 전 허가·범위·증거 처리 기준을 판단합니다.', prerequisites: ['보안 윤리와 안전한 범위'], requiredTools: ['브라우저'], safeScope: '문장 분류만 수행하며 외부 요청은 발생하지 않습니다.', successCriteria: ['5개 사례 모두 분류', '80% 이상 정답'], hints: ['대상이 공개됐는지가 아니라 명시적 허가가 있는지 보세요.', '기법이 약해 보여도 허용 범위를 벗어나면 금지입니다.', '증거 수집에서도 개인정보와 토큰의 최소 수집 원칙을 확인하세요.'], relatedConceptIds: ['w0-ethics'], nextRecommendations: ['베이스라인 진단'] },
+      { ...commonLabFields, id: 'w0-roe', week: 0, title: 'Rules of Engagement 판별', kind: 'roe', estimatedMinutes: 20, objective: '실습 전 허가·범위·시간·증거 처리 기준을 판단합니다.', prerequisites: ['보안 윤리와 안전한 범위'], requiredTools: ['브라우저'], safeScope: '문장 분류만 수행하며 외부 요청은 발생하지 않습니다.', successCriteria: ['6개 사례 모두 분류', '5개 이상 판단 일치', '확인 필요와 마스킹 사유 설명'], hints: ['대상이 공개됐는지가 아니라 명시적 허가가 있는지 보세요.', '기술이 허용돼도 시간·계정·중단 조건이 빠졌으면 담당자 확인이 먼저입니다.', '증거 수집에서도 개인정보와 토큰의 최소 수집 원칙을 확인하세요.'], relatedConceptIds: ['w0-ethics'], nextRecommendations: ['베이스라인 진단'] },
       { ...commonLabFields, id: 'w0-baseline', week: 0, title: '베이스라인 진단', kind: 'baseline', estimatedMinutes: 10, objective: '현재 경험과 관심 분야를 기록해 추천 순서를 조정합니다.', prerequisites: [], requiredTools: ['브라우저'], safeScope: '점수는 순위와 성적에 사용하지 않습니다.', successCriteria: ['6개 항목 응답', '관심 분야 선택'], hints: ['잘 보이기 위한 시험이 아닙니다.', '한 번 해본 것과 설명 가능한 것을 구분하세요.', '모르겠다면 경험 없음으로 답해도 됩니다.'], relatedConceptIds: ['w0-platform'], nextRecommendations: ['Week 1 Linux 환경 점검'] },
     ],
-    deliverables: ['개인 마인드맵 JSON 또는 캡처', '관심 직무와 이유 200~400자', 'Rules of Engagement 확인', '베이스라인 진단 결과'],
+    deliverables: ['CodeCureLAB Security Charter: 보호 자산·핵심 위험·통제·검증 방법·허가 범위', '개인 마인드맵 JSON 또는 캡처와 관심 직무 이유', 'Rules of Engagement 판별 기록', '베이스라인 진단 결과'],
+    recordBlueprint: { title: 'CodeCureLAB Security Charter', description: '보호 자산, 핵심 위험, 통제·검증, 허가 범위를 한 문서에서 연결합니다.', sections: ['보호 자산과 서비스 기능', '핵심 위험 3개와 근거', '통제와 검증 방법', '교육·테스트 허가 범위'] },
     reportConnection: '증거에 토큰·쿠키·개인정보를 남기지 않는 습관과 테스트 범위를 먼저 기록합니다.',
     next: 'Week 1 · 보안 기초와 Linux 1',
   },
@@ -218,6 +230,7 @@ const rawWeekContent = {
       { ...commonLabFields, id: 'w1-bandit', week: 1, title: 'OverTheWire Bandit 0~5', kind: 'external', estimatedMinutes: 120, objective: '공식 워게임에서 기본 명령과 SSH 흐름을 적용하고 풀이 기록을 남깁니다.', prerequisites: ['파일 탐색', 'SSH'], requiredTools: ['SSH 클라이언트', 'OverTheWire 공식 계정'], safeScope: 'OverTheWire가 제공한 Bandit 서버와 계정 범위만 사용합니다.', successCriteria: ['0~5 레벨 완료', '레벨별 목표·명령·원리·막힌 지점 기록', '다음 레벨 비밀번호 마스킹'], hints: ['레벨 설명에서 필요한 파일 조건을 먼저 표시하세요.', '하나의 명령으로 끝내려 하지 말고 후보를 좁히세요.', '필요한 명령의 man 페이지에서 옵션을 확인하세요.'], relatedConceptIds: ['w1-navigation', 'w1-ssh'], nextRecommendations: ['Week 2 권한과 파이프'] },
     ],
     deliverables: ['Bandit 0~5 풀이 기록', '가상 파일 시스템 보물찾기 로그', 'Linux 명령을 실행하기 전 확인할 것 5개'],
+    recordBlueprint: { title: 'Linux Investigation Notebook 01', description: '파일과 텍스트를 찾는 과정에서 실행 맥락, 명령, 관찰, 해석을 분리해 기록합니다.', sections: ['환경·허가 범위', '현재 위치와 대상 경로', '명령·옵션·입력', '출력에서 확인한 사실', '해석·남은 질문·마스킹 확인'] },
     reportConnection: '명령과 출력을 정확히 기록하고, 기대 결과와 실제 결과를 분리하며, 자격 증명을 마스킹합니다.', next: 'Week 2 · Linux 2와 관찰 도구',
   },
   2: {
@@ -238,10 +251,11 @@ const rawWeekContent = {
     labs: [
       { ...commonLabFields, id: 'w2-permission-lab', week: 2, title: '권한 해석기', kind: 'permission', estimatedMinutes: 30, objective: '`ls -l` 출력을 읽고 가능한 행동과 최소 권한 수정안을 고릅니다.', prerequisites: ['rwx', '파일과 디렉터리 권한'], requiredTools: ['내장 권한 해석기'], safeScope: '예시 권한 문자열만 분석합니다.', successCriteria: ['기호·숫자 권한 변환', '주체별 행동 설명', '과도한 권한 수정'], hints: ['세 글자씩 소유자·그룹·기타로 나누세요.', 'r=4, w=2, x=1을 주체별로 더하세요.', '업무에 필요한 행동만 남기는 권한을 고르세요.'], relatedConceptIds: ['w2-permissions'], nextRecommendations: ['로그 파이프라인'] },
       { ...commonLabFields, id: 'w2-log-lab', week: 2, title: '로그 파이프라인', kind: 'pipeline', estimatedMinutes: 35, objective: '샘플 접근 로그에서 오류 경로의 빈도를 단계별로 요약합니다.', prerequisites: ['grep', 'cut', 'sort', 'uniq', 'wc'], requiredTools: ['내장 파이프라인 시뮬레이터'], safeScope: '정적 샘플 로그만 처리합니다.', successCriteria: ['각 단계 중간 결과 확인', '최종 요약 완성', '명령별 역할 설명'], hints: ['먼저 상태 코드가 있는 줄만 좁히세요.', '필요한 열 하나를 선택한 뒤 정렬하세요.', '같은 값이 붙은 상태에서 `uniq -c`를 적용하세요.'], relatedConceptIds: ['w2-streams', 'w2-text'], nextRecommendations: ['HTTP 요청 관찰'] },
-      { ...commonLabFields, id: 'w2-http-lab', week: 2, title: 'HTTP 요청 관찰과 변조', kind: 'request-editor', estimatedMinutes: 45, objective: '로컬 요청의 한 값을 바꾸고 원본·수정 요청과 응답을 diff로 남깁니다.', prerequisites: ['curl과 HTTP 기준선'], requiredTools: ['내장 요청 편집기', '선택: curl·DevTools'], safeScope: '내장 로컬 시뮬레이터와 명시적으로 허가된 교육 환경만 사용합니다.', successCriteria: ['원본 요청 저장', '한 값만 변경', '응답 차이 설명', '서버가 검증할 값 식별'], hints: ['정상 요청을 먼저 실행해 기준선을 만드세요.', '한 번에 `quantity` 값 하나만 바꾸세요.', 'UI에서 제한한 값도 요청에서는 바뀔 수 있으므로 서버 검증이 필요합니다.'], relatedConceptIds: ['w2-curl'], nextRecommendations: ['Burp 심화', 'Bandit 6~10', 'Week 3 HTTP 구조'] },
+      { ...commonLabFields, id: 'w2-http-lab', week: 2, title: 'HTTP 정상 요청 기준선', kind: 'http-baseline', estimatedMinutes: 40, objective: '고정된 정상 요청에서 URL·Method·Headers·Body·Status를 분리해 기록하고 Week 3 비교의 기준선을 만듭니다.', prerequisites: ['curl과 HTTP 기준선'], requiredTools: ['내장 HTTP 기준선 뷰어', '선택: curl·DevTools'], safeScope: '고정된 로컬 training 메시지만 관찰하며 요청을 외부로 전송하거나 값을 변조하지 않습니다.', successCriteria: ['URL·Method·Headers·Body·Status 구분', '마스킹 대상 표시', '정상 응답 기준선 저장', 'Week 3 비교 항목 작성'], hints: ['첫 줄에서 method와 path를 확인하세요.', '빈 줄 위는 header, 아래는 body입니다.', 'Cookie·Authorization은 값이 아니라 마스킹 필요 여부를 기록하세요.'], relatedConceptIds: ['w2-curl'], nextRecommendations: ['Week 3 Tool Triangle', 'Bandit 6~10', 'Week 3 HTTP 구조'] },
       { ...commonLabFields, id: 'w2-bandit', week: 2, title: 'OverTheWire Bandit 6~10', kind: 'external', estimatedMinutes: 120, objective: '검색·권한·파이프·인코딩 도구를 공식 워게임에서 적용합니다.', prerequisites: ['Week 1 Bandit 0~5', '권한과 텍스트 도구'], requiredTools: ['SSH 클라이언트'], safeScope: 'OverTheWire가 제공한 Bandit 서버와 계정 범위만 사용합니다.', successCriteria: ['6~10 레벨 완료', '명령별 중간 출력 기록', '비밀번호 마스킹'], hints: ['문제의 파일 조건을 이름·소유자·크기·위치로 나누세요.', '후보 파일을 찾는 명령과 내용을 확인하는 명령을 분리하세요.', '표현 형식이 보이면 인코딩인지 압축인지 먼저 판별하세요.'], relatedConceptIds: ['w2-text', 'w2-binary'], nextRecommendations: ['Week 3 웹 구조'] },
     ],
-    deliverables: ['Bandit 6~10 풀이', '권한 분석표', '로그 분석 파이프라인', '원본·수정 HTTP 요청 diff', 'DevTools와 Burp의 역할 차이 300~500자'],
+    deliverables: ['Bandit 6~10 풀이', '권한 분석표', '로그 분석 파이프라인', '정상 HTTP 요청·응답 기준선', 'DevTools와 Burp의 역할 차이 300~500자'],
+    recordBlueprint: { title: 'Linux Investigation Notebook 02', description: '권한·스트림·텍스트 처리·표현 형식·정상 HTTP 기준선을 한 조사 기록에서 연결합니다.', sections: ['환경·도구·허가 범위', '원본 데이터와 정상 기준선', '명령·파이프 단계별 출력', '권한·인코딩·HTTP 관찰', '해석·한계·다음 주 비교 항목'] },
     reportConnection: '환경, 도구와 버전, 원본·변경 요청, 원본·변경 응답, 관찰 결과와 마스킹 여부를 실습 기록으로 저장합니다.', next: 'Week 3 · 웹 구조와 HTTP',
   },
   3: {
@@ -265,9 +279,11 @@ const rawWeekContent = {
       { ...commonLabFields, id: 'w3-timeline', week: 3, title: '요청 타임라인', kind: 'timeline', estimatedMinutes: 25, objective: 'URL 입력부터 렌더링까지 단계를 순서대로 배치합니다.', prerequisites: ['URL에서 화면까지'], requiredTools: ['브라우저'], safeScope: '단계 카드만 이동합니다.', successCriteria: ['8단계 순서 완성', '공격·방어 지점 연결'], hints: ['도메인을 IP로 바꿔야 연결할 수 있습니다.', 'HTTPS에서는 HTTP보다 TLS가 먼저입니다.', '응답을 받은 뒤 브라우저가 파싱하고 렌더링합니다.'], relatedConceptIds: ['w3-flow'], nextRecommendations: ['Cookie 속성 실험'] },
       { ...commonLabFields, id: 'w3-cookie', week: 3, title: 'Cookie 속성 실험', kind: 'cookie', estimatedMinutes: 35, objective: 'Secure·HttpOnly·SameSite 조합에 따른 브라우저 동작 차이를 비교합니다.', prerequisites: ['Cookie와 Session'], requiredTools: ['내장 쿠키 시뮬레이터'], safeScope: '실제 인증 쿠키가 아닌 `TRAINING_SESSION`만 사용합니다.', successCriteria: ['세 속성 조합 비교', '각 속성이 막지 못하는 영향 설명'], hints: ['전송 조건과 JavaScript 접근 조건을 나눠 보세요.', 'HttpOnly는 네트워크 전송을 끄는 속성이 아닙니다.', 'SameSite는 same-origin이 아닌 site 기준을 사용합니다.'], relatedConceptIds: ['w3-session'], nextRecommendations: ['Source → Sink 추적'] },
       { ...commonLabFields, id: 'w3-source-sink', week: 3, title: 'Source → Sink 추적', kind: 'source-sink', estimatedMinutes: 45, objective: 'JavaScript 예시에서 Source와 Sink를 고르고 안전한 대안으로 바꿉니다.', prerequisites: ['DOM과 JavaScript 데이터 흐름'], requiredTools: ['내장 코드 분석기'], safeScope: '정적 코드 예시만 분석하며 실행하지 않습니다.', successCriteria: ['5개 흐름 분류', '위험한 Sink 수정', '컨텍스트 표시'], hints: ['외부에서 들어오는 값을 먼저 표시하세요.', '그 값이 마지막에 전달되는 DOM API를 찾으세요.', 'HTML이 필요 없다면 텍스트 전용 API를 고르세요.'], relatedConceptIds: ['w3-dom'], nextRecommendations: ['Week 4 XSS'] },
+      { ...commonLabFields, id: 'w3-tool-triangle', week: 3, title: 'HTTP Tool Triangle', kind: 'tool-triangle', estimatedMinutes: 45, objective: '같은 고정 training 요청을 curl·DevTools·Burp 관점에서 비교하고, 각 도구가 답하는 질문과 공통 HTTP 필드를 기록합니다.', prerequisites: ['Week 2 HTTP 정상 요청 기준선', 'HTTP 메시지 구조'], requiredTools: ['내장 Tool Triangle 비교기'], safeScope: '고정된 로컬 training 메시지만 비교합니다. 외부 요청·실제 Cookie·값 변조는 수행하지 않습니다.', successCriteria: ['세 도구의 관찰 지점 구분', 'URL·Method·Headers·Body·Status 대조', '마스킹 항목 표시', 'Week 4에 연결할 Source·Sink 질문 작성'], hints: ['세 도구 모두 같은 요청을 보지만 화면과 목적이 다릅니다.', 'Request URL, method, status, response body는 공통 필드입니다.', 'Cookie·Authorization 값은 “보였는가”가 아니라 “마스킹했는가”를 기록하세요.'], relatedConceptIds: ['w3-http', 'w3-headers', 'w3-browser-runtime'], nextRecommendations: ['Week 4 XSS 선수 체크'] },
       { ...commonLabFields, id: 'w3-threat-model', week: 3, title: '로컬 검색 페이지 미니 위협 모델', kind: 'threat-model', path: 'extension', estimatedMinutes: 35, objective: '자산·입력 지점·신뢰 경계·공격 표면·통제를 한 장에 정리합니다.', prerequisites: ['핵심 보안 언어', '웹 요청 흐름'], requiredTools: ['내장 양식'], safeScope: '가상의 로컬 검색 페이지를 대상으로 합니다.', successCriteria: ['다섯 필드 작성', '통제와 공격 표면 연결'], hints: ['먼저 보호할 데이터와 사용자 행동을 적으세요.', '브라우저와 서버 사이를 신뢰 경계로 표시하세요.', '각 입력 지점이 어느 컨텍스트에 출력되는지 확인하세요.'], relatedConceptIds: ['w3-flow', 'w3-dom'], nextRecommendations: ['Week 4 XSS 선수 체크'] },
     ],
-    deliverables: ['HTTP 메시지 분석', '요청 흐름 다이어그램', 'Cookie 속성 관찰표', 'Source·Sink 분석 5개', '미니 위협 모델'],
+    deliverables: ['Web Request Flow Report', 'HTTP 메시지 분석', '요청 흐름 다이어그램', 'Cookie·Session 관찰표', 'curl·DevTools·Burp Tool Triangle 비교', 'Source·Transform·Sink·Context 메모'],
+    recordBlueprint: { title: 'Web Request Flow Report', description: '한 정상 training 요청을 URL, HTTP, Cookie·Session, 브라우저 DOM, 도구별 관찰, Week 4 질문까지 연결합니다.', sections: ['URL·Origin·대상과 허가 범위', '정상 요청·응답 기준선', 'Cookie·Session·객체 인가 질문', 'curl·DevTools·Burp 비교', 'Source·Transform·Sink·Context와 Week 4 handoff'] },
     reportConnection: '자산, Endpoint, Method, Parameter, 인증, Source, Sink, 컨텍스트, 기대·실제 동작, 요청·응답 증거 필드를 연습합니다.', next: 'Week 4 · Cross-Site Scripting',
   },
   4: {
