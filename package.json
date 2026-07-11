@@ -1,0 +1,21 @@
+{
+  "name": "sectrack",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "lint": "node --check src/platformLogic.js && node --check src/courseData.js && node --check src/mindmapData.js && node --check src/reportData.js",
+    "test": "node --test test/*.test.js",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "check": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "lucide-react": "^0.468.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "vite": "^8.1.4"
+  }
+}
