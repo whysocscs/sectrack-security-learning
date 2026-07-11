@@ -3,7 +3,10 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
-  fullyParallel: true,
+  // The training app and its accessibility scan share one local Vite server.
+  // Keep the browser suite deterministic instead of saturating that server.
+  fullyParallel: false,
+  workers: 1,
   reporter: [['list']],
   use: {
     baseURL: 'http://127.0.0.1:5173',

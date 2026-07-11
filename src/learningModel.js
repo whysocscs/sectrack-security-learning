@@ -70,7 +70,7 @@ function quizState(week, progress) {
 
 export function calculateProgressBreakdown(week, progress = {}, options = {}) {
   const path = options.path || 'required'
-  const modules = (week.modules || []).filter((item) => path === 'all' || item.path === path)
+  const modules = week.hideModuleProgress ? [] : (week.modules || []).filter((item) => path === 'all' || item.path === path)
   const labs = (week.labs || []).filter((item) => path === 'all' || item.path === path)
   const quiz = quizState(week, progress)
   const recordKey = `week-${week.index}`
@@ -96,10 +96,10 @@ export function calculateProgressBreakdown(week, progress = {}, options = {}) {
       }
     }),
   ]
-  if (path === 'all' || week.assessment.path === path) {
+  if (week.assessment && (path === 'all' || week.assessment.path === path)) {
     items.push({ id: week.assessment.id, activityType: 'assessment', status: quiz.passed ? 'completed' : quiz.attempted ? 'attempted' : 'not_started', earned: quiz.passed ? 2 : quiz.attempted ? 1 : 0, available: 2 })
   }
-  if (path === 'all' || week.weeklyRecord.path === path) {
+  if (week.weeklyRecord && (path === 'all' || week.weeklyRecord.path === path)) {
     items.push({ id: week.weeklyRecord.id, activityType: 'report', status: recordCompleted ? 'completed' : recordDrafted ? 'attempted' : 'not_started', earned: recordCompleted ? 2 : recordDrafted ? 1 : 0, available: 2 })
   }
   const earned = items.reduce((total, item) => total + item.earned, 0)

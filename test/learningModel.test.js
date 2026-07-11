@@ -19,20 +19,21 @@ test('Week 0-4 activities, paths, workloads, and references are valid', () => {
     const workload = calculateWeekWorkload(week)
     assert.equal(workload.totalMinutes, week.estimatedMinutes)
     return [workload.requiredMinutes, workload.extensionMinutes]
-  }), [[255, 0], [420, 120], [385, 265], [695, 35], [640, 120]])
+  }), [[0, 0], [420, 120], [385, 265], [695, 35], [640, 120]])
   assert.deepEqual(validateLearningData(), { valid: true, errors: [] })
 })
 
 test('quiz pools use explicit rules and complete concept metadata', () => {
   for (const [weekIndex, pool] of Object.entries(quizzes)) {
-    assert.equal(pool.length, 6)
-    assert.equal(quizRules[weekIndex].minimumCorrect, 5)
+    assert.equal(pool.length, Number(weekIndex) === 0 ? 13 : 6)
+    assert.equal(quizRules[weekIndex].minimumCorrect, Number(weekIndex) === 0 ? 11 : 5)
     for (const question of pool) {
       assert.ok(question.conceptIds.length)
       assert.ok(question.difficulty)
       assert.ok(question.remediationModuleIds.length)
     }
   }
+  assert.deepEqual(quizRules[0].requiredQuestionIds, ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'])
 })
 
 test('progress is explainable and remains separate from mastery', () => {

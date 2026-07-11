@@ -2,6 +2,8 @@ import { week0LessonBlocks } from './content/week0Blocks.js'
 import { week1LessonBlocks } from './content/week1Blocks.js'
 import { week2LessonBlocks } from './content/week2Blocks.js'
 import { week3LessonBlocks } from './content/week3Blocks.js'
+import { weekZeroDefinition } from './data/week0/weekDefinition.js'
+import { weekZeroQuizQuestions, weekZeroQuizRule } from './data/week0/quiz.js'
 
 export const masteryLabels = {
   unknown: '아직 모름',
@@ -57,6 +59,7 @@ const labActivityTypes = {
   'request-editor': 'investigation',
   'source-sink': 'investigation',
   'threat-model': 'investigation',
+  'week0-map': 'exploration',
   'xss-reflected': 'investigation',
   'xss-stored': 'investigation',
   'xss-dom': 'investigation',
@@ -80,14 +83,14 @@ function normalizeWeek(week) {
     activityType: lab.activityType || labActivityTypes[lab.kind] || 'practice',
     path: lab.path || (lab.kind === 'external' ? 'extension' : 'required'),
   }))
-  const assessment = {
+  const assessment = week.disableAssessment ? null : {
     id: `w${week.index}-quiz`,
     title: `${week.index}주차 이해 확인`,
     activityType: 'assessment',
     path: 'required',
     estimatedMinutes: week.quizMinutes,
   }
-  const weeklyRecord = {
+  const weeklyRecord = week.disableWeeklyRecord ? null : {
     id: `w${week.index}-record`,
     title: `${week.index}주차 학습 정리`,
     activityType: 'report',
@@ -97,8 +100,8 @@ function normalizeWeek(week) {
   const workloadItems = [
     ...modules.map((module) => ({ ...module, source: 'module' })),
     ...labs.map((lab) => ({ ...lab, source: 'lab' })),
-    { ...assessment, source: 'assessment' },
-    { ...weeklyRecord, source: 'record' },
+    ...(assessment ? [{ ...assessment, source: 'assessment' }] : []),
+    ...(weeklyRecord ? [{ ...weeklyRecord, source: 'record' }] : []),
   ]
   const minutesForPath = (path) => workloadItems
     .filter((item) => item.path === path)
@@ -162,7 +165,7 @@ const previewWeeks = [
 }))
 
 const activeRoadmap = [
-  { id: 'week-0', index: 0, title: '오리엔테이션·보안 전체 지도', summary: '보안 윤리, 핵심 언어, 직무와 기술 분야, 학습 환경', deliverable: '개인 보안 지도·ROE 확인', estimatedMinutes: 150, status: 'available', keyConcepts: ['보안 윤리', '위험과 통제', '보안 직무 지도'] },
+  { id: 'week-0', index: 0, title: '정보보안 핵심 용어와 분야·직무 지도', summary: '핵심 보안 용어, 전문 분야, 세부 직무, 실제 공고 근거와 나의 보안 지도', deliverable: '나의 보안 지도', estimatedMinutes: 0, status: 'available', keyConcepts: ['핵심 보안 용어', '분야·직무', '채용 근거'] },
   { id: 'week-1', index: 1, title: '보안 기초·Linux 1', summary: '파일 시스템, 경로, 기본 명령, SSH', deliverable: 'Bandit 0~5 풀이', estimatedMinutes: 360, status: 'available', keyConcepts: ['파일 시스템', '경로와 권한', 'SSH'] },
   { id: 'week-2', index: 2, title: 'Linux 2·도구', summary: '권한, 파이프, Git, curl, DevTools, Burp Suite', deliverable: 'Bandit 6~10·요청 변조 기록', estimatedMinutes: 420, status: 'available', keyConcepts: ['권한', '표준 스트림', 'HTTP 관찰 도구'] },
   { id: 'week-3', index: 3, title: '웹 구조·HTTP', summary: 'URL, DNS, HTTP, Cookie·Session, DOM과 Source·Sink', deliverable: 'HTTP 메시지 분석', estimatedMinutes: 360, status: 'available', keyConcepts: ['HTTP', 'Cookie·Session', 'Source·Sink'] },
@@ -323,7 +326,7 @@ const rawWeekContent = {
 }
 
 export const weekContent = Object.fromEntries(
-  Object.entries(rawWeekContent).map(([index, week]) => [index, normalizeWeek(week)]),
+  Object.entries({ ...rawWeekContent, 0: weekZeroDefinition }).map(([index, week]) => [index, normalizeWeek(week)]),
 )
 
 export const roadmap = [
@@ -340,14 +343,7 @@ export const roadmap = [
 ]
 
 export const quizzes = {
-  0: [
-    { id: 'w0q1', conceptIds: ['w0-ethics'], difficulty: 'foundation', remediationModuleIds: ['w0-ethics'], question: '공개된 학교 홈페이지에 자동 스캐너를 실행해도 되는 조건은?', options: ['로그인 없이 열리면 가능', '명시적 허가와 범위가 문서화된 경우만 가능', '야간이면 가능'], answer: 1, explanation: '공개 여부와 테스트 허가는 별개입니다.' },
-    { id: 'w0q2', conceptIds: ['w0-language'], difficulty: 'foundation', remediationModuleIds: ['w0-language'], question: '위험을 가장 잘 설명한 것은?', options: ['취약점의 개수', '가능성과 영향을 함께 고려한 값', '보안 장비의 가격'], answer: 1, explanation: '위험은 위협이 취약점을 이용할 가능성과 그 영향을 함께 봅니다.' },
-    { id: 'w0q3', conceptIds: ['w0-goals'], difficulty: 'foundation', remediationModuleIds: ['w0-goals'], question: '인가가 답하는 질문은?', options: ['누구인가', '정말 그 사람인가', '이 행동을 해도 되는가'], answer: 2, explanation: '인가는 인증된 주체가 특정 행동을 할 권한이 있는지 판단합니다.' },
-    { id: 'w0q4', conceptIds: ['w0-language', 'w0-goals'], difficulty: 'application', remediationModuleIds: ['w0-language', 'w0-goals'], question: '취약점이 발견된 뒤 위험을 줄이기 위해 적용하는 장치는?', options: ['자산', '통제', '오탐'], answer: 1, explanation: '통제는 위험을 예방·탐지·대응·복구하기 위한 장치입니다.' },
-    { id: 'w0q5', conceptIds: ['w0-ethics'], difficulty: 'application', remediationModuleIds: ['w0-ethics'], question: 'Rules of Engagement의 대상 범위가 모호할 때 올바른 행동은?', options: ['영향이 작으면 진행', '담당자 확인 전 실행하지 않음', '공개 IP만 먼저 스캔'], answer: 1, explanation: '허가 범위가 모호하면 실행을 멈추고 권한 있는 담당자에게 확인합니다.' },
-    { id: 'w0q6', conceptIds: ['w0-flow'], difficulty: 'application', remediationModuleIds: ['w0-flow'], question: '탐지 결과를 공격 재현과 연결해 양쪽 팀의 학습을 돕는 협업 맥락은?', options: ['Purple Team', '단일 제품 구매', '무조건적인 취약점 공개'], answer: 0, explanation: 'Purple Team은 공격과 방어의 관찰 결과를 연결하는 협업 맥락입니다.' },
-  ],
+  0: weekZeroQuizQuestions,
   1: [
     { id: 'w1q1', conceptIds: ['w1-filesystem'], difficulty: 'foundation', remediationModuleIds: ['w1-filesystem'], question: '`/home/student/notes`는 어떤 경로인가?', options: ['상대 경로', '절대 경로', '환경 변수'], answer: 1, explanation: '`/`에서 시작하므로 절대 경로입니다.' },
     { id: 'w1q2', conceptIds: ['w1-navigation'], difficulty: 'foundation', remediationModuleIds: ['w1-navigation'], question: '확장자와 실제 파일 형식이 다를 때 우선 확인할 명령은?', options: ['file', 'echo', 'cd'], answer: 0, explanation: '`file`은 내용의 특징과 매직 값을 바탕으로 형식을 판별합니다.' },
@@ -383,7 +379,7 @@ export const quizzes = {
 }
 
 const coreQuizQuestionIds = {
-  0: ['w0q1', 'w0q2', 'w0q3'],
+  0: ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'],
   1: ['w1q1', 'w1q3', 'w1q4'],
   2: ['w2q1', 'w2q2', 'w2q4'],
   3: ['w3q1', 'w3q2', 'w3q5'],
@@ -392,7 +388,7 @@ const coreQuizQuestionIds = {
 
 export const quizRules = Object.fromEntries(Object.entries(quizzes).map(([weekIndex, questionPool]) => [
   weekIndex,
-  {
+  Number(weekIndex) === 0 ? weekZeroQuizRule : {
     id: `w${weekIndex}-quiz-rule`,
     poolQuestionIds: questionPool.map((question) => question.id),
     questionsPerAttempt: questionPool.length,

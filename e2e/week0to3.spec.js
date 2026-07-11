@@ -6,9 +6,12 @@ async function open(page, hash) {
   await expect(page.locator('#main-content')).toBeVisible()
 }
 
-test('Week 0 to 3 concept deep links load their Technical Reader', async ({ page }) => {
+test('Week 0 to 3 learning routes load their intended reader or workspace', async ({ page }) => {
+  await open(page, '#/learn/week/0/glossary')
+  await expect(page.getByRole('heading', { name: '보안 용어는 정의와 함께, 헷갈리는 경계까지 읽습니다.' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '보안 용어 검색' })).toBeVisible()
+
   for (const [week, moduleId, heading] of [
-    [0, 'w0-platform', '플랫폼 사용법'],
     [1, 'w1-navigation', '탐색·검색·읽기·도움말 명령'],
     [2, 'w2-permissions', '소유권과 권한'],
     [3, 'w3-http', 'HTTP 요청·응답'],
@@ -28,12 +31,24 @@ test('Week 3 tool triangle remains a required, local-only activity', async ({ pa
   await expect(page.getByRole('radio', { name: '청색 색상 선택' })).toHaveAttribute('aria-checked', 'true')
 })
 
-test('Career Explorer exposes all job families before role expansion', async ({ page }) => {
+test('Career Explorer defaults to evidence and keeps graph as a secondary view', async ({ page }) => {
   await open(page, '#/mindmap')
-  await expect(page.getByRole('heading', { name: '직무를 연결하고, 근거의 한계를 함께 읽기' })).toBeVisible()
-  await expect(page.locator('.react-flow__node')).toHaveCount(12)
-  await page.getByText('GRC·개인정보').click()
-  await expect(page.locator('.react-flow__node')).toHaveCount(20)
+  await expect(page.getByRole('heading', { name: '분야에서 직무군으로, 직무군에서 실제 역할로 내려가는 직무 지도' })).toBeVisible()
+  await expect(page.getByText('전문 분야 16개 · 대표 역할 113개 · 상세 근거 카드 33개')).toBeVisible()
+  await expect(page.locator('.react-flow__node')).toHaveCount(0)
+  await page.getByRole('tab', { name: '관계도' }).click()
+  await expect(page.locator('.react-flow__node')).toHaveCount(16)
+  const viewportTransform = await page.locator('.react-flow__viewport').getAttribute('style')
+  await page.getByTestId('rf__node-domain-ot').click()
+  await expect(page.locator('.react-flow__node')).toHaveCount(26)
+  await expect(page.locator('.react-flow__viewport')).toHaveAttribute('style', viewportTransform || '')
+  await expect(page.getByRole('heading', { name: 'OT·ICS 보안 마인드맵' })).toBeVisible()
+  await page.getByTestId('rf__node-role-catalog-ot-security-engineer').click()
+  await expect(page.getByRole('heading', { name: 'OT 보안 엔지니어' })).toBeVisible()
+  await page.getByTestId('rf__node-domain-detection').click()
+  await expect(page.locator('.react-flow__node')).toHaveCount(26)
+  await page.getByTestId('rf__node-role-catalog-siem-engineer').click()
+  await expect(page.getByText('보안 제품·플랫폼 개발 조직에서는 수집기, 파서, 검색·분석 기능을 구현하는 역할로도 채용될 수 있습니다.')).toBeVisible()
 })
 
 test('core reader screen has no serious or critical axe violations', async ({ page }) => {

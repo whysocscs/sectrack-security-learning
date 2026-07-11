@@ -63,13 +63,14 @@ test('week tabs and modules round-trip while invalid routes stay explicit', () =
   assert.deepEqual(parseHash(routeToHash(moduleRoute)), moduleRoute)
   assert.deepEqual(parseHash('#/learn/week/3/quiz'), { page: 'week', week: 3, tab: 'quiz' })
   assert.deepEqual(parseHash('#/learn/week/3/not-a-tab'), { page: 'not-found', path: 'learn/week/3/not-a-tab' })
-  assert.deepEqual(parseHash('#/labs/w0-map'), { page: 'mindmap', compatibilityRoute: true })
+  assert.deepEqual(parseHash('#/learn/week/0/careers'), { page: 'week', week: 0, tab: 'careers' })
+  assert.deepEqual(parseHash('#/labs/w0-map'), { page: 'lab', labId: 'w0-map' })
   assert.deepEqual(parseHash('#/admin'), { page: 'insights', legacyRoute: true })
   assert.deepEqual(parseHash('#/bad/path'), { page: 'not-found', path: 'bad/path' })
 })
 
 test('next task contains an exact route for module, quiz, and weekly record', () => {
-  const weeks = [{ index: 1, modules: [{ id: 'm1', title: '첫 개념', duration: 20 }], labs: [] }]
+  const weeks = [{ index: 1, modules: [{ id: 'm1', title: '첫 개념', duration: 20 }], labs: [], weeklyRecord: { id: 'w1-record' } }]
   const moduleTask = getNextTask(weeks, mergeProgress())
   assert.deepEqual(moduleTask.route, { page: 'week', week: 1, tab: 'concepts', moduleId: 'm1' })
 

@@ -45,6 +45,18 @@ export const initialProgress = {
       inspectorWidth: 360,
     },
   },
+  weekZero: {
+    selectedDomainIds: [],
+    viewedRoleIds: [],
+    selectedRoleIds: [],
+    selectedPortfolioIds: [],
+    view: {
+      evidenceSection: 'market',
+      selectedFamilyId: null,
+      selectedRoleId: null,
+      selectedPostingId: null,
+    },
+  },
   roeAnswers: {},
   baseline: {},
   evidence: {},
@@ -94,6 +106,15 @@ export function mergeProgress(value) {
         expandedGroups: { ...initialProgress.mindmap.view.expandedGroups, ...(source.mindmap?.view?.expandedGroups || {}) },
       },
     },
+    weekZero: {
+      ...initialProgress.weekZero,
+      ...(source.weekZero || {}),
+      selectedDomainIds: Array.isArray(source.weekZero?.selectedDomainIds) ? source.weekZero.selectedDomainIds : [],
+      viewedRoleIds: Array.isArray(source.weekZero?.viewedRoleIds) ? source.weekZero.viewedRoleIds : [],
+      selectedRoleIds: Array.isArray(source.weekZero?.selectedRoleIds) ? source.weekZero.selectedRoleIds : [],
+      selectedPortfolioIds: Array.isArray(source.weekZero?.selectedPortfolioIds) ? source.weekZero.selectedPortfolioIds : [],
+      view: { ...initialProgress.weekZero.view, ...(source.weekZero?.view || {}) },
+    },
     roeAnswers: { ...initialProgress.roeAnswers, ...(source.roeAnswers || {}) },
     baseline: { ...initialProgress.baseline, ...(source.baseline || {}) },
     evidence: { ...initialProgress.evidence, ...(source.evidence || {}) },
@@ -121,6 +142,13 @@ export function calculateWeekProgress(week, progress) {
 
 export function getNextTask(weeks, progress) {
   for (const week of weeks) {
+    if (week.index === 0) {
+      if (progress.labs?.['w0-map']?.status !== 'completed') return { type: 'lab', week: 0, id: 'w0-map', title: '나의 보안 지도 만들기', label: '나의 보안 지도', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'map' } }
+      const latestQuiz = progress.quizAttempts?.[0]?.at(-1) || progress.quizScores?.[0]
+      const quizPassed = latestQuiz?.passed ?? (latestQuiz?.percent || 0) >= 80
+      if (!quizPassed) return { type: 'quiz', week: 0, id: 'quiz-0', title: 'Week 0 이해 확인', label: '이해 확인', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'quiz' } }
+      continue
+    }
     for (const module of (week.modules || []).filter((item) => item.path !== 'extension')) {
       if (!progress.modulesRead[module.id]) return { type: 'module', week: week.index, id: module.id, title: module.title, label: '개념 읽기', estimatedMinutes: module.duration, route: { page: 'week', week: week.index, tab: 'concepts', moduleId: module.id } }
     }
@@ -130,7 +158,7 @@ export function getNextTask(weeks, progress) {
     const latestQuiz = progress.quizAttempts?.[week.index]?.at(-1) || progress.quizScores[week.index]
     const quizPassed = latestQuiz?.passed ?? (latestQuiz?.percent || 0) >= 80
     if (!quizPassed) return { type: 'quiz', week: week.index, id: `quiz-${week.index}`, title: `${week.index}주차 이해 확인`, label: '이해 확인', estimatedMinutes: week.quizMinutes || 15, route: { page: 'week', week: week.index, tab: 'quiz' } }
-    if (!progress.submissions[`week-${week.index}`]) return { type: 'record', week: week.index, id: `record-${week.index}`, title: `${week.index}주차 학습 정리`, label: '주차 정리', estimatedMinutes: week.recordMinutes || 25, route: { page: 'week', week: week.index, tab: 'record' } }
+    if (week.weeklyRecord && !progress.submissions[`week-${week.index}`]) return { type: 'record', week: week.index, id: `record-${week.index}`, title: `${week.index}주차 학습 정리`, label: '주차 정리', estimatedMinutes: week.recordMinutes || 25, route: { page: 'week', week: week.index, tab: 'record' } }
   }
   return { type: 'review', week: 4, id: 'review-week-4', title: 'Week 4 XSS 복습', label: '복습', estimatedMinutes: 20, route: { page: 'week', week: 4, tab: 'concepts' } }
 }
@@ -180,12 +208,12 @@ export function parseHash(hash = '') {
   const parts = clean.split('/')
   if (parts[0] === 'learn' && parts[1] === 'week' && /^\d+$/.test(parts[2] || '')) {
     if (!parts[3]) return { page: 'week', week: Number(parts[2]) }
-    const tabs = ['overview', 'concepts', 'labs', 'quiz', 'record']
+    const week = Number(parts[2])
+    const tabs = week === 0 ? ['overview', 'concepts', 'labs', 'glossary', 'careers', 'map', 'quiz'] : ['overview', 'concepts', 'labs', 'quiz', 'record']
     if (!tabs.includes(parts[3]) || (parts[4] && parts[3] !== 'concepts') || parts.length > 5) return { page: 'not-found', path: clean }
-    return { page: 'week', week: Number(parts[2]), tab: parts[3], ...(parts[4] ? { moduleId: decodeURIComponent(parts[4]) } : {}) }
+    return { page: 'week', week, tab: parts[3], ...(parts[4] ? { moduleId: decodeURIComponent(parts[4]) } : {}) }
   }
   if (parts[0] === 'learn' && parts[1] === 'week') return { page: 'not-found', path: clean }
-  if (parts[0] === 'labs' && parts[1] === 'w0-map' && parts.length === 2) return { page: 'mindmap', compatibilityRoute: true }
   if (parts[0] === 'labs' && parts[1]) return { page: 'lab', labId: parts.slice(1).join('/') }
   if (parts[0] === 'reports' && parts[1] === 'new') return { page: 'report-editor', reportId: 'local-xss-draft' }
   if (parts[0] === 'reports' && parts[1]) return { page: 'report-editor', reportId: parts[1] }

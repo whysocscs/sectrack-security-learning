@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
-  Clock3,
   Download,
   ExternalLink,
   FileCheck2,
@@ -49,20 +48,18 @@ import {
   loadProgress,
   saveProgress,
 } from './storage'
-import MindmapStudio from './components/MindmapStudio'
 import { LabCatalog, LabPage } from './components/Labs'
 import LessonRenderer from './components/LessonRenderer'
 import { ReportEditor, ReportsPage } from './components/Reports'
+import WeekZeroWorkspace, { WeekZeroExplorerPage } from './components/week0/WeekZeroWorkspace'
 import { getLessonBlocks } from './content/lessonSchema'
 import { buildLocalLearningInsights } from './adapters/analytics'
 import { getLocalLearningGuidance } from './adapters/feedback'
 import {
   calculateProgressBreakdown,
-  calculateWeekWorkload,
   evaluateQuizAttempt,
   getConceptTitle,
   getQuizRetryCount,
-  recordConceptReflection,
   recordQuizAttempt,
 } from './learningModel'
 
@@ -81,7 +78,7 @@ const pageMeta = {
   home: ['내 학습', '오늘 할 항목과 복습할 개념을 확인합니다.'],
   learn: ['16주 로드맵', 'Week 0은 사전 준비이며 Week 1부터 정규 과정입니다.'],
   week: ['주차 학습', '개념, 실습, 이해 확인과 학습 기록을 한 흐름으로 진행합니다.'],
-  mindmap: ['나의 보안 직무 지도', '직무군에서 실제 업무와 필요한 개념·기술·표준을 연결합니다.'],
+  mindmap: ['정보보안 핵심 용어와 분야·직무 지도', '실제 공개 공고 표본의 근거 범위를 구분하며 분야와 세부 직무를 탐색합니다.'],
   labs: ['실습실', '로컬 또는 명시적으로 허가된 교육 환경만 사용합니다.'],
   lab: ['실습', '활동 유형에 맞게 결과를 확인하고 수행 과정과 관찰을 기록합니다.'],
   reports: ['취약점 보고서', '발견 사실을 재현 가능한 Finding으로 바꿉니다.'],
@@ -220,9 +217,10 @@ export default function App() {
           {route.page === 'week' && currentWeek && !invalidModule && <WeekPage week={currentWeek} route={route} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={setToast} />}
           {route.page === 'week' && !currentWeek && roadmapWeek?.status === 'preview' && <PreviewWeekPage week={roadmapWeek} navigate={navigate} />}
           {route.page === 'week' && ((!currentWeek && !roadmapWeek) || invalidModule) && <NotFound navigate={navigate} />}
-          {route.page === 'mindmap' && <MindmapStudio progress={progress} updateProgress={updateProgress} notify={setToast} fullPage />}
+          {route.page === 'mindmap' && <WeekZeroExplorerPage progress={progress} updateProgress={updateProgress} navigate={navigate} notify={setToast} />}
           {route.page === 'labs' && <LabCatalog progress={progress} navigate={navigate} />}
-          {route.page === 'lab' && <LabPage labId={route.labId} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={setToast} />}
+          {route.page === 'lab' && route.labId === 'w0-map' && <WeekZeroExplorerPage progress={progress} updateProgress={updateProgress} navigate={navigate} notify={setToast} initialTab="map" />}
+          {route.page === 'lab' && route.labId !== 'w0-map' && <LabPage labId={route.labId} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={setToast} />}
           {route.page === 'reports' && <ReportsPage progress={progress} navigate={navigate} />}
           {route.page === 'report-editor' && validReport && <ReportEditor reportId={route.reportId} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={setToast} />}
           {route.page === 'report-editor' && !validReport && <NotFound navigate={navigate} />}
@@ -343,7 +341,6 @@ function HomePage({ progress, navigate }) {
           </div>
           <div className="today-meta">
             <span><BookOpen size={16} />Week {String(next.week).padStart(2, '0')}</span>
-            <span><Clock3 size={16} />예상 {next.estimatedMinutes || 20}분</span>
             <span><ShieldCheck size={16} />로컬·허가 환경</span>
           </div>
         </div>
@@ -396,7 +393,7 @@ function RoadmapItem({ item, progress, navigate }) {
   return (
     <button type="button" className={`roadmap-item ${preview ? 'preview' : ''}`} onClick={() => navigate({ page: 'week', week: item.index, tab: 'overview' })}>
       <span className="roadmap-node">{preview ? <FileText size={15} /> : progress === 100 ? <Check size={17} /> : String(item.index).padStart(2, '0')}</span>
-      <span className="roadmap-copy"><small>{item.index === 0 ? 'ORIENTATION' : `WEEK ${String(item.index).padStart(2, '0')}`} · 필수 {formatMinutes(item.requiredMinutes ?? item.estimatedMinutes)}{item.extensionMinutes ? ` + 확장 ${formatMinutes(item.extensionMinutes)}` : ''}</small><strong>{item.title}</strong><p>{item.summary}</p><span className="concept-tags">{item.keyConcepts.map((tag) => <em key={tag}>{tag}</em>)}</span></span>
+      <span className="roadmap-copy"><small>{item.index === 0 ? 'ORIENTATION · 필수 핵심' : `WEEK ${String(item.index).padStart(2, '0')} · 필수 핵심`}</small><strong>{item.title}</strong><p>{item.summary}</p><span className="concept-tags">{item.keyConcepts.map((tag) => <em key={tag}>{tag}</em>)}</span></span>
       <span className="roadmap-deliverable"><small>대표 산출물</small><strong>{item.deliverable}</strong>{preview ? <span>미리보기</span> : <ProgressBar value={progress} />}</span>
       <ChevronRight size={18} />
     </button>
@@ -416,12 +413,12 @@ function PreviewWeekPage({ week, navigate }) {
         <section className="document-section"><SectionTitle title="대표 산출물" /><p>{week.deliverable}</p></section>
         <section className="document-section"><SectionTitle title="연결 직무" /><div className="concept-tags">{week.relatedRoles.map((item) => <em key={item}>{item}</em>)}</div></section>
       </div>
-      <section className="preview-time-band" aria-label="예상 학습 시간"><div><small>필수 경로</small><strong>{formatMinutes(week.requiredMinutes)}</strong></div><div><small>확장 경로</small><strong>{formatMinutes(week.extensionMinutes)}</strong></div><p>세부 콘텐츠와 시간은 구현 과정에서 검증 후 확정됩니다.</p></section>
     </div>
   )
 }
 
 function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
+  if (week.index === 0) return <WeekZeroPage route={route} week={week} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} />
   const tab = route.tab || 'overview'
   const openTab = (nextTab, moduleId) => navigate({ page: 'week', week: week.index, tab: nextTab, ...(moduleId ? { moduleId } : {}) })
   const breakdown = calculateProgressBreakdown(week, progress)
@@ -450,8 +447,23 @@ function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
   )
 }
 
+function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify }) {
+  const supportedTabs = new Set(['overview', 'glossary', 'careers', 'map', 'quiz', 'concepts', 'labs'])
+  const legacyTab = route.tab === 'concepts' ? 'glossary' : route.tab === 'labs' ? 'map' : route.tab
+  const tab = supportedTabs.has(route.tab || 'overview') ? legacyTab || 'overview' : 'overview'
+  const tabs = [['overview', '이번 주'], ['glossary', '보안 용어'], ['careers', '분야·직무 지도'], ['map', '나의 보안 지도'], ['quiz', '이해 확인']]
+  const mapCompleted = progress.labs['w0-map']?.status === 'completed'
+  const quizScore = progress.quizScores[0]?.percent
+  const openTab = (next) => navigate({ page: 'week', week: 0, tab: next })
+  return <div className="page-width week-page week0-page">
+    <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />16주 로드맵</button>
+    <section className="week-header"><div><span className="section-kicker">WEEK 00</span><h2>{week.title}</h2><p>{week.summary}</p></div><div className="week0-header-status"><span><small>나의 보안 지도</small><strong>{mapCompleted ? '완료' : '작성 중'}</strong></span><span><small>이해 확인</small><strong>{quizScore === undefined ? '미응시' : `${quizScore}%`}</strong></span></div></section>
+    <nav className="tab-bar week0-tab-bar" aria-label="Week 0 학습 메뉴" role="tablist">{tabs.map(([id, label]) => <button type="button" role="tab" aria-selected={tab === id} key={id} className={tab === id ? 'active' : ''} onClick={() => openTab(id)}>{label}</button>)}</nav>
+    {tab === 'quiz' ? <QuizView key="week-zero" week={week} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} /> : <WeekZeroWorkspace activeTab={tab} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} onTabChange={openTab} onCompleteMap={() => { updateProgress((current) => ({ ...current, labs: { ...current.labs, 'w0-map': { ...(current.labs['w0-map'] || {}), status: 'completed', completedAt: new Date().toISOString() } } })); notify('나의 보안 지도를 완료했습니다.') }} />}
+  </div>
+}
+
 function WeekOverview({ week, navigate, setTab }) {
-  const workload = calculateWeekWorkload(week)
   return (
     <div className="week-overview">
       <div className="week-overview-main">
@@ -469,7 +481,7 @@ function WeekOverview({ week, navigate, setTab }) {
         <section className="document-section"><SectionTitle title="보고서와 연결" /><div className="report-connection"><FileText size={20} /><p>{week.reportConnection}</p>{week.index === 4 && <button className="button secondary" type="button" onClick={() => navigate({ page: 'report-editor', reportId: 'local-xss-draft' })}>Finding 초안 열기<ArrowRight size={15} /></button>}</div></section>
       </div>
       <aside className="week-aside">
-        <section><h3>학습 정보</h3><dl><div><dt>필수 경로</dt><dd>{formatMinutes(workload.requiredMinutes)}</dd></div><div><dt>확장 경로</dt><dd>{formatMinutes(workload.extensionMinutes)}</dd></div><div><dt>전체</dt><dd>{formatMinutes(workload.totalMinutes)}</dd></div><div><dt>이해 확인</dt><dd>{quizzes[week.index].length}문항</dd></div></dl></section>
+        <section><h3>학습 구성</h3><dl><div><dt>핵심 개념</dt><dd>{week.modules.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>필수 활동</dt><dd>{week.labs.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>심화 활동</dt><dd>{week.labs.filter((item) => item.path === 'extension').length}개</dd></div><div><dt>이해 확인</dt><dd>{quizzes[week.index].length}문항</dd></div></dl></section>
         <section><h3>선수지식</h3><ul>{week.prerequisites.map((item) => <li key={item}>{item}</li>)}</ul></section>
         <section><h3>제출물</h3><ul>{week.deliverables.map((item) => <li key={item}>{item}</li>)}</ul></section>
         <section className="next-week"><span>NEXT</span><strong>{week.next}</strong></section>
@@ -531,8 +543,6 @@ function ConceptReader({ week, selectedId, progress, updateProgress, openModule,
   const check = progress.moduleChecks[selected.id] || {}
   const sections = getLessonBlocks(selected).filter((block) => block.title || block.type === 'checkpoint')
   const toggleDone = () => updateProgress((current) => ({ ...current, modulesRead: { ...current.modulesRead, [selected.id]: !done } }))
-  const updateNote = (value) => updateProgress((current) => ({ ...current, moduleNotes: { ...current.moduleNotes, [selected.id]: value }, lastActivityAt: new Date().toISOString() }))
-  const updateCheck = (patch) => updateProgress((current) => recordConceptReflection(current, { conceptId: selected.id, ...patch }))
   const updateCheckpoint = (checkpointId, result) => updateProgress((current) => ({
     ...current,
     moduleChecks: {
@@ -551,14 +561,12 @@ function ConceptReader({ week, selectedId, progress, updateProgress, openModule,
   const scrollToSection = (block, index) => document.getElementById(`${selected.id}-${block.id || `${block.type}-${index + 1}`}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
     <div className="reader-layout">
-      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{module.title}</strong><small>{module.duration}분</small></button>)}{sections.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sections.map((block, index) => <button type="button" key={`${block.id || block.type}-${index}`} onClick={() => scrollToSection(block, index)}>{block.title || '중간 확인'}</button>)}</nav>}</aside>
+      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{module.title}</strong></button>)}{sections.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sections.map((block, index) => <button type="button" key={`${block.id || block.type}-${index}`} onClick={() => scrollToSection(block, index)}>{block.title || '중간 확인'}</button>)}</nav>}</aside>
       <article className="reader-document">
         <header><span>MODULE {String(week.modules.indexOf(selected) + 1).padStart(2, '0')}</span><h2>{selected.title}</h2><p>{selected.summary}</p></header>
         <LessonRenderer module={selected} checkpointResults={check.checkpoints || {}} onCheckpoint={updateCheckpoint} onOpenLab={openLab} />
-        <section className="module-check"><header><span>짧은 확인</span><h3>이 개념을 한 문장으로 설명하기</h3><p>목록을 다시 옮기지 말고 원인과 결과가 이어지게 적습니다. 자기 평가와 확인 근거는 별도로 저장됩니다.</p></header><textarea aria-label={`${selected.title} 자기 설명`} rows="4" value={check.explanation || ''} onChange={(event) => updateCheck({ explanation: event.target.value })} placeholder="예: 상대 경로는 현재 디렉터리를 기준으로 해석되므로 같은 문자열도 실행 위치에 따라 다른 파일을 가리킨다." /><div className="module-check-controls"><label><span>현재 설명 수준</span><select value={check.masteryLevel || ''} onChange={(event) => updateCheck({ masteryLevel: event.target.value })}><option value="">선택 안 함</option><option value="unknown">아직 모름</option><option value="heard">들어본 적 있음</option><option value="explain">설명 가능</option><option value="apply">기초 적용 가능</option><option value="reproduce">재현·응용 가능</option></select></label><fieldset><legend>현재 확신도</legend>{[['low', '낮음'], ['medium', '보통'], ['high', '높음']].map(([value, label]) => <button type="button" key={value} aria-pressed={check.confidence === value} className={check.confidence === value ? 'active' : ''} onClick={() => updateCheck({ confidence: value })}>{label}</button>)}</fieldset><label><span>복습 상태</span><select value={check.reviewState || ''} onChange={(event) => updateCheck({ reviewState: event.target.value })}><option value="">선택 안 함</option><option value="now">지금 복습</option><option value="later">나중에 복습</option><option value="done">복습 완료</option></select></label></div><small>읽음·숙련도·자기 설명·확신도·복습 상태는 서로 다른 기록입니다.</small></section>
         <footer className="reader-footer"><button className={`button ${done ? 'secondary' : 'primary'}`} type="button" onClick={toggleDone}>{done ? <><Check size={16} />읽음 취소</> : <><CheckCircle2 size={16} />읽음으로 표시</>}</button><small>읽음 표시는 새로고침 후에도 유지됩니다.</small></footer>
       </article>
-      <aside className="reader-notes"><section><h3>이번 모듈 목표</h3><p>{selected.summary}</p></section><section><h3>학습 메모</h3><textarea aria-label="학습 메모" placeholder="헷갈린 용어와 다시 확인할 문장을 적으세요." value={progress.moduleNotes[selected.id] || ''} onChange={(event) => updateNote(event.target.value)} rows="8" /><small className="autosave-note">입력한 내용은 이 브라우저에 자동 저장됩니다.</small></section><section><h3>관련 흐름</h3><span>{week.index <= 2 ? '명령 → 출력 → 기록' : week.index === 3 ? '요청 → 응답 → DOM' : 'Source → Sink → Context'}</span></section></aside>
     </div>
   )
 }
@@ -568,7 +576,7 @@ function WeekLabs({ week, progress, navigate }) {
     { id: 'required', title: '필수 경로', description: '핵심 개념을 적용하고 이번 주 이해 확인에 필요한 활동입니다.', labs: week.labs.filter((lab) => lab.path !== 'extension') },
     { id: 'extension', title: '확장 경로', description: '공식 외부 플랫폼, 심화 도구와 추가 분석 활동입니다.', labs: week.labs.filter((lab) => lab.path === 'extension') },
   ].filter((group) => group.labs.length)
-  return <div className="week-lab-groups">{groups.map((group) => <section key={group.id}><header><span>{group.id === 'required' ? 'REQUIRED' : 'EXTENSION'}</span><h2>{group.title}</h2><p>{group.description}</p></header><div className="week-lab-list">{group.labs.map((lab, index) => { const state = progress.labs[lab.id]; return <button type="button" key={lab.id} onClick={() => navigate({ page: 'lab', labId: lab.id })}><span className="lab-sequence">{String(index + 1).padStart(2, '0')}</span><span className="lab-list-copy"><small>{lab.activityType || (lab.kind === 'external' ? 'external' : 'practice')} · {lab.estimatedMinutes}분</small><strong>{lab.title}</strong><p>{lab.objective}</p><span>{lab.requiredTools.join(' · ')}</span></span><Status text={state?.status === 'completed' ? '완료' : state ? '진행 중' : '미시작'} tone={state?.status === 'completed' ? 'done' : state ? 'progress' : 'muted'} /><ChevronRight size={18} /></button>})}</div></section>)}</div>
+  return <div className="week-lab-groups">{groups.map((group) => <section key={group.id}><header><span>{group.id === 'required' ? 'REQUIRED' : 'EXTENSION'}</span><h2>{group.title}</h2><p>{group.description}</p></header><div className="week-lab-list">{group.labs.map((lab, index) => { const state = progress.labs[lab.id]; return <button type="button" key={lab.id} onClick={() => navigate({ page: 'lab', labId: lab.id })}><span className="lab-sequence">{String(index + 1).padStart(2, '0')}</span><span className="lab-list-copy"><small>{lab.path === 'extension' ? '심화' : lab.kind === 'external' ? '외부 실습' : '필수 핵심'}</small><strong>{lab.title}</strong><p>{lab.objective}</p><span>{lab.requiredTools.join(' · ')}</span></span><Status text={state?.status === 'completed' ? '완료' : state ? '진행 중' : '미시작'} tone={state?.status === 'completed' ? 'done' : state ? 'progress' : 'muted'} /><ChevronRight size={18} /></button>})}</div></section>)}</div>
 }
 
 function QuizView({ week, progress, updateProgress, navigate, notify }) {
@@ -679,8 +687,6 @@ function ProgressBar({ value }) { return <span className="progress-bar" role="pr
 function Status({ text, tone = 'muted' }) { return <span className={`status status-${tone}`}><i />{text}</span> }
 
 function EmptyState({ icon: Icon, title, text, action, onAction }) { return <div className="empty-state"><Icon size={24} /><strong>{title}</strong>{text && <p>{text}</p>}{action && <button className="button secondary" type="button" onClick={onAction}>{action}</button>}</div> }
-
-function formatMinutes(value) { const hours = Math.floor(value / 60); const minutes = value % 60; return hours ? `${hours}시간${minutes ? ` ${minutes}분` : ''}` : `${minutes}분` }
 
 function getModuleMeta(id) {
   for (const week of Object.values(weekContent)) {

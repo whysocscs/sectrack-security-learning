@@ -3,10 +3,12 @@ import test from 'node:test'
 import { weekContent } from '../src/courseData.js'
 import { codeCureLab } from '../src/content/codeCureLab.js'
 import { getLessonBlocks, validateLessonModule } from '../src/content/lessonSchema.js'
-import { findMissingSnapshotIds } from '../src/content/week0to3Contract.js'
+import { LEGACY_WEEK_ZERO_IDS, findMissingSnapshotIds } from '../src/content/week0to3Contract.js'
 
-test('Week 0 to Week 3 IDs preserve the baseline contract', () => {
+test('Week 1 to Week 3 IDs preserve the baseline contract while archived Week 0 IDs leave the active curriculum', () => {
   assert.deepEqual(findMissingSnapshotIds(weekContent), { modules: [], labs: [] })
+  assert.deepEqual(LEGACY_WEEK_ZERO_IDS.modules.filter((id) => weekContent[0].modules.some((module) => module.id === id)), [])
+  assert.deepEqual(LEGACY_WEEK_ZERO_IDS.labs.filter((id) => weekContent[0].labs.some((lab) => lab.id === id)), [])
 })
 
 test('legacy lesson fields produce a readable fallback', () => {
@@ -44,9 +46,9 @@ test('CodeCureLAB uses fixed safe training data', () => {
   assert.match(codeCureLab.safeExamples.sessionCookie, /redacted/)
 })
 
-test('Week 0 to Week 3 modules use the complete ordered lesson contract', () => {
+test('Week 1 to Week 3 modules use the complete ordered lesson contract', () => {
   const requiredTypes = ['question', 'explanation', 'comparison', 'misconception', 'practice-link', 'sources', 'summary']
-  for (const module of [...weekContent[0].modules, ...weekContent[1].modules, ...weekContent[2].modules, ...weekContent[3].modules]) {
+  for (const module of [...weekContent[1].modules, ...weekContent[2].modules, ...weekContent[3].modules]) {
     const blocks = getLessonBlocks(module)
     const types = blocks.map((block) => block.type)
     assert.deepEqual(validateLessonModule(module), [], module.id)
@@ -54,4 +56,9 @@ test('Week 0 to Week 3 modules use the complete ordered lesson contract', () => 
     assert.ok(types.includes('terminal') || types.includes('code') || types.includes('http-message'), `${module.id} needs a transcript`)
     assert.ok(blocks.filter((block) => block.type === 'checkpoint').length >= 2, `${module.id} needs two checkpoints`)
   }
+})
+
+test('Week 0 keeps only its new glossary, domain, career, evidence, and personal-map IDs active', () => {
+  assert.deepEqual(weekContent[0].modules.map((module) => module.id), ['w0-language', 'w0-domains', 'w0-careers', 'w0-evidence'])
+  assert.deepEqual(weekContent[0].labs.map((lab) => lab.id), ['w0-map'])
 })
