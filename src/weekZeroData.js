@@ -1,3 +1,5 @@
+import { getJobSource } from './mindmapData.js'
+
 export const workLanes = [
   {
     id: 'governance', label: 'Governance', title: '기준을 세우고 위험을 관리한다',
@@ -65,17 +67,15 @@ export const industryDomains = [
   { title: '국방·공공 보안', assets: '국가 시스템, 지휘통제, 행정·국민 데이터', concern: '기밀성, 임무 지속성, 규정과 국가 차원의 위협을 함께 고려합니다.' },
 ]
 
-export const marketJobs = [
-  ['정보보호 운영·관리', 278], ['정보보호 컨설팅', 147], ['정보보호 엔지니어링', 134], ['보안사고 대응', 124],
-  ['정보보호 개발', 53], ['클라우드보안 관리운영', 43], ['기술영업', 37], ['보안 인증평가', 26],
-  ['정보보호 기획', 23], ['보안 품질관리', 21], ['모빌리티 보안', 10], ['정보보호 교육', 7], ['보안감사', 6], ['OT보안', 5],
-]
-
-export const jobCaptures = [
-  { image: '/job-postings/kisia-company-2.png', company: 'SK쉴더스', title: '관제·취약점진단·모의해킹·컨설팅·구축운영·Cloud 보안', note: '한 회사 안에서도 Defensive, Offensive, Consulting, Engineering 직무가 함께 채용되는 사례입니다.' },
-  { image: '/job-postings/kisia-global8.png', company: '글로벌에잇', title: '보안 컨설팅·솔루션 개발·교육 기획', note: '컨설팅 회사에서도 관리체계만이 아니라 취약점 진단, 개발, 교육 기획으로 역할이 갈립니다.' },
-  { image: '/job-postings/kisia-company-4.png', company: '넷맨', title: '네트워크 보안 제품 연구개발·기술지원', note: '보안제품 개발은 프로그래밍을, 기술지원은 네트워크·DB·Linux와 구축 경험을 구체적으로 요구합니다.' },
-]
+export const jobCaptures = ['source-kisia-exhibitor-2', 'source-kisia-exhibitor-3', 'source-kisia-exhibitor-4'].map((sourceId) => {
+  const source = getJobSource(sourceId)
+  return {
+    sourceId, sourceType: source.sourceType, image: source.archivedAsset.path, archivedAsset: source.archivedAsset,
+    company: source.company, title: source.profileCategories.join('·'), note: source.note, url: source.url,
+    publishedDate: source.publishedDate, checkedDate: source.checkedDate, activeStatus: source.activeStatus,
+    isIndividualVacancy: source.isIndividualVacancy,
+  }
+})
 
 export const mindMap = [
   { title: '관리·전략', groups: [['리더십', 'CISO', '보안 전략', '예산·조직'], ['GRC', 'ISMS-P', 'ISO 27001', '위험관리', '감사·감리'], ['Privacy', '개인정보 운영', '영향평가', '컴플라이언스']] },

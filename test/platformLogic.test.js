@@ -4,11 +4,13 @@ import { completedExampleReport } from '../src/reportData.js'
 import {
   buildXssTrace,
   findSensitiveData,
+  getNextTask,
   mergeProgress,
   parseHash,
   parseProgress,
   redactSensitive,
   reportQualityScore,
+  routeToHash,
   serializeProgress,
   validateReport,
 } from '../src/platformLogic.js'
@@ -53,4 +55,29 @@ test('core hash routes resolve to roadmap, week, lab, and report editor', () => 
   assert.deepEqual(parseHash('#/learn/week/4'), { page: 'week', week: 4 })
   assert.deepEqual(parseHash('#/labs/w4-reflected'), { page: 'lab', labId: 'w4-reflected' })
   assert.deepEqual(parseHash('#/reports/new'), { page: 'report-editor', reportId: 'local-xss-draft' })
+})
+
+test('week tabs and modules round-trip while invalid routes stay explicit', () => {
+  const moduleRoute = { page: 'week', week: 3, tab: 'concepts', moduleId: 'w3-http' }
+  assert.equal(routeToHash(moduleRoute), '#/learn/week/3/concepts/w3-http')
+  assert.deepEqual(parseHash(routeToHash(moduleRoute)), moduleRoute)
+  assert.deepEqual(parseHash('#/learn/week/3/quiz'), { page: 'week', week: 3, tab: 'quiz' })
+  assert.deepEqual(parseHash('#/learn/week/3/not-a-tab'), { page: 'not-found', path: 'learn/week/3/not-a-tab' })
+  assert.deepEqual(parseHash('#/labs/w0-map'), { page: 'mindmap', compatibilityRoute: true })
+  assert.deepEqual(parseHash('#/admin'), { page: 'insights', legacyRoute: true })
+  assert.deepEqual(parseHash('#/bad/path'), { page: 'not-found', path: 'bad/path' })
+})
+
+test('next task contains an exact route for module, quiz, and weekly record', () => {
+  const weeks = [{ index: 1, modules: [{ id: 'm1', title: '첫 개념', duration: 20 }], labs: [] }]
+  const moduleTask = getNextTask(weeks, mergeProgress())
+  assert.deepEqual(moduleTask.route, { page: 'week', week: 1, tab: 'concepts', moduleId: 'm1' })
+
+  const quizTask = getNextTask(weeks, mergeProgress({ modulesRead: { m1: true } }))
+  assert.equal(quizTask.type, 'quiz')
+  assert.deepEqual(quizTask.route, { page: 'week', week: 1, tab: 'quiz' })
+
+  const recordTask = getNextTask(weeks, mergeProgress({ modulesRead: { m1: true }, quizScores: { 1: { percent: 100 } } }))
+  assert.equal(recordTask.type, 'record')
+  assert.deepEqual(recordTask.route, { page: 'week', week: 1, tab: 'record' })
 })

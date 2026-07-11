@@ -159,3 +159,518 @@ export const industryRows = [
   ['IoT', '펌웨어·센서·게이트웨이', '업데이트·기본 자격 증명·물리 접근'],
   ['공급망', '오픈소스·빌드·업데이트·협력사', '신뢰된 배포 경로의 악용'],
 ]
+
+/** @typedef {'jobFamily' | 'role' | 'concept' | 'technology' | 'standard' | 'threat' | 'control' | 'industry'} MindmapNodeKind */
+
+export const MINDMAP_NODE_KINDS = Object.freeze([
+  'jobFamily', 'role', 'concept', 'technology', 'standard', 'threat', 'control', 'industry',
+])
+
+export const MINDMAP_EDGE_KIND_RULES = Object.freeze({
+  containsRole: [['jobFamily', 'role']],
+  requiresFoundation: [['role', 'concept']],
+  developsSkill: [['role', 'concept']],
+  usesTechnology: [['role', 'technology']],
+  usesStandard: [['role', 'standard']],
+  prerequisiteFor: [['concept', 'concept']],
+  mitigates: [['control', 'threat']],
+  worksInIndustry: [['role', 'industry']],
+})
+
+const NOT_A_DATED_VACANCY = '2026 정보보호 취업박람회 참가기업 프로필이며, 게시일과 마감일이 있는 개별 채용공고가 아닙니다.'
+
+export const jobSources = [
+  {
+    id: 'source-kisa-career-guide', sourceType: 'careerGuide', sourceCategory: 'occupationalStandard',
+    organization: '한국인터넷진흥원 KISA 아카데미', company: null, title: '사이버보안 직무 소개', region: null,
+    publishedDate: null, closingDate: null, checkedDate: '2026-07-11',
+    url: 'https://academy.kisa.or.kr/cont/job/jobGuide.do', activeStatus: 'notApplicable',
+    verificationStatus: 'verified', isIndividualVacancy: false,
+    coveredRoleTitles: ['정보보호 기획자', '정보보안 책임자(CISO)', '정보보호 연구원/개발자', '정보보안 엔지니어', '보안 관제·사고대응', '침해사고 분석가', '취약점 분석가/모의해킹', '디지털 포렌식', '정보보안 컨설턴트'],
+    note: '직업 분류와 업무 이해를 위한 공식 진로 가이드이며 현재 채용공고가 아닙니다.',
+  },
+  {
+    id: 'source-kisia-fair-notice-2026', sourceType: 'eventNotice', organization: '한국정보보호산업협회',
+    company: null, title: '2026 정보보호 취업박람회 개최 안내', region: '서울', publishedDate: '2026-04-28',
+    closingDate: null, eventDate: '2026-05-27', checkedDate: '2026-07-11',
+    url: 'https://www.kisia.or.kr/announcement/association/816/', activeStatus: 'notApplicable',
+    verificationStatus: 'verified', isIndividualVacancy: false, note: '박람회 일정 공지이며 개별 채용공고가 아닙니다.',
+  },
+  {
+    id: 'source-kisia-exhibitor-2', sourceType: 'fairExhibitorProfile', organization: '한국정보보호산업협회',
+    company: 'SK쉴더스', title: '2026 정보보호 취업박람회 참가기업 프로필: SK쉴더스', region: null,
+    publishedDate: '2026-04-27', closingDate: null, checkedDate: '2026-07-11',
+    url: 'https://jobfair.kisia.or.kr/modules/board/bd_view.html?id=exhibitor&no=2', activeStatus: 'unknown',
+    verificationStatus: 'verifiedProfile', isIndividualVacancy: false, eventSourceId: 'source-kisia-fair-notice-2026',
+    profileCategories: ['정보보안관제', '취약점진단', '모의해킹', '정보보안 컨설팅', '보안구축/운영', 'Cloud보안'],
+    recruitingPlanLabel: '상시 채용계획', note: NOT_A_DATED_VACANCY,
+    archivedAsset: { type: 'screenshot', path: '/job-postings/kisia-company-2.png' },
+  },
+  {
+    id: 'source-kisia-exhibitor-3', sourceType: 'fairExhibitorProfile', organization: '한국정보보호산업협회',
+    company: '글로벌에잇', title: '2026 정보보호 취업박람회 참가기업 프로필: 글로벌에잇', region: null,
+    publishedDate: '2026-04-27', closingDate: null, checkedDate: '2026-07-11',
+    url: 'https://jobfair.kisia.or.kr/modules/board/bd_view.html?id=exhibitor&no=3', activeStatus: 'unknown',
+    verificationStatus: 'verifiedProfile', isIndividualVacancy: false, eventSourceId: 'source-kisia-fair-notice-2026',
+    profileCategories: ['보안컨설팅', '보안솔루션개발', '보안교육기획', '사업영업'],
+    recruitingPlanLabel: '상시 채용계획', note: NOT_A_DATED_VACANCY,
+    archivedAsset: { type: 'screenshot', path: '/job-postings/kisia-global8.png' },
+  },
+  {
+    id: 'source-kisia-exhibitor-4', sourceType: 'fairExhibitorProfile', organization: '한국정보보호산업협회',
+    company: '넷맨', title: '2026 정보보호 취업박람회 참가기업 프로필: 넷맨', region: null,
+    publishedDate: '2026-04-27', closingDate: null, checkedDate: '2026-07-11',
+    url: 'https://jobfair.kisia.or.kr/modules/board/bd_view.html?id=exhibitor&no=4', activeStatus: 'unknown',
+    verificationStatus: 'verifiedProfile', isIndividualVacancy: false, eventSourceId: 'source-kisia-fair-notice-2026',
+    profileCategories: ['연구개발', '기술지원'], requirements: ['네트워크', 'DB', 'Linux'],
+    recruitingPlanLabel: '상시 채용계획', note: NOT_A_DATED_VACANCY,
+    archivedAsset: { type: 'screenshot', path: '/job-postings/kisia-company-4.png' },
+  },
+  {
+    id: 'source-crypto-vacancy-audit-2026-07-11', sourceType: 'verificationNote', organization: 'SecTrack source audit',
+    company: null, title: '암호·PKI 현재 채용공고 확인 상태', region: null, publishedDate: null, closingDate: null,
+    checkedDate: '2026-07-11', url: null, activeStatus: 'unknown', verificationStatus: 'unavailable',
+    isIndividualVacancy: false, note: '검증 가능한 현재 암호·PKI 개별 채용공고를 확보하지 못했습니다. 현재 공고가 있다는 근거로 사용하지 않습니다.',
+  },
+]
+
+const legacyKind = (node) => {
+  if (['sqli', 'xss', 'csrf', 'ransomware', 'rootkit'].includes(node.id)) return 'threat'
+  if (['permission', 'firewall', 'ids-ips', 'least-privilege', 'monitoring', 'containment'].includes(node.id)) return 'control'
+  if (['pki', 'tls', 'siem-soar', 'edr', 'cloud'].includes(node.id)) return 'technology'
+  if (node.id === 'iso27001') return 'standard'
+  if (node.category === '산업 보안' || node.id === 'iot') return 'industry'
+  return 'concept'
+}
+
+const legacyNodeByTitle = new Map(allMindmapNodes.map((node) => [node.label, node]))
+
+const canonicalizeLegacyNode = (node) => {
+  const kind = legacyKind(node)
+  const common = {
+    id: node.id, kind, title: node.label, summary: node.importance,
+    relatedWeekIds: [...node.relatedWeeks], sourceRefs: [],
+  }
+  if (kind === 'threat') return {
+    ...common, conditions: node.prerequisites.length ? [...node.prerequisites] : ['취약한 입력·신뢰 경계 또는 실행 조건이 존재함'],
+    attackFlow: [node.offensiveExample], impact: [node.importance], detectionSignals: ['관련 입력, 실행, 오류와 상태 변화를 함께 확인'],
+    mitigationControlIds: [], mitigations: [node.defensiveExample], safePractice: ['로컬 또는 명시적으로 허가된 실습 환경에서만 고정된 예제로 재현'],
+  }
+  if (kind === 'control') return {
+    ...common, protectedAssets: [node.importance], placements: [node.category], mechanism: node.definition,
+    operations: [node.defensiveExample], limitations: [node.offensiveExample], verificationMethods: ['정책·로그·테스트 결과를 교차 확인'],
+    conceptIds: [], roleIds: [], threatIds: [],
+  }
+  if (kind === 'technology') return {
+    ...common, purpose: node.definition, scenarios: [node.importance], componentsAndFlow: [node.definition], conceptIds: [],
+    roleIds: [], operationalCautions: [node.defensiveExample], adjacentTechnologyIds: [],
+  }
+  if (kind === 'standard') return {
+    ...common, purpose: node.definition, scope: node.importance, keyRequirements: [node.defensiveExample],
+    roleIds: [], organizationFlow: ['적용범위 결정 → 요구사항 이행 → 증적 검토 → 개선'], conceptIds: [],
+  }
+  if (kind === 'industry') return {
+    ...common, assets: [`${node.label} 관련 서비스·장치·데이터`], operationalConstraints: [node.importance],
+    roleIds: [], conceptIds: [],
+  }
+  const prerequisiteConceptIds = node.prerequisites.map((title) => legacyNodeByTitle.get(title)).filter((item) => item && legacyKind(item) === 'concept').map((item) => item.id)
+  return {
+    ...common, definition: node.definition, practicalUses: [node.importance], roleIds: [], prerequisiteConceptIds,
+    subConceptIds: [], learningChecklist: [`${node.label}의 정의와 적용 경계를 설명한다.`, `${node.label}이 필요한 실제 업무를 한 가지 연결한다.`],
+    technologyIds: [], standardIds: [], implementationCautions: [], commonMisconceptions: [], connectedPracticeIds: [],
+  }
+}
+
+const canonicalLegacyNodes = allMindmapNodes.filter((node) => !node.id.startsWith('role-')).map(canonicalizeLegacyNode)
+
+const technologyNode = (id, title, purpose, relatedWeekIds, conceptIds = []) => ({
+  id, kind: 'technology', title, summary: purpose, relatedWeekIds, sourceRefs: [], purpose,
+  scenarios: [purpose], componentsAndFlow: ['입력과 정책을 받아 처리하고 결과와 운영 로그를 남깁니다.'],
+  conceptIds, roleIds: [], operationalCautions: ['권한·비밀정보·로그 보존 범위를 운영 환경에 맞게 검토합니다.'], adjacentTechnologyIds: [],
+})
+
+const standardNode = (id, title, purpose, scope, relatedWeekIds, conceptIds = []) => ({
+  id, kind: 'standard', title, summary: purpose, relatedWeekIds, sourceRefs: [], purpose, scope,
+  keyRequirements: ['적용범위와 책임을 정하고 구현·운영 증적을 유지합니다.'], roleIds: [],
+  organizationFlow: ['요구사항 해석 → 담당자 지정 → 구현·운영 → 검토·개선'], conceptIds,
+})
+
+const controlNode = (id, title, summary, threatIds) => ({
+  id, kind: 'control', title, summary, relatedWeekIds: [3, 4], sourceRefs: [], protectedAssets: ['애플리케이션 데이터와 사용자 세션'],
+  placements: ['입력 경계와 출력 컨텍스트'], mechanism: summary, operations: ['코드 리뷰와 자동·수동 테스트로 적용 상태를 유지합니다.'],
+  limitations: ['컨텍스트를 잘못 식별하면 통제가 우회될 수 있습니다.'], verificationMethods: ['고정된 안전 입력으로 처리 전후 결과를 비교합니다.'],
+  conceptIds: ['input-output'], roleIds: [], threatIds,
+})
+
+const supportingNodes = [
+  technologyNode('tech-grc-register', 'GRC 위험·증적 관리 도구', '위험, 통제, 담당자와 감사 증적을 추적합니다.', [0, 15], ['risk-management']),
+  technologyNode('tech-appsec-toolchain', 'SAST·DAST·SCA·프록시 도구', '코드, 실행 중 애플리케이션과 의존성의 보안 결함을 검토합니다.', [4, 5, 6, 14], ['secure-coding', 'vulnerability-assessment']),
+  technologyNode('tech-dfir-toolchain', '디스크·메모리·네트워크 포렌식 도구', '보존된 증거에서 타임라인과 침해 범위를 분석합니다.', [12, 13], ['evidence-preservation', 'timeline']),
+  technologyNode('tech-reverse-toolchain', '디스어셈블러·디버거·샌드박스', '실행 파일의 코드와 격리된 실행 행동을 분석합니다.', [8, 11, 12], ['static-analysis', 'dynamic-analysis']),
+  technologyNode('tech-network-platform', '방화벽·NAC·네트워크 관리 플랫폼', '네트워크 연결 정책과 자산 상태를 운영합니다.', [2, 13], ['tcpip', 'dns']),
+  technologyNode('tech-hsm-kms', 'HSM·KMS·Secrets 플랫폼', '키 생성·보호·사용·회전과 비밀정보 접근을 중앙에서 통제합니다.', [12, 15], ['symmetric', 'asymmetric']),
+  technologyNode('tech-embedded-toolchain', '펌웨어·버스·임베디드 분석 도구', '펌웨어와 장치 통신, 업데이트 경로를 안전하게 분석합니다.', [7, 8, 13], ['cpu', 'memory']),
+  technologyNode('tech-ai-evaluation', 'AI 보안 평가 하네스', '모델·데이터·에이전트 경계의 안전성 평가를 반복 실행하고 기록합니다.', [16], ['ai-security']),
+  standardNode('standard-isms-p', 'ISMS-P', '정보보호 및 개인정보보호 관리체계의 국내 인증 기준입니다.', '조직의 관리체계와 개인정보 처리 단계', [0, 15], ['risk-management', 'privacy']),
+  standardNode('standard-owasp', 'OWASP ASVS·WSTG', '애플리케이션 보안 요구사항과 검증 활동을 구조화합니다.', '웹 애플리케이션 설계와 보안 테스트', [3, 4, 5, 6], ['secure-coding', 'vulnerability-assessment']),
+  standardNode('standard-mitre-attack', 'MITRE ATT&CK', '공격자 행동을 전술과 기법으로 정리해 탐지·헌팅 가설을 연결합니다.', '엔터프라이즈 탐지와 위협 분석', [12, 13], ['detection-engineering']),
+  standardNode('standard-nist-ir', 'NIST SP 800-61', '침해사고 준비·탐지·대응·복구 흐름을 구조화합니다.', '조직의 사고대응 수명주기', [12, 13], ['triage', 'evidence-preservation']),
+  standardNode('standard-x509-pkcs', 'X.509·PKCS 인터페이스', '인증서 구조와 암호키·토큰 인터페이스의 상호운용 기준입니다.', 'PKI, 인증서, HSM 연동', [12], ['asymmetric', 'signature']),
+  standardNode('standard-fips-kcmvp', 'FIPS 140-3·KCMVP', '암호모듈의 보안 요구사항과 시험·검증 근거를 정의합니다.', '암호모듈 시험·검증·인증 대응', [12], ['symmetric', 'hash']),
+  standardNode('standard-iec-62443', 'IEC 62443', '산업자동화·제어시스템 보안 요구사항을 수명주기와 구역·통신 경로에 적용합니다.', 'OT·ICS 시스템과 제품', [13, 15], ['tcpip']),
+  standardNode('standard-iso-sae-21434', 'ISO/SAE 21434', '자동차 사이버보안 위험 관리를 차량 수명주기에 적용합니다.', '차량 E/E 시스템과 공급망', [13, 15], ['risk-management']),
+  standardNode('standard-nist-ai-rmf', 'NIST AI RMF', 'AI 위험을 식별·측정·관리·거버넌스 활동에 연결합니다.', 'AI 시스템 수명주기', [16], ['ai-security', 'risk-management']),
+  controlNode('control-context-safe-handling', '컨텍스트별 안전한 입력·출력 처리', '입력 검증, 매개변수화, 컨텍스트 인코딩과 안전한 DOM API를 구분해 적용합니다.', ['sqli', 'xss']),
+]
+
+export const cryptoRoleAreas = [
+  '암호 알고리즘 연구·개발',
+  '암호 구현·보안 라이브러리 개발',
+  'PKI·인증서 플랫폼 엔지니어링',
+  'TLS·VPN·보안 프로토콜 엔지니어링',
+  'HSM·KMS·Secrets 엔지니어링',
+  '클라우드 암호 적용 엔지니어링',
+  '제품·서비스 암호 적용·Product Security',
+  '암호 모듈 시험·검증·인증 대응',
+  'PQC 전환·Crypto Agility',
+].map((title, index) => ({
+  id: `crypto-area-${String(index + 1).padStart(2, '0')}`, title, roleId: 'role-crypto-pki',
+  currentVacancyEvidence: 'unavailable', checkedDate: '2026-07-11',
+  jobSourceIds: ['source-kisa-career-guide', 'source-crypto-vacancy-audit-2026-07-11'],
+}))
+
+const fourLearningStages = (foundation, core, practice, portfolio) => [
+  { id: 'foundation', title: '기초', outcomes: [foundation] },
+  { id: 'roleCore', title: '직무 핵심', outcomes: [core] },
+  { id: 'practice', title: '실무 적용', outcomes: [practice] },
+  { id: 'portfolio', title: '포트폴리오', outcomes: [portfolio] },
+]
+
+const roleNode = ({ jobSourceIds, ...role }) => ({
+  kind: 'role', sourceRefs: [...jobSourceIds], sourceCheckedDate: '2026-07-11', jobSourceIds, ...role,
+})
+
+const roleNodes = [
+  roleNode({
+    id: 'role-grc-privacy', jobFamilyId: 'family-grc-privacy', title: '정보보호 기획·GRC·개인정보 담당자',
+    summary: '사업 위험과 법·인증 요구를 정책, 통제, 책임과 증적으로 운영합니다.', relatedWeekIds: [0, 15],
+    actualWork: ['자산·위험·법적 요구를 식별하고 처리 계획을 관리합니다.', '정책과 예외 승인 절차를 개정하고 통제 이행 증적을 검토합니다.', '개인정보 처리 수명주기와 감사·인증 개선 과제를 조정합니다.'],
+    projectExample: '신규 서비스의 개인정보 흐름과 위험을 분석해 통제 담당자, 완료 기준과 경영진 승인 항목을 정합니다.',
+    foundationConceptIds: ['governance-program', 'risk-management', 'privacy'], skillIds: ['security-policy', 'security-audit'],
+    technologyIds: ['tech-grc-register'], standardIds: ['iso27001', 'standard-isms-p'],
+    deliverables: ['정보보호 정책', '위험평가표', '개인정보 흐름도', '감사 증적과 개선 계획'],
+    collaborators: ['서비스 책임자', '법무·개인정보 담당자', '보안 엔지니어', '내부감사와 경영진'],
+    entryExpectations: ['위험과 통제의 차이를 설명', '근거가 남는 문서 작성', '요구사항과 실제 운영의 차이 확인'],
+    preferredExperience: ['정책·위험평가 sample 작성', 'ISMS-P 또는 ISO 27001 요구사항 매핑'],
+    learningStages: fourLearningStages('자산·위협·위험·통제를 구분합니다.', '관리체계와 개인정보 수명주기를 연결합니다.', '한 서비스의 위험·통제·증적을 추적합니다.', '위험평가와 개선 로드맵을 공개 가능한 sample로 정리합니다.'),
+    portfolioExamples: ['가상 서비스 위험평가와 통제 매핑', '개인정보 처리 흐름·보유기간 점검표'],
+    jobSourceIds: ['source-kisa-career-guide'], sourceStatus: 'career-guide-only', sourceStatusNote: '공식 진로 가이드 근거이며 현재 개별 공고 근거는 아닙니다.',
+  }),
+  roleNode({
+    id: 'role-consulting-audit', jobFamilyId: 'family-consulting-audit', title: '보안 컨설턴트·감사 담당자',
+    summary: '고객 환경의 기술·관리 통제를 근거로 평가하고 실행 가능한 개선안을 합의합니다.', relatedWeekIds: [0, 3, 15],
+    actualWork: ['인터뷰·문서·설정 표본을 교차 검증합니다.', '요구사항 대비 gap과 위험도를 설명합니다.', '담당자·기한·검증 방법이 있는 개선 로드맵을 작성합니다.'],
+    projectExample: '인증 범위의 계정·접근통제 운영을 표본 점검하고 발견사항의 원인과 개선 완료 조건을 합의합니다.',
+    foundationConceptIds: ['risk-management', 'security-audit', 'security-consulting'], skillIds: ['security-policy', 'accountability'],
+    technologyIds: ['tech-grc-register'], standardIds: ['iso27001', 'standard-isms-p'],
+    deliverables: ['현황·gap 분석서', '인터뷰·표본 기록', '발견사항 목록', '개선 로드맵'], collaborators: ['고객 업무 담당자', '시스템 운영자', '개발팀', '법무·감사'],
+    entryExpectations: ['질문과 관찰 결과를 구분', '요구사항을 실제 설정에 매핑', '간결한 finding 작성'], preferredExperience: ['가상 조직 gap 분석', '통제 표본 점검 체크리스트'],
+    learningStages: fourLearningStages('관리·기술 통제와 감사 증적을 구분합니다.', '표본·인터뷰·문서를 교차 검증합니다.', '발견사항의 위험과 완료 기준을 합의합니다.', '범위·근거·우선순위가 있는 진단 보고서를 만듭니다.'),
+    portfolioExamples: ['ISO 27001 gap 분석 sample', '계정 수명주기 통제 감사 기록'],
+    jobSourceIds: ['source-kisa-career-guide', 'source-kisia-exhibitor-3'], sourceStatus: 'exhibitor-profile-not-vacancy', sourceStatusNote: NOT_A_DATED_VACANCY,
+  }),
+  roleNode({
+    id: 'role-app-product-security', jobFamilyId: 'family-app-product-devsecops', title: 'AppSec·Product Security·DevSecOps 엔지니어',
+    summary: '제품 수명주기에 보안 요구, 위협 모델, 코드·의존성 검사와 배포 가드레일을 넣습니다.', relatedWeekIds: [3, 4, 5, 6, 14, 15],
+    actualWork: ['설계 변경의 자산·신뢰 경계와 오용 사례를 검토합니다.', '코드·의존성·실행 결과의 결함을 triage합니다.', '수정 가이드와 CI/CD 보안 가드레일을 개발팀과 운영합니다.'],
+    projectExample: '인증 API의 위협 모델을 만들고 SAST·DAST 결과를 재현해 배포 전 차단 기준과 예외 절차를 설계합니다.',
+    foundationConceptIds: ['secure-coding', 'sdlc', 'auth-session'], skillIds: ['input-output', 'impact-remediation'], technologyIds: ['tech-appsec-toolchain'],
+    standardIds: ['standard-owasp'], deliverables: ['위협 모델', '보안 요구사항', '검사 triage 기록', '수정 가이드와 파이프라인 정책'],
+    collaborators: ['제품 관리자', '개발자', 'SRE·플랫폼 팀', '개인정보·GRC'], entryExpectations: ['HTTP와 인증·인가 설명', '작은 코드 변경 리뷰', '도구 결과를 수동 재현'],
+    preferredExperience: ['안전한 웹 애플리케이션 개발', 'CI에서 보안 검사 운영'], learningStages: fourLearningStages('HTTP·코드·배포 흐름을 익힙니다.', '위협 모델과 안전한 API를 적용합니다.', '도구 결과를 재현하고 수정과 예외를 운영합니다.', '보안 요구부터 재시험까지 한 변경을 기록합니다.'),
+    portfolioExamples: ['인증 API 위협 모델과 수정 PR', 'SAST·SCA triage가 포함된 CI sample'],
+    jobSourceIds: ['source-kisa-career-guide', 'source-kisia-exhibitor-3'], sourceStatus: 'exhibitor-profile-not-vacancy', sourceStatusNote: NOT_A_DATED_VACANCY,
+  }),
+  roleNode({
+    id: 'role-vulnerability-redteam', jobFamilyId: 'family-vulnerability-redteam', title: '취약점 진단·모의침투·레드팀 담당자',
+    summary: '허가된 범위에서 약점을 안전하게 재현하고 영향과 수정 우선순위를 보고합니다.', relatedWeekIds: [0, 3, 4, 5, 6, 10, 11, 14],
+    actualWork: ['Scope와 금지 행동을 확인하고 테스트 계획을 세웁니다.', '웹·인프라·제품의 취약점을 최소 영향으로 검증합니다.', '재현 절차, 영향, 근본 원인과 재시험 결과를 문서화합니다.'],
+    projectExample: '로컬 취약 애플리케이션에서 XSS 흐름을 확인하고 컨텍스트별 수정과 재시험 결과를 finding으로 작성합니다.',
+    foundationConceptIds: ['scope-roe', 'vulnerability-assessment', 'reproduction'], skillIds: ['impact-remediation', 'input-output'],
+    technologyIds: ['tech-appsec-toolchain'], standardIds: ['standard-owasp'], deliverables: ['테스트 계획', '재현 절차·PoC', '취약점 finding', '재시험 결과'],
+    collaborators: ['시스템·제품 소유자', '개발자', 'SOC·IR', '법무·GRC'], entryExpectations: ['허가 범위를 최우선으로 확인', 'HTTP·Linux 기초 활용', '재현 가능한 보고서 작성'],
+    preferredExperience: ['로컬 CTF·취약 앱 풀이 기록', '수정 전후 비교 보고서'], learningStages: fourLearningStages('HTTP·OS·네트워크와 안전 경계를 익힙니다.', '취약점 원인과 검증 절차를 학습합니다.', '영향을 최소화해 재현하고 수정안을 협의합니다.', '범위·PoC·수정·재시험이 있는 보고서를 만듭니다.'),
+    portfolioExamples: ['로컬 웹 취약점 finding 묶음', '허가된 테스트의 공격 경로와 재시험 보고서'],
+    jobSourceIds: ['source-kisa-career-guide', 'source-kisia-exhibitor-2'], sourceStatus: 'exhibitor-profile-not-vacancy', sourceStatusNote: NOT_A_DATED_VACANCY,
+  }),
+  roleNode({
+    id: 'role-soc-detection-hunting', jobFamilyId: 'family-soc-detection-hunting', title: '보안 관제·탐지 엔지니어링·위협 헌팅 담당자',
+    summary: '로그와 경보를 triage하고 재현 가능한 탐지 논리와 헌팅 가설을 운영합니다.', relatedWeekIds: [2, 3, 12, 13],
+    actualWork: ['SIEM·EDR 경보를 정상·오탐·사고 후보로 분류합니다.', '공격 행동을 데이터 소스와 탐지 규칙에 매핑합니다.', '탐지 공백을 헌팅하고 룰의 정확도와 운영 절차를 개선합니다.'],
+    projectExample: '인증 실패와 비정상 프로세스 실행 로그를 상관 분석해 탐지 룰, triage 질문과 escalation 기준을 만듭니다.',
+    foundationConceptIds: ['tcpip', 'accountability', 'triage'], skillIds: ['detection-engineering', 'timeline'], technologyIds: ['siem-soar', 'edr'],
+    standardIds: ['standard-mitre-attack'], deliverables: ['경보 분석 티켓', '탐지 룰과 테스트', '헌팅 쿼리', '운영 플레이북'], collaborators: ['IR·DFIR', '시스템·클라우드 운영자', '위협 인텔리전스', 'Red·Purple Team'],
+    entryExpectations: ['로그 필드와 시간 흐름 설명', '기본 쿼리·스크립트 작성', '판단 근거와 불확실성 기록'], preferredExperience: ['로컬 로그 탐지 규칙', '오탐 분석과 튜닝 기록'],
+    learningStages: fourLearningStages('OS·네트워크·로그 구조를 익힙니다.', '경보 triage와 탐지 논리를 작성합니다.', '데이터로 룰을 검증하고 헌팅 가설을 반복합니다.', '탐지 룰·테스트 데이터·플레이북을 묶습니다.'),
+    portfolioExamples: ['샘플 로그 기반 탐지 룰과 테스트', 'ATT&CK 기반 미니 헌팅 보고서'],
+    jobSourceIds: ['source-kisa-career-guide', 'source-kisia-exhibitor-2'], sourceStatus: 'exhibitor-profile-not-vacancy', sourceStatusNote: NOT_A_DATED_VACANCY,
+  }),
+  roleNode({
+    id: 'role-incident-dfir', jobFamilyId: 'family-incident-dfir', title: '침해사고 대응·DFIR·디지털 포렌식 분석가',
+    summary: '증거를 보존하고 사고 타임라인·원인·영향을 재구성해 격리와 복구를 지원합니다.', relatedWeekIds: [1, 2, 8, 12, 13],
+    actualWork: ['초동 범위와 증거 수집 우선순위를 정합니다.', '디스크·메모리·로그·패킷을 시간순으로 분석합니다.', '격리·복구 의사결정과 재발 방지 근거를 보고합니다.'],
+    projectExample: '가상 침해사고의 로그와 디스크 이미지를 보존하고 최초 진입부터 계정 사용, 격리까지 타임라인을 재구성합니다.',
+    foundationConceptIds: ['evidence-preservation', 'timeline', 'disk-memory'], skillIds: ['network-forensics', 'triage'], technologyIds: ['tech-dfir-toolchain'],
+    standardIds: ['standard-nist-ir'], deliverables: ['증거 목록과 해시', '사고 타임라인', 'IOC·범위 분석', '원인·영향·복구 보고서'], collaborators: ['SOC', '시스템·네트워크 운영자', '법무·개인정보', '경영진·외부기관'],
+    entryExpectations: ['원본 보존과 분석본 분리', '시간대·출처가 있는 기록', '사실·가설·미확인을 구분'], preferredExperience: ['공개 이미지 포렌식', '로그 타임라인 분석'],
+    learningStages: fourLearningStages('파일시스템·로그·증거 보존을 익힙니다.', '아티팩트와 타임라인 분석을 학습합니다.', '여러 증거를 교차 검증해 범위를 판단합니다.', '재현 가능한 DFIR case report를 만듭니다.'),
+    portfolioExamples: ['공개 포렌식 이미지 분석 기록', '가상 사고 타임라인과 대응 보고서'],
+    jobSourceIds: ['source-kisa-career-guide'], sourceStatus: 'career-guide-only', sourceStatusNote: '공식 진로 가이드 근거이며 현재 개별 공고 근거는 아닙니다.',
+  }),
+  roleNode({
+    id: 'role-malware-reverse', jobFamilyId: 'family-malware-reverse', title: '악성코드 분석·리버스 엔지니어',
+    summary: '격리된 환경에서 실행 파일의 구조와 행동을 분석해 탐지·대응 가능한 결과를 만듭니다.', relatedWeekIds: [7, 8, 11, 12],
+    actualWork: ['파일 형식·문자열·imports와 코드를 정적으로 분석합니다.', '격리 환경에서 프로세스·파일·네트워크 행동을 관찰합니다.', '기능 가설, IOC와 탐지·대응 권고를 검증합니다.'],
+    projectExample: '무해한 교육용 바이너리를 정적·동적으로 분석해 기능, 조건 분기와 관찰 가능한 지표를 보고합니다.',
+    foundationConceptIds: ['cpu', 'memory', 'process-thread'], skillIds: ['static-analysis', 'dynamic-analysis'], technologyIds: ['tech-reverse-toolchain'],
+    standardIds: ['standard-mitre-attack'], deliverables: ['분석 노트', '행동·기능 보고서', 'IOC·탐지 아이디어', '분석 자동화 스크립트'], collaborators: ['SOC·Detection', 'IR·DFIR', '위협 인텔리전스', '제품 보안 연구자'],
+    entryExpectations: ['OS와 실행 파일 기초', '코드·행동 관찰을 근거로 기록', '격리와 sample 취급 절차 준수'], preferredExperience: ['교육용 crackme 분석', '격리 sandbox 관찰 기록'],
+    learningStages: fourLearningStages('CPU·메모리·OS 실행을 익힙니다.', '정적·동적 분석과 어셈블리를 학습합니다.', '가설을 디버거와 행동 로그로 검증합니다.', '무해한 sample의 분석 보고서와 도구를 만듭니다.'),
+    portfolioExamples: ['교육용 바이너리 리버싱 보고서', '격리 환경 행동 분석 자동화'],
+    jobSourceIds: ['source-kisa-career-guide'], sourceStatus: 'career-guide-only', sourceStatusNote: '공식 진로 가이드 근거이며 현재 개별 공고 근거는 아닙니다.',
+  }),
+  roleNode({
+    id: 'role-network-system-endpoint', jobFamilyId: 'family-network-system-endpoint', title: '네트워크·시스템·엔드포인트 보안 엔지니어',
+    summary: '네트워크와 호스트 통제를 설계·구축하고 정책 변경, 장애와 운영 로그를 관리합니다.', relatedWeekIds: [1, 2, 3, 13, 15],
+    actualWork: ['방화벽·NAC·EDR 정책과 자산 연결을 설계합니다.', '변경 영향, 장애와 성능을 점검하고 rollback 절차를 유지합니다.', '노출 서비스, 권한과 로그 상태를 정기 점검합니다.'],
+    projectExample: '신규 업무망의 통신 요구를 최소 허용 방화벽·NAC 정책으로 변환하고 테스트와 rollback 결과를 기록합니다.',
+    foundationConceptIds: ['tcpip', 'filesystem', 'process-thread'], skillIds: ['dns', 'accountability'], technologyIds: ['tech-network-platform', 'edr'],
+    standardIds: ['iso27001'], deliverables: ['구축 설계서', '정책표와 변경 기록', '운영 절차', '장애·점검 보고서'], collaborators: ['네트워크·서버 운영자', 'SOC', '클라우드 팀', '서비스 소유자'],
+    entryExpectations: ['Linux·네트워크 기본 명령 사용', '통신 흐름과 권한 설명', '변경 전후 검증 기록'], preferredExperience: ['홈랩 네트워크 구성', 'Linux 서비스 hardening'],
+    learningStages: fourLearningStages('Linux·TCP/IP·권한을 익힙니다.', '경계·엔드포인트 통제 동작을 학습합니다.', '정책 변경과 장애·로그를 운영합니다.', '소형 네트워크 구축·하드닝 문서를 만듭니다.'),
+    portfolioExamples: ['가상 네트워크 정책·검증 문서', 'Linux hardening과 EDR 운영 점검표'],
+    jobSourceIds: ['source-kisa-career-guide', 'source-kisia-exhibitor-4'], sourceStatus: 'exhibitor-profile-not-vacancy', sourceStatusNote: NOT_A_DATED_VACANCY,
+  }),
+  roleNode({
+    id: 'role-cloud-iam', jobFamilyId: 'family-cloud-iam', title: '클라우드 보안·IAM·권한 관리 엔지니어',
+    summary: '클라우드 자산의 신원, 권한, 네트워크, 비밀정보와 감사 로그를 정책·코드로 운영합니다.', relatedWeekIds: [2, 3, 12, 15],
+    actualWork: ['IAM 역할과 서비스 계정 권한을 최소화합니다.', '클라우드 구성·네트워크·로그 가드레일을 코드로 배포합니다.', '권한 변경, 비밀정보와 key rotation을 모니터링합니다.'],
+    projectExample: '애플리케이션 배포 역할을 분리하고 임시 권한, KMS 접근, 감사 로그와 정책 테스트를 구성합니다.',
+    foundationConceptIds: ['identification', 'authorization', 'rbac-abac'], skillIds: ['accountability', 'risk-management'], technologyIds: ['cloud', 'tech-hsm-kms'],
+    standardIds: ['iso27001'], deliverables: ['IAM 정책·권한표', '구성 가드레일 코드', '위협 모델', '감사·rotation 운영 기록'], collaborators: ['클라우드 플랫폼·SRE', '개발팀', 'SOC', 'GRC·감사'],
+    entryExpectations: ['IAM 주체·정책·자원 구분', 'CLI·IaC 변경 리뷰', '로그로 정책 결과 확인'], preferredExperience: ['개인 cloud sandbox IAM 구성', 'IaC 정책 테스트'],
+    learningStages: fourLearningStages('클라우드 책임공유와 IAM을 익힙니다.', '권한·네트워크·키·로그 가드레일을 학습합니다.', 'IaC와 정책 테스트로 변경을 운영합니다.', '최소 권한 cloud 환경과 검증 기록을 만듭니다.'),
+    portfolioExamples: ['최소 권한 IAM·감사 로그 lab', 'IaC 정책 검사와 예외 처리 sample'],
+    jobSourceIds: ['source-kisa-career-guide', 'source-kisia-exhibitor-2'], sourceStatus: 'exhibitor-profile-not-vacancy', sourceStatusNote: NOT_A_DATED_VACANCY,
+  }),
+  roleNode({
+    id: 'role-crypto-pki', jobFamilyId: 'family-crypto-pki', title: '암호·PKI·신뢰 기반 기술 엔지니어',
+    summary: '검증된 암호 구현, 인증서·프로토콜과 키 수명주기를 제품·클라우드 환경에 안전하게 적용합니다.', relatedWeekIds: [3, 12, 13, 15],
+    actualWork: ['알고리즘·라이브러리 선택과 constant-time·난수·키 사용을 검토합니다.', 'CA·RA·X.509 발급·갱신·폐기와 TLS·VPN 상호운용성을 운영합니다.', 'HSM·KMS·Secrets, 암호모듈 검증과 PQC 전환 inventory를 설계합니다.'],
+    projectExample: '로컬 CA와 mTLS 서비스를 구축하고 인증서 자동 갱신, key rotation, 실패 상황과 감사 로그를 검증합니다.',
+    foundationConceptIds: ['symmetric', 'asymmetric', 'hash'], skillIds: ['signature', 'auth-session'], technologyIds: ['pki', 'tls', 'tech-hsm-kms'],
+    standardIds: ['standard-x509-pkcs', 'standard-fips-kcmvp'], deliverables: ['암호 설계·위협 검토', '인증서·키 수명주기 절차', '상호운용·성능 테스트', 'crypto inventory·PQC 전환 계획'],
+    collaborators: ['제품·플랫폼 개발자', '클라우드·IAM', '인증·시험기관', '아키텍트·GRC'], entryExpectations: ['대칭키·비대칭키·해시 용도 구분', '직접 암호를 설계하지 않고 검증된 라이브러리 사용', '키와 인증서 수명주기 설명'],
+    preferredExperience: ['로컬 CA·mTLS lab', 'KMS envelope encryption', '암호 라이브러리 테스트 벡터 사용'], learningStages: fourLearningStages('현대 암호·난수·키 교환을 익힙니다.', 'PKI·TLS·HSM/KMS와 안전한 구현을 학습합니다.', '수명주기·상호운용·성능·호환성을 검증합니다.', 'mTLS·envelope encryption·crypto inventory 중 하나를 완성합니다.'),
+    portfolioExamples: ['로컬 CA와 인증서 수명주기', 'mTLS 갱신 자동화', '클라우드 KMS envelope encryption', 'PQC 전환 crypto inventory'],
+    workAreaIds: cryptoRoleAreas.map((area) => area.id), jobSourceIds: ['source-kisa-career-guide', 'source-crypto-vacancy-audit-2026-07-11'],
+    sourceStatus: 'current-vacancy-unverified', sourceStatusNote: '2026-07-11 기준 검증 가능한 현재 암호·PKI 개별 채용공고 근거를 확보하지 못했습니다.',
+  }),
+  roleNode({
+    id: 'role-embedded-ot-automotive', jobFamilyId: 'family-embedded-ot-automotive', title: '모바일·IoT·임베디드·OT·자동차 보안 엔지니어',
+    summary: '장치·펌웨어·산업 프로토콜과 물리 안전 제약을 제품 수명주기 보안에 반영합니다.', relatedWeekIds: [7, 8, 13, 14, 15],
+    actualWork: ['펌웨어·부트·업데이트와 장치 신뢰 경계를 분석합니다.', '버스·무선·IT/OT 통신 경로의 위험을 평가합니다.', '가용성·안전·긴 수명주기를 고려한 통제와 테스트를 설계합니다.'],
+    projectExample: '교육용 IoT 장치의 펌웨어 업데이트와 기본 자격 증명 위험을 분석해 secure update 요구와 검증 계획을 작성합니다.',
+    foundationConceptIds: ['cpu', 'memory', 'tcpip'], skillIds: ['risk-management', 'static-analysis'], technologyIds: ['tech-embedded-toolchain'],
+    standardIds: ['standard-iec-62443', 'standard-iso-sae-21434'], deliverables: ['자산·인터페이스 모델', '위협 분석', '보안 요구·테스트 계획', '업데이트·키 관리 설계'], collaborators: ['펌웨어·하드웨어 개발자', '생산·안전 엔지니어', '품질·인증', 'SOC·운영'],
+    entryExpectations: ['C·OS·네트워크 기초', '장치 인터페이스와 안전 영향 구분', '실장비는 명시적 허가 아래 취급'], preferredExperience: ['교육용 보드·펌웨어 분석', '프로토콜 trace 읽기'],
+    learningStages: fourLearningStages('컴퓨터 구조·펌웨어·네트워크를 익힙니다.', 'secure boot·update·산업 위험을 학습합니다.', '장치 흐름을 모델링하고 안전한 테스트를 수행합니다.', '교육용 장치 위협 모델과 검증 계획을 만듭니다.'),
+    portfolioExamples: ['교육용 IoT secure update 설계', '가상 OT zone·conduit 위협 모델'],
+    jobSourceIds: ['source-kisa-career-guide'], sourceStatus: 'career-guide-only', sourceStatusNote: '공식 진로 가이드의 연구·개발·엔지니어 범주를 참고했으며 현재 개별 공고 근거는 아닙니다.',
+  }),
+  roleNode({
+    id: 'role-ai-security-rnd', jobFamilyId: 'family-ai-security-rnd', title: 'AI 보안·보안 연구개발 담당자',
+    summary: 'AI 시스템과 새 보안 기술의 가설을 재현 가능한 평가·코드·연구 결과로 검증합니다.', relatedWeekIds: [4, 14, 16],
+    actualWork: ['모델·데이터·도구·에이전트 신뢰 경계를 위협 모델링합니다.', '고정된 안전 평가셋과 지표로 공격·오용·통제 가설을 시험합니다.', '재현 가능한 코드, 제한사항과 제품 적용 권고를 작성합니다.'],
+    projectExample: '로컬 LLM 애플리케이션의 도구 호출 경계를 모델링하고 고정 평가셋으로 입력 처리와 권한 통제를 비교합니다.',
+    foundationConceptIds: ['ai-security', 'risk-management', 'secure-coding'], skillIds: ['reproduction', 'impact-remediation'], technologyIds: ['tech-ai-evaluation'],
+    standardIds: ['standard-nist-ai-rmf'], deliverables: ['위협 모델', '평가 데이터·하네스', '실험 결과와 제한사항', '제품 적용 권고·연구 코드'], collaborators: ['ML 연구자·엔지니어', '제품 보안·개발팀', '데이터·개인정보 담당자', 'GRC·안전 평가자'],
+    entryExpectations: ['Python·데이터·모델 기초', '통제된 실험과 재현성', '결과의 범위와 불확실성 명시'], preferredExperience: ['작은 평가 하네스 구현', '논문·공식 문서 재현'],
+    learningStages: fourLearningStages('ML 시스템·소프트웨어 보안 기초를 익힙니다.', 'AI 위협 모델과 평가 방법을 학습합니다.', '고정 데이터와 지표로 가설을 재현합니다.', '평가 코드·데이터·제한사항을 함께 공개합니다.'),
+    portfolioExamples: ['로컬 AI 앱 위협 모델과 평가셋', '보안 연구 재현 notebook과 제한사항 보고서'],
+    jobSourceIds: ['source-kisa-career-guide'], sourceStatus: 'career-guide-only', sourceStatusNote: '공식 진로 가이드의 연구·개발 범주를 참고했으며 현재 개별 공고 근거는 아닙니다.',
+  }),
+]
+
+const familyNode = (id, title, summary, roleId, assets, collaborators, learningAreaIds, relatedWeekIds) => ({
+  id, kind: 'jobFamily', title, summary, description: summary, relatedWeekIds, sourceRefs: ['source-kisa-career-guide'],
+  representativeRoleIds: [roleId], assets, collaborators, learningAreaIds,
+})
+
+const jobFamilyNodes = [
+  familyNode('family-grc-privacy', '보안 기획·GRC·개인정보', '위험·규정·정책을 조직의 책임과 통제로 운영합니다.', 'role-grc-privacy', ['정보자산', '개인정보 처리 흐름', '정책·증적'], ['경영진', '법무·감사', '기술 조직'], ['risk-management', 'privacy'], [0, 15]),
+  familyNode('family-consulting-audit', '보안 컨설팅·감사', '요구사항과 실제 운영을 근거로 비교해 개선 방향을 제시합니다.', 'role-consulting-audit', ['고객 시스템', '관리체계', '감사 증적'], ['고객 담당자', '운영자', '감사·인증기관'], ['security-audit', 'security-consulting'], [0, 15]),
+  familyNode('family-app-product-devsecops', '애플리케이션·제품 보안·DevSecOps', '소프트웨어 수명주기에 예방·검증·배포 통제를 내장합니다.', 'role-app-product-security', ['소스코드', 'API', '빌드·배포 파이프라인'], ['개발자', '제품 관리자', 'SRE'], ['secure-coding', 'sdlc'], [3, 4, 5, 6, 14, 15]),
+  familyNode('family-vulnerability-redteam', '취약점 진단·모의침투·레드팀', '허가된 범위에서 공격 가능성과 영향을 안전하게 검증합니다.', 'role-vulnerability-redteam', ['애플리케이션', '인프라', '제품 인터페이스'], ['자산 소유자', '개발팀', 'Blue·Purple Team'], ['scope-roe', 'vulnerability-assessment'], [0, 3, 4, 5, 6, 10, 11, 14]),
+  familyNode('family-soc-detection-hunting', '보안 관제·탐지 엔지니어링·위협 헌팅', '로그·경보에서 침해 징후를 찾고 탐지 품질을 개선합니다.', 'role-soc-detection-hunting', ['로그', '경보', '네트워크·엔드포인트 telemetry'], ['IR·DFIR', 'IT 운영', 'Red·Purple Team'], ['detection-engineering', 'triage'], [2, 3, 12, 13]),
+  familyNode('family-incident-dfir', '침해사고 대응·DFIR·디지털 포렌식', '증거를 보존하고 사고 원인·범위·복구 근거를 재구성합니다.', 'role-incident-dfir', ['디스크·메모리', '로그·패킷', '사고 업무 기록'], ['SOC', 'IT 운영', '법무·개인정보'], ['evidence-preservation', 'timeline'], [1, 2, 8, 12, 13]),
+  familyNode('family-malware-reverse', '악성코드 분석·리버스 엔지니어링', '코드와 실행 행동을 분석해 기능·지표·대응 지식을 만듭니다.', 'role-malware-reverse', ['실행 파일', '프로세스·메모리', '행동 로그'], ['SOC·IR', '위협 연구', '제품 보안'], ['static-analysis', 'dynamic-analysis'], [7, 8, 11, 12]),
+  familyNode('family-network-system-endpoint', '네트워크·시스템·엔드포인트 보안', '통신·호스트 경계의 보안 시스템과 운영 정책을 구축합니다.', 'role-network-system-endpoint', ['네트워크', '서버·엔드포인트', '보안 장비'], ['IT 운영', 'SOC', '서비스 소유자'], ['tcpip', 'filesystem'], [1, 2, 3, 13, 15]),
+  familyNode('family-cloud-iam', '클라우드 보안·IAM·권한 관리', '클라우드 신원·권한·구성·키와 로그를 정책·코드로 관리합니다.', 'role-cloud-iam', ['클라우드 계정', 'IAM 정책', '워크로드·비밀정보'], ['플랫폼·SRE', '개발팀', 'SOC·GRC'], ['identification', 'authorization'], [2, 3, 12, 15]),
+  familyNode('family-crypto-pki', '암호·PKI·신뢰 기반 기술', '암호 구현, 인증서·프로토콜과 키 수명주기를 안전하게 적용합니다.', 'role-crypto-pki', ['암호키', '인증서·신뢰 체인', '암호모듈·프로토콜'], ['제품·플랫폼 개발자', 'IAM·클라우드', '시험·인증기관'], ['symmetric', 'asymmetric', 'signature'], [3, 12, 13, 15]),
+  familyNode('family-embedded-ot-automotive', '모바일·IoT·임베디드·OT·자동차 보안', '장치와 물리 공정의 안전·가용성 제약을 보안 수명주기에 반영합니다.', 'role-embedded-ot-automotive', ['펌웨어·장치', '산업 제어·차량 네트워크', '업데이트 인프라'], ['하드웨어·펌웨어', '안전·품질', '생산·운영'], ['cpu', 'memory', 'tcpip'], [7, 8, 13, 14, 15]),
+  familyNode('family-ai-security-rnd', 'AI 보안·보안 연구개발', '새 보안 가설과 AI 시스템 위험을 재현 가능한 연구·평가로 검증합니다.', 'role-ai-security-rnd', ['모델·데이터', 'AI 애플리케이션·도구', '연구 코드·평가셋'], ['ML·제품 개발자', 'Product Security', '데이터·GRC'], ['ai-security', 'reproduction'], [4, 14, 16]),
+]
+
+export const mindmapNodes = [...jobFamilyNodes, ...roleNodes, ...canonicalLegacyNodes, ...supportingNodes]
+
+const edge = (type, sourceId, targetId) => ({ id: `edge:${type}:${sourceId}:${targetId}`, type, sourceId, targetId })
+
+const industryRoleLinks = [
+  ['role-app-product-security', 'finance'],
+  ['role-network-system-endpoint', 'energy-telecom'],
+  ['role-cloud-iam', 'finance'],
+  ['role-crypto-pki', 'finance'],
+  ['role-embedded-ot-automotive', 'iot'],
+  ['role-embedded-ot-automotive', 'ot-ics'],
+  ['role-embedded-ot-automotive', 'automotive'],
+]
+
+export const mindmapEdges = [
+  ...jobFamilyNodes.flatMap((family) => family.representativeRoleIds.map((roleId) => edge('containsRole', family.id, roleId))),
+  ...roleNodes.flatMap((role) => [
+    ...role.foundationConceptIds.map((conceptId) => edge('requiresFoundation', role.id, conceptId)),
+    ...role.skillIds.map((conceptId) => edge('developsSkill', role.id, conceptId)),
+    ...role.technologyIds.map((technologyId) => edge('usesTechnology', role.id, technologyId)),
+    ...role.standardIds.map((standardId) => edge('usesStandard', role.id, standardId)),
+  ]),
+  ...canonicalLegacyNodes.filter((node) => node.kind === 'concept').flatMap((node) => node.prerequisiteConceptIds.map((prerequisiteId) => edge('prerequisiteFor', prerequisiteId, node.id))),
+  ...mindmapNodes.filter((node) => node.kind === 'control').flatMap((node) => node.threatIds.map((threatId) => edge('mitigates', node.id, threatId))),
+  ...industryRoleLinks.map(([roleId, industryId]) => edge('worksInIndustry', roleId, industryId)),
+]
+
+const nodeIndex = new Map(mindmapNodes.map((node) => [node.id, node]))
+const sourceIndex = new Map(jobSources.map((source) => [source.id, source]))
+
+export const getMindmapNode = (id) => nodeIndex.get(id) ?? null
+export const getJobSource = (id) => sourceIndex.get(id) ?? null
+export const getMindmapNodesByKind = (kind) => mindmapNodes.filter((node) => node.kind === kind)
+export const getMindmapEdgesForNode = (id) => mindmapEdges.filter((item) => item.sourceId === id || item.targetId === id)
+
+export function getNodeDetailModel(nodeOrId) {
+  const node = typeof nodeOrId === 'string' ? getMindmapNode(nodeOrId) : nodeOrId
+  if (!node || !MINDMAP_NODE_KINDS.includes(node.kind)) return {
+    kind: 'unknown', perspective: 'neutral', title: node?.title ?? '알 수 없는 노드', summary: node?.summary ?? '', sections: [],
+  }
+  if (node.kind === 'threat') return {
+    kind: node.kind, perspective: 'threat', title: node.title, summary: node.summary,
+    sections: ['conditions', 'attackFlow', 'impact', 'detectionSignals', 'mitigations', 'safePractice'],
+  }
+  if (node.kind === 'control') return {
+    kind: node.kind, perspective: 'control', title: node.title, summary: node.summary,
+    sections: ['protectedAssets', 'placements', 'mechanism', 'operations', 'limitations', 'verificationMethods'],
+  }
+  return { kind: node.kind, perspective: 'neutral', title: node.title, summary: node.summary, sections: [] }
+}
+
+const REQUIRED_KIND_FIELDS = {
+  jobFamily: ['description', 'representativeRoleIds', 'assets', 'collaborators', 'learningAreaIds'],
+  role: ['jobFamilyId', 'actualWork', 'projectExample', 'foundationConceptIds', 'skillIds', 'technologyIds', 'standardIds', 'deliverables', 'collaborators', 'entryExpectations', 'preferredExperience', 'learningStages', 'portfolioExamples', 'jobSourceIds', 'sourceStatus', 'sourceStatusNote', 'sourceCheckedDate'],
+  concept: ['definition', 'practicalUses', 'roleIds', 'prerequisiteConceptIds', 'subConceptIds', 'learningChecklist', 'technologyIds', 'standardIds', 'implementationCautions', 'commonMisconceptions', 'connectedPracticeIds'],
+  technology: ['purpose', 'scenarios', 'componentsAndFlow', 'conceptIds', 'roleIds', 'operationalCautions', 'adjacentTechnologyIds'],
+  standard: ['purpose', 'scope', 'keyRequirements', 'roleIds', 'organizationFlow', 'conceptIds'],
+  threat: ['conditions', 'attackFlow', 'impact', 'detectionSignals', 'mitigationControlIds', 'mitigations', 'safePractice'],
+  control: ['protectedAssets', 'placements', 'mechanism', 'operations', 'limitations', 'verificationMethods', 'conceptIds', 'roleIds', 'threatIds'],
+  industry: ['assets', 'operationalConstraints', 'roleIds', 'conceptIds'],
+}
+
+const NONEMPTY_ROLE_FIELDS = ['actualWork', 'projectExample', 'foundationConceptIds', 'skillIds', 'technologyIds', 'standardIds', 'deliverables', 'collaborators', 'entryExpectations', 'preferredExperience', 'learningStages', 'portfolioExamples', 'jobSourceIds', 'sourceStatusNote']
+
+const hasContent = (value) => Array.isArray(value) ? value.length > 0 : typeof value === 'string' ? value.trim().length > 0 : value != null
+
+export function validateMindmapData({ nodes = mindmapNodes, edges = mindmapEdges, sources = jobSources } = {}) {
+  const issues = []
+  const nodesById = new Map()
+  const sourcesById = new Map()
+  const edgeIds = new Set()
+  const add = (code, id, message) => issues.push({ code, id, message })
+
+  for (const source of sources) {
+    if (!source?.id || sourcesById.has(source.id)) add('duplicate-source-id', source?.id ?? '', 'Source IDs must be unique and non-empty.')
+    else sourcesById.set(source.id, source)
+    for (const field of ['sourceType', 'organization', 'company', 'title', 'region', 'publishedDate', 'closingDate', 'checkedDate', 'url', 'activeStatus', 'verificationStatus', 'isIndividualVacancy', 'note']) {
+      if (!(field in source)) add('missing-source-field', source.id, `Missing source field: ${field}`)
+    }
+    if (source.sourceType === 'fairExhibitorProfile' && (source.activeStatus !== 'unknown' || source.isIndividualVacancy !== false)) {
+      add('invalid-exhibitor-status', source.id, 'Fair exhibitor profiles must remain non-vacancy records with unknown active status.')
+    }
+    if (source.activeStatus === 'active' && (source.sourceType !== 'individualVacancy' || source.verificationStatus !== 'verifiedCurrent')) {
+      add('unsupported-active-status', source.id, 'Active status requires a verified current individual vacancy.')
+    }
+  }
+
+  for (const node of nodes) {
+    if (!node?.id || nodesById.has(node.id)) add('duplicate-node-id', node?.id ?? '', 'Node IDs must be unique and non-empty.')
+    else nodesById.set(node.id, node)
+    if (!MINDMAP_NODE_KINDS.includes(node.kind)) { add('unknown-node-kind', node.id, `Unknown node kind: ${node.kind}`); continue }
+    for (const field of ['title', 'summary', 'relatedWeekIds', 'sourceRefs', ...REQUIRED_KIND_FIELDS[node.kind]]) {
+      if (!(field in node)) add('missing-node-field', node.id, `Missing ${node.kind} field: ${field}`)
+    }
+    if ('offensiveExample' in node || 'defensiveExample' in node) add('legacy-perspective-field', node.id, 'Canonical nodes must not use generic attack/defense fallback fields.')
+    for (const sourceId of node.sourceRefs ?? []) if (!sourcesById.has(sourceId)) add('missing-source-ref', node.id, `Unknown source: ${sourceId}`)
+    if (node.kind === 'role') for (const field of NONEMPTY_ROLE_FIELDS) if (!hasContent(node[field])) add('empty-role-field', node.id, `Role field must not be empty: ${field}`)
+  }
+
+  const expectRefs = (node, field, expectedKind) => {
+    for (const targetId of node[field] ?? []) {
+      const target = nodesById.get(targetId)
+      if (!target) add('missing-node-ref', node.id, `Unknown ${field} reference: ${targetId}`)
+      else if (target.kind !== expectedKind) add('wrong-node-kind-ref', node.id, `${field} must reference ${expectedKind}: ${targetId}`)
+    }
+  }
+
+  for (const node of nodes) {
+    if (node.kind === 'jobFamily') { expectRefs(node, 'representativeRoleIds', 'role'); expectRefs(node, 'learningAreaIds', 'concept') }
+    if (node.kind === 'role') {
+      const family = nodesById.get(node.jobFamilyId)
+      if (!family || family.kind !== 'jobFamily') add('invalid-family-ref', node.id, `Invalid job family: ${node.jobFamilyId}`)
+      expectRefs(node, 'foundationConceptIds', 'concept'); expectRefs(node, 'skillIds', 'concept')
+      expectRefs(node, 'technologyIds', 'technology'); expectRefs(node, 'standardIds', 'standard')
+      for (const sourceId of node.jobSourceIds) if (!sourcesById.has(sourceId)) add('missing-job-source', node.id, `Unknown job source: ${sourceId}`)
+      if (node.learningStages?.length !== 4 || node.learningStages?.map((stage) => stage.title).join('|') !== '기초|직무 핵심|실무 적용|포트폴리오') add('invalid-learning-stages', node.id, 'Roles require the four ordered learning stages.')
+    }
+    if (node.kind === 'concept') {
+      expectRefs(node, 'roleIds', 'role'); expectRefs(node, 'prerequisiteConceptIds', 'concept'); expectRefs(node, 'subConceptIds', 'concept')
+      expectRefs(node, 'technologyIds', 'technology'); expectRefs(node, 'standardIds', 'standard')
+    }
+    if (node.kind === 'technology') { expectRefs(node, 'conceptIds', 'concept'); expectRefs(node, 'roleIds', 'role'); expectRefs(node, 'adjacentTechnologyIds', 'technology') }
+    if (node.kind === 'standard') { expectRefs(node, 'conceptIds', 'concept'); expectRefs(node, 'roleIds', 'role') }
+    if (node.kind === 'threat') expectRefs(node, 'mitigationControlIds', 'control')
+    if (node.kind === 'control') { expectRefs(node, 'conceptIds', 'concept'); expectRefs(node, 'roleIds', 'role'); expectRefs(node, 'threatIds', 'threat') }
+    if (node.kind === 'industry') { expectRefs(node, 'roleIds', 'role'); expectRefs(node, 'conceptIds', 'concept') }
+  }
+
+  for (const item of edges) {
+    if (!item?.id || edgeIds.has(item.id)) add('duplicate-edge-id', item?.id ?? '', 'Edge IDs must be unique and non-empty.')
+    else edgeIds.add(item.id)
+    const source = nodesById.get(item.sourceId)
+    const target = nodesById.get(item.targetId)
+    if (!source || !target) { add('missing-edge-ref', item.id, 'Edge endpoints must reference canonical nodes.'); continue }
+    const allowedPairs = MINDMAP_EDGE_KIND_RULES[item.type]
+    if (!allowedPairs || !allowedPairs.some(([sourceKind, targetKind]) => source.kind === sourceKind && target.kind === targetKind)) {
+      add('invalid-edge-kinds', item.id, `Invalid ${item.type} edge: ${source.kind} -> ${target.kind}`)
+    }
+  }
+
+  for (const area of cryptoRoleAreas) {
+    if (area.roleId !== 'role-crypto-pki' || !nodesById.has(area.roleId)) add('invalid-crypto-area-role', area.id, 'Crypto areas must resolve to the canonical crypto role.')
+    for (const sourceId of area.jobSourceIds) if (!sourcesById.has(sourceId)) add('missing-crypto-area-source', area.id, `Unknown source: ${sourceId}`)
+  }
+  return issues
+}
+
+export function assertValidMindmapData(data) {
+  const issues = validateMindmapData(data)
+  if (issues.length) throw new Error(`Invalid mind-map data:\n${issues.map((issue) => `${issue.code} ${issue.id}: ${issue.message}`).join('\n')}`)
+  return true
+}

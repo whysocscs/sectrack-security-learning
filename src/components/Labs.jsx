@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { weekContent } from '../courseData'
 import { buildXssTrace, findSensitiveData } from '../platformLogic'
+import { recordHintUsage } from '../learningModel'
 import MindmapStudio from './MindmapStudio'
 
 const allLabs = Object.values(weekContent).flatMap((week) => week.labs.map((lab) => ({ ...lab, weekTitle: week.title })))
@@ -51,7 +52,7 @@ export function LabCatalog({ progress, navigate }) {
 export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   const lab = findLab(labId)
   const state = progress.labs[labId] || {}
-  const evidence = progress.evidence[labId] || {}
+  const record = progress.activityRecords[labId] || legacyActivityRecord(progress.evidence[labId])
 
   useEffect(() => {
     if (!lab || state.status) return
@@ -61,35 +62,28 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   if (!lab) return <div className="page-width"><div className="empty-state"><Terminal size={24} /><strong>실습을 찾을 수 없습니다.</strong><button className="button secondary" type="button" onClick={() => navigate({ page: 'labs' })}>실습실로</button></div></div>
 
   const updateLab = (patch) => updateProgress((current) => ({ ...current, labs: { ...current.labs, [lab.id]: { ...(current.labs[lab.id] || {}), ...patch } } }))
-  const updateEvidence = (patch) => updateProgress((current) => ({ ...current, evidence: { ...current.evidence, [lab.id]: { ...(current.evidence[lab.id] || {}), ...patch, updatedAt: new Date().toISOString() } } }))
+  const updateRecord = (patch) => updateProgress((current) => ({ ...current, activityRecords: { ...current.activityRecords, [lab.id]: { ...(current.activityRecords[lab.id] || legacyActivityRecord(current.evidence[lab.id])), activityType: lab.activityType, ...patch, updatedAt: new Date().toISOString() } } }))
   const derivedPassed = lab.id === 'w0-map'
     ? Object.keys(progress.mindmap.statuses).length >= 10 && Object.values(progress.mindmap.notes).filter((item) => String(item).length >= 5).length >= 3 && progress.mindmap.interests.length >= 2
     : lab.id === 'w0-baseline' ? Object.keys(progress.baseline).length >= 6
       : lab.id === 'w0-roe' ? Object.keys(progress.roeAnswers).length >= 5 : false
   const validationPassed = Boolean(state.validationPassed || derivedPassed)
+  const recordReady = isActivityRecordReady(lab.activityType, record)
 
   const complete = () => {
-    const readyEvidence = lab.kind === 'mindmap' || (String(evidence.observation || '').trim().length >= 20 && String(evidence.explanation || '').trim().length >= 30)
-    if (!validationPassed || !readyEvidence) {
-      notify('성공 조건과 관찰·원리 설명을 먼저 채워주세요.')
+    if (!validationPassed || !recordReady) {
+      notify(lab.activityType === 'assessment' ? '이해 확인을 먼저 완료하세요.' : '결과 확인과 필수 실습 기록을 먼저 채워주세요.')
       return
     }
     updateLab({ status: 'completed', completedAt: new Date().toISOString() })
-    updateProgress((current) => ({
-      ...current,
-      mastery: {
-        ...current.mastery,
-        ...Object.fromEntries(lab.relatedConceptIds.map((id) => [id, current.mastery[id] === 'mastered' ? 'mastered' : (state.hintLevel || 0) >= 3 ? 'familiar' : 'proficient'])),
-      },
-    }))
-    notify('실습을 완료했습니다. 증거는 자동 저장됩니다.')
+    notify('실습을 완료했습니다. 힌트 사용과 실습 완료는 숙련도와 별도로 기록됩니다.')
   }
 
   return (
     <div className="page-width lab-page">
       <button className="back-link" type="button" onClick={() => navigate({ page: 'labs' })}><ArrowLeft size={16} />실습실</button>
       <header className="lab-header">
-        <div><span>WEEK {String(lab.week).padStart(2, '0')} · {lab.kind === 'external' ? 'OFFICIAL EXTERNAL LAB' : 'LOCAL SAFE LAB'}</span><h2>{lab.title}</h2><p>{lab.objective}</p></div>
+        <div><span>WEEK {String(lab.week).padStart(2, '0')} · {activityTypeLabels[lab.activityType]?.kicker || 'LEARNING ACTIVITY'}</span><h2>{lab.title}</h2><p>{lab.objective}</p></div>
         <div><Status state={state.status || 'attempted'} /><span><Clock3Icon />{lab.estimatedMinutes}분</span></div>
       </header>
       <div className="lab-scope"><ShieldCheck size={18} /><div><strong>안전한 실습 범위</strong><p>{lab.safeScope}</p></div></div>
@@ -100,11 +94,11 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
         <main className="lab-workbench">
           <LabWorkArea lab={lab} state={state} updateLab={updateLab} progress={progress} updateProgress={updateProgress} notify={notify} />
         </main>
-        <aside className="lab-coach-column"><HintCoach lab={lab} state={state} updateLab={updateLab} /><ValidationBox passed={validationPassed} criteria={lab.successCriteria} /></aside>
+        <aside className="lab-coach-column">{['practice', 'investigation'].includes(lab.activityType) && lab.hints?.length > 0 && <HintCoach lab={lab} state={state} updateLab={updateLab} updateProgress={updateProgress} />}<ResultCheck activityType={lab.activityType} passed={validationPassed} criteria={lab.successCriteria} /></aside>
       </div>
 
-      <EvidencePanel lab={lab} evidence={evidence} updateEvidence={updateEvidence} warnings={findSensitiveData(`${evidence.commands || ''}\n${evidence.observation || ''}`)} />
-      <footer className="lab-complete-footer"><div><strong>{state.status === 'completed' ? '실습 완료' : validationPassed ? '자동 검증 통과' : '자동 검증 대기'}</strong><p>완료 후에도 증거와 설명을 수정할 수 있습니다.</p></div><button className="button primary" type="button" disabled={state.status === 'completed'} onClick={complete}>{state.status === 'completed' ? <><Check size={16} />완료됨</> : <>실습 완료 표시<ArrowRight size={16} /></>}</button></footer>
+      {lab.activityType !== 'assessment' && <ActivityRecordPanel lab={lab} record={record} updateRecord={updateRecord} hintLevel={state.hintLevel || 0} />}
+      <footer className="lab-complete-footer"><div><strong>{state.status === 'completed' ? '활동 완료' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{lab.activityType === 'assessment' ? '응답 결과와 완료 상태는 별도로 저장됩니다.' : '완료 후에도 실습 기록을 수정할 수 있습니다.'}</p></div><button className="button primary" type="button" disabled={state.status === 'completed'} onClick={complete}>{state.status === 'completed' ? <><Check size={16} />완료됨</> : <>활동 완료 표시<ArrowRight size={16} /></>}</button></footer>
     </div>
   )
 }
@@ -135,19 +129,94 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
   }
 }
 
-function HintCoach({ lab, state, updateLab }) {
+function HintCoach({ lab, state, updateLab, updateProgress }) {
   const level = state.hintLevel || 0
   const labels = ['개념 회상', '관찰 지점', '다음 행동']
-  const next = () => updateLab({ hintLevel: Math.min(3, level + 1) })
+  const next = () => {
+    const nextLevel = Math.min(3, level + 1)
+    updateLab({ hintLevel: nextLevel })
+    updateProgress((current) => recordHintUsage(current, { activityId: lab.id, stage: labels[nextLevel - 1] || `stage-${nextLevel}` }))
+  }
   return <section className="hint-coach"><header><Lightbulb size={18} /><div><span>RULE-BASED COACH</span><h3>단계별 힌트</h3></div></header><p>결과 대신 다음에 확인할 대상을 한 단계씩 제시합니다.</p>{lab.hints.map((hint, index) => <div className={`hint-step ${index < level ? 'open' : ''}`} key={hint}><span>{index + 1}</span><div><small>Hint {index + 1} · {labels[index]}</small>{index < level ? <p>{hint}</p> : <strong>아직 열지 않음</strong>}</div></div>)}<button type="button" disabled={level >= 3} onClick={next}>{level >= 3 ? '모든 힌트를 확인함' : `Hint ${level + 1} 열기`}<ChevronRight size={15} /></button>{level > 0 && <div className="coach-next"><strong>다음 확인 항목</strong><p>제안한 지점을 확인한 뒤 나온 출력과 처음 가설이 같은지 비교하세요.</p></div>}</section>
 }
 
-function ValidationBox({ passed, criteria }) {
-  return <section className={`validation-box ${passed ? 'passed' : ''}`}><header>{passed ? <CheckCircle2 size={18} /> : <Circle size={18} />}<strong>{passed ? '자동 검증 통과' : '자동 검증 대기'}</strong></header><ul>{criteria.map((item) => <li key={item}>{item}</li>)}</ul></section>
+function ResultCheck({ activityType, passed, criteria }) {
+  const label = resultLabel(activityType)
+  return <section className={`validation-box ${passed ? 'passed' : ''}`}><header>{passed ? <CheckCircle2 size={18} /> : <Circle size={18} />}<strong>{passed ? `${label} 완료` : `${label} 전`}</strong></header><ul>{criteria.map((item) => <li key={item}>{item}</li>)}</ul>{activityType === 'external' && <p>체크 항목은 학습자 자기 확인이며 이 사이트가 외부 플랫폼 결과를 판정하지 않습니다.</p>}</section>
 }
 
-function EvidencePanel({ lab, evidence, updateEvidence, warnings }) {
-  return <section className="evidence-panel"><header><div><span>EVIDENCE</span><h2>실습 증거</h2><p>관찰과 결론을 분리하고, 다른 사람이 같은 조건에서 따라 할 수 있게 적습니다.</p></div><span className="autosave"><Save size={14} />입력 시 자동 저장</span></header>{warnings.length > 0 && <div className="redaction-warning"><AlertTriangle size={17} /><span><strong>마스킹이 필요한 값이 보입니다.</strong><small>{warnings.map((item) => item.label).join(', ')}</small></span></div>}<div className="evidence-fields"><label><span>명령·요청·조작 순서</span><textarea rows="6" value={evidence.commands || ''} onChange={(event) => updateEvidence({ commands: event.target.value })} placeholder="1. 실행한 명령 또는 조작\n2. 변경한 값 하나\n3. 재시험 순서" /></label><label><span>관찰 결과 <em>20자 이상</em></span><textarea rows="6" value={evidence.observation || ''} onChange={(event) => updateEvidence({ observation: event.target.value })} placeholder="화면·출력·응답·DOM에서 실제로 확인한 사실만 적으세요." /></label><label><span>원리 설명 <em>30자 이상</em></span><textarea rows="6" value={evidence.explanation || ''} onChange={(event) => updateEvidence({ explanation: event.target.value })} placeholder="왜 이런 결과가 나왔는지 Source·처리·출력 또는 권한·경로를 연결하세요." /></label></div><label className="evidence-mask"><input type="checkbox" checked={Boolean(evidence.masked)} onChange={(event) => updateEvidence({ masked: event.target.checked })} /><span>Cookie, Authorization, 비밀번호, API Key, 개인정보를 `[REDACTED]`로 처리했습니다.</span></label></section>
+function ActivityRecordPanel({ lab, record, updateRecord, hintLevel }) {
+  const fields = recordFields[lab.activityType] || recordFields.practice
+  const warnings = findSensitiveData(fields.map((field) => record[field.id] || '').join('\n'))
+  return <section className="evidence-panel activity-record-panel"><header><div><span>LEARNING RECORD</span><h2>실습 기록</h2><p>{activityTypeLabels[lab.activityType]?.recordDescription}</p></div><span className="autosave"><Save size={14} />입력 시 자동 저장</span></header>{warnings.length > 0 && <div className="redaction-warning"><AlertTriangle size={17} /><span><strong>마스킹이 필요한 값이 보입니다.</strong><small>{warnings.map((item) => item.label).join(', ')}</small></span></div>}<div className="activity-record-fields">{fields.map((field) => <label key={field.id}><span>{field.label}{field.required && <em>필수</em>}</span><textarea rows={field.rows || 4} value={record[field.id] || ''} onChange={(event) => updateRecord({ [field.id]: event.target.value })} placeholder={field.placeholder} /></label>)}</div>{hintLevel > 0 && <p className="hint-usage-note"><Lightbulb size={15} />이 활동에서 {hintLevel}단계 힌트를 열었습니다. 힌트 사용은 감점이 아니며 복습 위치로만 기록됩니다.</p>}<div className="record-confirmations">{lab.activityType === 'external' && <label><input type="checkbox" checked={Boolean(record.scopeConfirmed)} onChange={(event) => updateRecord({ scopeConfirmed: event.target.checked })} /><span>공식 제공기관이 지정한 대상·계정·기법 범위만 사용했습니다.</span></label>}{lab.activityType === 'simulation' && <label><input type="checkbox" checked={Boolean(record.resetConfirmed)} onChange={(event) => updateRecord({ resetConfirmed: event.target.checked })} /><span>실험 상태를 초기화하고 기준선으로 돌아왔습니다.</span></label>}<label><input type="checkbox" checked={Boolean(record.masked)} onChange={(event) => updateRecord({ masked: event.target.checked })} /><span>비밀번호, Cookie, Authorization, API Key와 개인정보를 `[REDACTED]`로 처리했습니다.</span></label></div></section>
+}
+
+const activityTypeLabels = {
+  practice: { kicker: 'PRACTICE', recordDescription: '수행 순서, 관찰 결과와 원리를 기록하고 다시 시도할 때 확인할 점을 남깁니다.' },
+  investigation: { kicker: 'INVESTIGATION', recordDescription: '처음 가설과 실제 관찰을 분리하고 결과 차이와 결론을 기록합니다.' },
+  simulation: { kicker: 'SIMULATION', recordDescription: '예상, 바꾼 상태, 실제 변화와 초기화 여부를 기록합니다.' },
+  external: { kicker: 'OFFICIAL EXTERNAL ACTIVITY', recordDescription: '외부 플랫폼의 범위, 목표, 사용 도구, 원리와 결과를 본인이 확인해 기록합니다.' },
+  assessment: { kicker: 'ASSESSMENT', recordDescription: '' },
+}
+
+const recordFields = {
+  practice: [
+    { id: 'procedure', label: '수행 순서', required: true, placeholder: '실행한 명령이나 선택을 순서대로 적으세요.' },
+    { id: 'observation', label: '관찰한 결과', required: true, placeholder: '화면이나 출력에서 직접 확인한 사실을 적으세요.' },
+    { id: 'explanation', label: '왜 그런 결과가 나왔는지', required: true, placeholder: '경로, 권한, 입력과 처리 흐름을 연결해 설명하세요.' },
+    { id: 'blocked', label: '막힌 지점', required: true, placeholder: '없었다면 없었음과 그 이유를 적으세요.', rows: 3 },
+    { id: 'hintReflection', label: '사용한 힌트 뒤 바뀐 판단', placeholder: '힌트를 열었다면 무엇을 새로 확인했는지 적으세요.', rows: 3 },
+    { id: 'nextCheck', label: '다시 할 때 확인할 것', required: true, placeholder: '재시도할 때 먼저 볼 조건을 적으세요.', rows: 3 },
+  ],
+  investigation: [
+    { id: 'hypothesis', label: '처음 가설', required: true, placeholder: '어떤 입력이 어디까지 도달할 것으로 예상했는지 적으세요.' },
+    { id: 'procedure', label: '수행 절차', required: true, placeholder: '기준선, 변경한 값 하나, 재시험 순서로 적으세요.' },
+    { id: 'observation', label: '관찰 결과', required: true, placeholder: '응답, DOM, 저장 상태 또는 코드에서 직접 본 사실을 적으세요.' },
+    { id: 'conclusion', label: '결론', required: true, placeholder: '관찰로 확인할 수 있는 범위만 결론으로 적으세요.' },
+    { id: 'comparison', label: '가설과 결과의 차이', required: true, placeholder: '예상과 달랐던 점 또는 일치한 근거를 적으세요.', rows: 3 },
+    { id: 'blocked', label: '막힌 지점과 힌트 사용', required: true, placeholder: '막힌 단계와 다음에 확인한 위치를 적으세요.', rows: 3 },
+    { id: 'nextCheck', label: '다시 할 때 확인할 것', required: true, placeholder: '같은 조건의 재시험에서 확인할 항목을 적으세요.', rows: 3 },
+  ],
+  simulation: [
+    { id: 'prediction', label: '예상한 변화', required: true, placeholder: '상태를 바꾸기 전에 예상한 결과를 적으세요.' },
+    { id: 'changes', label: '바꾼 상태', required: true, placeholder: '기준선에서 변경한 값을 적으세요.' },
+    { id: 'actual', label: '실제 변화', required: true, placeholder: '화면과 출력에서 관찰한 변화를 적으세요.' },
+    { id: 'comparison', label: '예상과 실제 비교', required: true, placeholder: '일치 여부와 그 이유를 적으세요.' },
+    { id: 'nextCheck', label: '다음 실험에서 확인할 것', required: true, placeholder: '한 번에 바꿀 변수와 확인할 출력을 적으세요.', rows: 3 },
+  ],
+  external: [
+    { id: 'goal', label: '수행 목표', required: true, placeholder: '공식 플랫폼에서 해결한 범위를 적으세요.' },
+    { id: 'tools', label: '사용한 도구·명령', required: true, placeholder: '자격 증명과 정답은 마스킹하고 도구만 적으세요.' },
+    { id: 'principle', label: '핵심 원리', required: true, placeholder: '문제를 해결하는 데 사용한 개념을 설명하세요.' },
+    { id: 'blocked', label: '막힌 지점', required: true, placeholder: '없었다면 없었음이라고 적으세요.' },
+    { id: 'result', label: '결과와 다음 단계', required: true, placeholder: '완료 여부와 이어서 할 항목을 적으세요.' },
+  ],
+}
+
+function legacyActivityRecord(evidence = {}) {
+  if (!evidence || typeof evidence !== 'object') return {}
+  return {
+    procedure: evidence.commands || '',
+    observation: evidence.observation || '',
+    explanation: evidence.explanation || '',
+    conclusion: evidence.explanation || '',
+    masked: Boolean(evidence.masked),
+    migratedFromEvidence: Boolean(evidence.commands || evidence.observation || evidence.explanation),
+  }
+}
+
+function isActivityRecordReady(activityType, record = {}) {
+  if (activityType === 'assessment' || activityType === 'exploration') return true
+  const required = recordFields[activityType] || recordFields.practice
+  const fieldsReady = required.filter((field) => field.required).every((field) => String(record[field.id] || '').trim().length >= 5)
+  if (!fieldsReady || !record.masked) return false
+  if (activityType === 'external' && !record.scopeConfirmed) return false
+  if (activityType === 'simulation' && !record.resetConfirmed) return false
+  return true
+}
+
+function resultLabel(activityType) {
+  return ({ practice: '결과 확인', investigation: '관찰 확인', simulation: '변화 관찰', external: '자기 확인', assessment: '이해 확인' })[activityType] || '결과 확인'
 }
 
 const roeCases = [
@@ -390,24 +459,83 @@ const xssData = {
   },
 }
 
+const xssContextData = {
+  attribute: {
+    label: 'HTML Attribute', title: '따옴표 속성 컨텍스트',
+    request: 'GET /profile?label=UNIQUE_MARKER HTTP/1.1\nHost: training.local',
+    response: '<input placeholder="UNIQUE_MARKER">', preview: 'placeholder = UNIQUE_MARKER',
+    vulnerable: 'input.outerHTML = `<input placeholder="${label}">`;',
+    fixed: 'input.setAttribute("placeholder", label);\n// 프레임워크의 안전한 속성 바인딩도 사용 가능',
+    note: 'HTML 본문과 속성 값은 파서 컨텍스트가 다릅니다. 고정 마커가 따옴표 안에서 어떻게 해석되는지만 비교합니다.',
+    comparison: '허용된 속성에 DOM API로 값을 설정하고, 이벤트 처리 속성처럼 코드로 해석되는 위치에는 신뢰할 수 없는 값을 넣지 않습니다.',
+  },
+  url: {
+    label: 'URL · Scheme', title: 'URL 속성과 scheme allowlist',
+    request: 'GET /link?next=UNIQUE_MARKER HTTP/1.1\nHost: training.local',
+    response: '<a id="next-link">다음 페이지</a>', preview: '차단된 scheme · 안전한 링크를 만들지 않음',
+    vulnerable: 'nextLink.href = next;',
+    fixed: 'const url = new URL(next, location.origin);\nif (["http:", "https:"].includes(url.protocol)) nextLink.href = url.href;',
+    note: 'HTML 인코딩만으로 URL scheme이 안전해지지 않습니다. URL 파싱 뒤 허용할 scheme과 origin을 별도로 검사합니다.',
+    comparison: '고정 예시는 실제 링크를 만들지 않고 `https:` 또는 상대 경로가 허용되는 판단 결과만 표시합니다.',
+  },
+  'js-data': {
+    label: 'JavaScript Data', title: 'JavaScript 코드와 데이터 분리',
+    request: 'GET /dashboard HTTP/1.1\nHost: training.local\n\nprofile.name = UNIQUE_MARKER',
+    response: '<script type="application/json" id="profile-data">{"name":"UNIQUE_MARKER"}</script>', preview: 'profile.name = UNIQUE_MARKER · 텍스트 출력',
+    vulnerable: 'const name = "${profile.name}"; // inline script 문자열 결합',
+    fixed: 'const data = JSON.parse(document.querySelector("#profile-data").textContent);\nlabel.textContent = data.name;',
+    note: '서버 데이터를 실행 코드 문자열에 결합하지 않고 JSON 데이터로 직렬화한 뒤 안전한 DOM API로 출력합니다.',
+    comparison: '`JSON.stringify` 하나만 믿지 않고 HTML parser 경계와 script 종료 문자열 처리까지 프레임워크 지침을 따릅니다.',
+  },
+  sanitizer: {
+    label: 'Sanitizer', title: 'Sanitizer 정책 적용 전·후',
+    request: 'POST /preview HTTP/1.1\nContent-Type: application/json\n\n{"content":"[고정 서식 예시 + UNIQUE_MARKER]"}',
+    response: 'policy: 허용 태그 strong, em, p\n제거: 이벤트 속성, 허용되지 않은 URL scheme', preview: '허용된 고정 서식과 UNIQUE_MARKER만 남음',
+    vulnerable: 'preview.innerHTML = content;',
+    fixed: 'const clean = sanitizer.sanitizeFor("div", content);\npreview.replaceChildren(clean);',
+    note: 'HTML 기능이 반드시 필요할 때만 검증된 Sanitizer와 좁은 정책을 사용합니다. 일반 텍스트에는 textContent가 우선입니다.',
+    comparison: '고정 입력의 정책 적용 전·후를 비교하고, 라이브러리 버전·정책 변경 뒤 회귀 테스트가 필요함을 기록합니다.',
+  },
+  csp: {
+    label: 'CSP', title: '실행 차단과 원인 제거 구분',
+    request: 'GET /search?q=UNIQUE_MARKER HTTP/1.1\nHost: training.local',
+    response: "Content-Security-Policy: default-src 'self'; script-src 'nonce-training'\n\n<div id=\"result\">UNIQUE_MARKER</div>", preview: 'CSP 차단 로그와 안전한 Sink 재시험을 별도로 확인',
+    vulnerable: 'result.innerHTML = value; // 위험 Sink는 그대로 남아 있음',
+    fixed: 'result.textContent = value; // 원인을 제거\n// CSP는 보조 통제로 계속 운영',
+    note: 'CSP가 특정 실행을 막아도 신뢰할 수 없는 데이터가 위험 Sink에 도달하는 원인은 남을 수 있습니다.',
+    comparison: 'PoC 단계는 CSP 차단 상태, 수정 재시험은 위험 Sink 제거 상태입니다. 두 결과를 같은 의미로 쓰지 않습니다.',
+  },
+}
+
+const xssContextOptions = [
+  ['body', 'HTML Body'], ['attribute', 'Attribute'], ['url', 'URL'], ['js-data', 'JS Data'], ['sanitizer', 'Sanitizer'], ['csp', 'CSP'],
+]
+
 function XssLab({ lab, state, updateLab, onPass }) {
-  const data = xssData[lab.kind]
+  const baseData = xssData[lab.kind]
   const [mode, setMode] = useState(state.mode || 'marker')
-  const trace = buildXssTrace(lab.kind, mode)
+  const [contextMode, setContextMode] = useState(state.contextMode || 'body')
+  const data = contextMode === 'body' ? { ...baseData, label: 'HTML Body', comparison: '입력이 HTML body에서 텍스트인지 마크업인지 구분하고, 기본 escaping 또는 안전한 텍스트 Sink로 수정합니다.' } : xssContextData[contextMode]
+  const trace = buildXssTrace(lab.kind, mode, contextMode)
   const runs = state.runs || {}
+  const contextsViewed = state.contextsViewed || { body: true }
   const setAndRun = (nextMode) => {
     setMode(nextMode)
     const nextRuns = { ...runs, [nextMode]: true }
     updateLab({ mode: nextMode, runs: nextRuns })
     if (nextRuns.marker && nextRuns.poc && nextRuns.fixed) onPass({ trace: lab.kind, marker: true, harmlessPoc: true, retest: true })
   }
-  const framePolicy = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">'
+  const changeContext = (nextContext) => {
+    setContextMode(nextContext)
+    updateLab({ contextMode: nextContext, contextsViewed: { ...contextsViewed, [nextContext]: true } })
+  }
+  const framePolicy = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">';
   const previewContent = mode === 'fixed'
     ? `${framePolicy}<main style="font:16px system-ui;padding:24px"><p>${escapeHtml(data.preview)}</p><small style="color:#2e7d5b">텍스트로 렌더링 · 실행 없음</small></main>`
     : mode === 'poc'
-      ? `${framePolicy}<main style="font:16px system-ui;padding:24px"><div style="border:2px solid #c97a20;padding:16px"><strong>TRAINING_POC 실행 표시</strong><p>고정된 무해한 시뮬레이션입니다.</p></div></main>`
+      ? `${framePolicy}<main style="font:16px system-ui;padding:24px"><div style="border:2px solid #c97a20;padding:16px"><strong>${contextMode === 'csp' ? 'CSP_BLOCKED 표시' : 'TRAINING_POC 실행 표시'}</strong><p>고정된 무해한 시뮬레이션입니다.</p></div></main>`
       : `${framePolicy}<main style="font:16px system-ui;padding:24px"><p>${escapeHtml(data.preview)}</p><small>고유 마커 위치만 확인</small></main>`
-  return <section className="xss-lab"><header><div><span>TRAINING-ONLY · XSS TRACE</span><h2>{data.title}</h2><p>{data.note}</p></div><div className="xss-mode"><button type="button" className={mode === 'marker' ? 'active' : ''} onClick={() => setAndRun('marker')}>1. 마커</button><button type="button" className={mode === 'poc' ? 'active' : ''} onClick={() => setAndRun('poc')}>2. 무해한 PoC</button><button type="button" className={mode === 'fixed' ? 'active' : ''} onClick={() => setAndRun('fixed')}>3. 수정 재시험</button></div></header><div className="xss-simulation-note"><LockKeyhole size={17} /><p>사용자 페이로드를 실행하지 않습니다. 미리보기는 `sandbox` iframe에서 고정된 결과만 보여주며 네트워크 전송·쿠키 접근·키 입력 수집 기능이 없습니다.</p></div><div className="xss-three-panel"><section><header><span>INPUT · HTTP</span><strong>요청과 응답</strong></header><pre><code>{data.request}</code></pre><div className="response-block"><span>RESPONSE / STORAGE</span><pre>{data.response}</pre></div></section><section><header><span>DATA FLOW</span><strong>Source → Sink</strong></header><div className="xss-flow"><FlowStep index="01" label="Source" value={trace.source} /><FlowStep index="02" label="전송" value={trace.transport} /><FlowStep index="03" label="처리" value={trace.transform} /><FlowStep index="04" label="Sink" value={trace.sink} /><FlowStep index="05" label="Context" value={trace.context} /><FlowStep index="06" label="실행·영향" value={trace.execution} last /></div></section><section><header><span>ISOLATED PREVIEW</span><strong>렌더링 결과</strong></header><iframe title={`${data.title} 격리 미리보기`} sandbox="" srcDoc={previewContent} /><dl><div><dt>취약점 존재</dt><dd>{mode === 'fixed' ? '재시험에서 제거됨' : 'Source가 위험 Sink에 도달'}</dd></div><div><dt>영향 확인</dt><dd>{mode === 'poc' ? '고정 문자열 표시만 확인' : mode === 'fixed' ? '실행 없음' : '아직 확인하지 않음'}</dd></div></dl></section></div>{lab.kind === 'xss-dom' && <div className="dom-compare"><section><span>SERVER RESPONSE HTML</span><pre><code>{data.response}</code></pre></section><ArrowRight size={18} /><section><span>EXECUTED DOM</span><pre><code>{mode === 'fixed' ? '<div id="result">&lt;고정 입력&gt;</div>' : '<div id="result">[브라우저가 만든 DOM]</div>'}</code></pre></section></div>}<div className="code-diff" aria-label="취약 코드와 수정 코드 비교"><section><span>VULNERABLE</span><pre><code>{data.vulnerable}</code></pre></section><section><span>FIXED</span><pre><code>{data.fixed}</code></pre></section></div><footer className="xss-run-status">{['marker', 'poc', 'fixed'].map((item, index) => <span className={runs[item] ? 'done' : ''} key={item}>{runs[item] ? <Check size={14} /> : index + 1}{item === 'marker' ? '마커 위치' : item === 'poc' ? '무해한 실행' : '수정 재시험'}</span>)}</footer></section>
+  return <section className="xss-lab"><header><div><span>TRAINING-ONLY · XSS TRACE</span><h2>{baseData.title}</h2><p>{data.title} · {data.note}</p></div><div className="xss-mode"><button type="button" className={mode === 'marker' ? 'active' : ''} onClick={() => setAndRun('marker')}>1. 마커</button><button type="button" className={mode === 'poc' ? 'active' : ''} onClick={() => setAndRun('poc')}>2. 무해한 PoC</button><button type="button" className={mode === 'fixed' ? 'active' : ''} onClick={() => setAndRun('fixed')}>3. 수정 재시험</button></div></header><div className="xss-context-tabs" role="tablist" aria-label="XSS 출력 컨텍스트">{xssContextOptions.map(([id, label]) => <button type="button" role="tab" aria-selected={contextMode === id} className={contextMode === id ? 'active' : ''} key={id} onClick={() => changeContext(id)}>{contextsViewed[id] && <Check size={13} />}{label}</button>)}</div><div className="xss-simulation-note"><LockKeyhole size={17} /><p>사용자 페이로드를 실행하지 않습니다. 미리보기는 `sandbox` iframe에서 고정된 결과만 보여주며 네트워크 전송·쿠키 접근·키 입력 수집 기능이 없습니다.</p></div><div className="xss-three-panel"><section><header><span>INPUT · HTTP</span><strong>요청과 응답</strong></header><pre><code>{data.request}</code></pre><div className="response-block"><span>RESPONSE / STORAGE</span><pre>{data.response}</pre></div></section><section><header><span>DATA FLOW</span><strong>Source → Sink</strong></header><div className="xss-flow"><FlowStep index="01" label="Source" value={trace.source} /><FlowStep index="02" label="전송" value={trace.transport} /><FlowStep index="03" label="처리" value={trace.transform} /><FlowStep index="04" label="Sink" value={trace.sink} /><FlowStep index="05" label="Context" value={trace.context} /><FlowStep index="06" label="실행·영향" value={trace.execution} last /></div></section><section><header><span>ISOLATED PREVIEW</span><strong>렌더링 결과</strong></header><iframe title={`${data.title} 격리 미리보기`} sandbox="" srcDoc={previewContent} /><dl><div><dt>취약점 원인</dt><dd>{mode === 'fixed' ? '재시험에서 위험 Sink 제거' : 'Source가 위험 Sink에 도달'}</dd></div><div><dt>영향 확인</dt><dd>{mode === 'poc' ? (contextMode === 'csp' ? 'CSP 차단과 원인 잔존을 구분' : '고정 문자열 표시만 확인') : mode === 'fixed' ? '실행 없음' : '아직 확인하지 않음'}</dd></div></dl></section></div>{lab.kind === 'xss-dom' && contextMode === 'body' && <div className="dom-compare"><section><span>SERVER RESPONSE HTML</span><pre><code>{data.response}</code></pre></section><ArrowRight size={18} /><section><span>EXECUTED DOM</span><pre><code>{mode === 'fixed' ? '<div id="result">&lt;고정 입력&gt;</div>' : '<div id="result">[브라우저가 만든 DOM]</div>'}</code></pre></section></div>}<div className="xss-context-guidance"><strong>{data.title}</strong><p>{data.comparison}</p></div><div className="code-diff" aria-label="취약 코드와 수정 코드 비교"><section><span>VULNERABLE</span><pre><code>{data.vulnerable}</code></pre></section><section><span>FIXED</span><pre><code>{data.fixed}</code></pre></section></div><footer className="xss-run-status">{['marker', 'poc', 'fixed'].map((item, index) => <span className={runs[item] ? 'done' : ''} key={item}>{runs[item] ? <Check size={14} /> : index + 1}{item === 'marker' ? '마커 위치' : item === 'poc' ? '무해한 실행' : '수정 재시험'}</span>)}</footer></section>
 }
 
 function FlowStep({ index, label, value, last }) { return <div className="flow-step"><span>{index}</span><div><small>{label}</small><strong>{value}</strong></div>{!last && <ArrowDown size={15} />}</div> }
@@ -417,7 +545,7 @@ function ExternalLab({ lab, state, updateLab, onPass }) {
   const [confirmed, setConfirmed] = useState(state.confirmed || { scope: false, masked: false, record: false })
   const update = (id, checked) => { const next = { ...confirmed, [id]: checked }; setConfirmed(next); updateLab({ confirmed: next }); if (Object.values(next).every(Boolean)) onPass({ manualChecklist: true }) }
   const links = lab.externalLinks || [{ label: '공식 Bandit 열기', url: 'https://overthewire.org/wargames/bandit/' }]
-  return <section className="external-lab"><header><ExternalLink size={20} /><div><span>OFFICIAL TRAINING PLATFORM</span><h2>{isBandit ? 'OverTheWire Bandit' : lab.title}</h2><p>외부 계정이 필요할 수 있습니다. 플랫폼 내부에서는 외부 서버에 요청을 보내거나 정답을 자동 수집하지 않습니다.</p></div></header><div className="external-meta"><div><small>제공 기관</small><strong>{lab.provider || 'OverTheWire'}</strong></div><div><small>난이도</small><strong>입문</strong></div><div><small>예상 시간</small><strong>{lab.estimatedMinutes}분</strong></div><div><small>외부 계정</small><strong>{isBandit ? '제공 계정 사용' : '플랫폼별 확인'}</strong></div></div><div className="external-link-row">{links.map((link) => <a className="button primary" href={link.url} target="_blank" rel="noreferrer" key={link.url}>{link.label}<ExternalLink size={16} /></a>)}</div><section><h3>플랫폼 내부 제출 요구사항</h3><label><input type="checkbox" checked={confirmed.scope} onChange={(event) => update('scope', event.target.checked)} /><span>제공 기관이 지정한 Lab·호스트·계정과 문제 범위만 사용했습니다.</span></label><label><input type="checkbox" checked={confirmed.masked} onChange={(event) => update('masked', event.target.checked)} /><span>비밀번호, Cookie와 자격 증명을 `[REDACTED]`로 처리했습니다.</span></label><label><input type="checkbox" checked={confirmed.record} onChange={(event) => update('record', event.target.checked)} /><span>{isBandit ? '레벨별 목표·명령·원리·막힌 지점·힌트 사용·결과 증거' : 'Lab별 Source·Transform·Sink·Context·수정 방향'}를 기록했습니다.</span></label></section></section>
+  return <section className="external-lab"><header><ExternalLink size={20} /><div><span>OFFICIAL TRAINING PLATFORM</span><h2>{isBandit ? 'OverTheWire Bandit' : lab.title}</h2><p>외부 계정이 필요할 수 있습니다. 이 사이트는 외부 서버에 요청을 보내거나 정답·결과를 가져오지 않습니다.</p></div></header><div className="external-meta"><div><small>제공 기관</small><strong>{lab.provider || 'OverTheWire'}</strong></div><div><small>난이도</small><strong>입문</strong></div><div><small>예상 시간</small><strong>{lab.estimatedMinutes}분</strong></div><div><small>외부 계정</small><strong>{isBandit ? '제공 계정 사용' : '플랫폼별 확인'}</strong></div></div><div className="external-link-row">{links.map((link) => <a className="button primary" href={link.url} target="_blank" rel="noreferrer" key={link.url}>{link.label}<ExternalLink size={16} /></a>)}</div><section><h3>플랫폼 내부 완료 확인</h3><label><input type="checkbox" checked={confirmed.scope} onChange={(event) => update('scope', event.target.checked)} /><span>제공 기관이 지정한 Lab·호스트·계정과 문제 범위만 사용했습니다.</span></label><label><input type="checkbox" checked={confirmed.masked} onChange={(event) => update('masked', event.target.checked)} /><span>비밀번호, Cookie와 자격 증명을 `[REDACTED]`로 처리했습니다.</span></label><label><input type="checkbox" checked={confirmed.record} onChange={(event) => update('record', event.target.checked)} /><span>{isBandit ? '레벨별 목표·명령·원리·막힌 지점·힌트 사용·결과 기록' : 'Lab별 Source·Transform·Sink·Context·수정 방향'}을 실습 기록에 정리했습니다.</span></label><p>이 체크는 외부 결과 판정이 아니라 학습자 자기 확인입니다.</p></section></section>
 }
 
 function GenericLab({ lab, onPass }) { return <section className="generic-lab"><FlaskConical size={24} /><h2>{lab.title}</h2><p>{lab.objective}</p><button className="button primary" type="button" onClick={() => onPass({ manual: true })}>관찰 완료</button></section> }
