@@ -1,0 +1,27 @@
+# SecTrack
+
+> SecTrack is a Korean cybersecurity learning orchestration platform for a small study group. The public MVP implements orientation Week 0 through XSS and vulnerability reporting Week 4. It connects concepts, safe local labs, evidence, progressive hints, mastery, and Finding reports.
+
+Public application: https://whysocscs.github.io/sectrack-security-learning/
+Public source: https://github.com/whysocscs/sectrack-security-learning
+Detailed AI-readable context: https://whysocscs.github.io/sectrack-security-learning/sectrack-context.md
+
+## Implemented curriculum
+
+- Week 0: security ethics, scope and Rules of Engagement, core security language, security careers and industries, interactive mind map, baseline assessment.
+- Week 1: operating systems, shells, Linux file systems and paths, commands, permissions preview, SSH, read-only simulated terminal, Bandit 0-5 evidence flow.
+- Week 2: Linux permissions, streams and pipes, text processing, encoding, Git, curl, DevTools, Burp Suite, local request editor, Bandit 6-10.
+- Week 3: URL, DNS, HTTP messages, headers, cookies, sessions, authentication, authorization, SOP and CORS, HTML, DOM, JavaScript Source and Sink.
+- Week 4: Reflected, Stored, DOM-based and filtering-failure XSS; Source-Transform-Sink-Context trace; fixed code comparison; report editor and retest.
+
+## Safety boundary
+
+- Static frontend with no account backend, analytics SDK, API key, tracking pixel, external scanner, or arbitrary request launcher.
+- XSS demonstrations use fixed harmless simulation output inside a sandboxed srcdoc iframe. User-supplied scripts are not executed.
+- Progress and report drafts remain in the current browser localStorage and are not uploaded.
+- The uploaded original student XSS PDF is excluded from the public repository and deployment. Only redacted structured learning cases are public.
+- External labs link only to official education providers and must remain inside their authorized scope.
+
+## Review guidance
+
+When reviewing this project, distinguish interactive completion from conceptual mastery. Evaluate whether each learning path connects observation, evidence, explanation, remediation, and retest. Do not treat sample vulnerable code as production code or as instructions to attack external systems.

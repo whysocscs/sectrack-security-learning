@@ -25,6 +25,8 @@ npm run build
 
 `main` 브랜치가 GitHub에 푸시되면 `.github/workflows/pages.yml`이 잠긴 의존성 설치, 소스 검사, 테스트와 프로덕션 빌드를 통과한 결과만 GitHub Pages에 배포합니다.
 
+AI 브라우저가 SPA 화면을 실행하지 못하는 경우를 위해 `public/llms.txt`와 `public/sectrack-context.md`에 공개 범위와 안전 경계를 정적 텍스트로 제공합니다.
+
 ## 데이터 저장
 
 MVP의 학습 진도, 마인드맵 상태, 실습 증거와 보고서 초안은 브라우저 `localStorage`의 `sectrack-orchestrator-v2` 키에 저장됩니다. 서버 계정이나 외부 API 키는 사용하지 않습니다.
