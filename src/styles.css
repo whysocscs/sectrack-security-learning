@@ -491,8 +491,9 @@ img { display: block; max-width: 100%; }
 .lesson-case li svg, .lesson-summary li svg { flex: 0 0 auto; margin-top: 3px; color: var(--success); }
 .lesson-misconception { padding: 17px 18px; background: #fffaf0; border-top: 1px solid #e5cf9c; border-bottom: 1px solid #e5cf9c; }
 .lesson-misconception ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.lesson-misconception li { display: grid; grid-template-columns: 38px 1fr; gap: 9px; color: #4b4435; font-size: .875rem; line-height: 1.65; }
+.lesson-misconception li { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 9px; color: #4b4435; font-size: .875rem; line-height: 1.65; }
 .lesson-misconception li > span { height: max-content; padding: 2px 4px; color: #81561b; background: #f4e8cb; border-radius: 3px; font-size: .6875rem; font-weight: 800; text-align: center; }
+.lesson-misconception li > div { min-width: 0; overflow-wrap: anywhere; }
 .lesson-warning { display: flex; gap: 12px; margin-top: 28px; padding: 15px 17px; color: #713e2e; background: var(--danger-soft); border: 1px solid #e6bfbb; border-radius: 5px; }
 .lesson-warning svg { flex: 0 0 auto; margin-top: 2px; }
 .lesson-warning h3 { margin: 0 0 5px; font-size: .9375rem; }

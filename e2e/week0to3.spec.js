@@ -26,6 +26,10 @@ test('merged Week 1 keeps Linux reader and shell layouts within the viewport', a
   await open(page, '#/learn/week/1/concepts/w1-navigation')
   await expect(page.locator('.reader-toc > button')).toHaveCount(14)
   await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+  const misconceptions = page.locator('.lesson-misconception li')
+  await expect(misconceptions).toHaveCount(2)
+  await expect(misconceptions.locator('> div')).toHaveCount(2)
+  await expect(misconceptions.locator('> code')).toHaveCount(0)
   if ((page.viewportSize()?.width || 0) <= 980) {
     const firstModule = page.locator('.reader-toc > button').first()
     await expect(firstModule).toHaveCSS('min-height', '64px')
