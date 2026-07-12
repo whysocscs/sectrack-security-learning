@@ -63,9 +63,11 @@ import {
   recordQuizAttempt,
 } from './learningModel'
 
+const regularWeekCount = Object.values(weekContent).filter((week) => week.index > 0).length
+
 const navItems = [
   { page: 'home', label: '홈', icon: BookOpen },
-  { page: 'learn', label: '16주 로드맵', icon: GraduationCap },
+  { page: 'learn', label: `${regularWeekCount}주 로드맵`, icon: GraduationCap },
   { page: 'mindmap', label: '직무 지도', icon: Map },
   { page: 'labs', label: '실습실', icon: Terminal },
   { page: 'reports', label: '보고서', icon: FileCheck2 },
@@ -299,7 +301,7 @@ function Sidebar({ route, navigate, open, close, progress, mode, setMode }) {
         <div className="sidebar-head">
           <button className="brand" type="button" aria-label="SecTrack 홈" onClick={() => navigate({ page: 'home' })}>
             <span className="brand-symbol"><ShieldCheck size={19} /></span>
-            <span><strong>SECTRACK</strong><small>16주 보안 기초 트랙</small></span>
+            <span><strong>SECTRACK</strong><small>{regularWeekCount}주 보안 기초 트랙</small></span>
           </button>
           <button className="icon-button sidebar-close" type="button" onClick={close} aria-label="메뉴 닫기"><PanelLeftClose size={19} /></button>
           <button className="icon-button sidebar-collapse" type="button" onClick={() => setMode(mode === 'compact' ? 'expanded' : 'compact')} aria-label={mode === 'compact' ? '사이드바 펼치기' : '사이드바 접기'} title={mode === 'compact' ? '사이드바 펼치기' : '사이드바 접기'}>{mode === 'compact' ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button>
@@ -507,6 +509,8 @@ function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify 
 }
 
 function WeekOverview({ week, navigate, setTab }) {
+  const requiredModuleCount = week.modules.filter((module) => module.path !== 'extension').length
+  const extensionModuleCount = week.modules.length - requiredModuleCount
   const hasExtensionLab = week.labs.some((lab) => lab.path === 'extension')
   return (
     <div className="week-overview">
@@ -514,15 +518,16 @@ function WeekOverview({ week, navigate, setTab }) {
         <section className="document-section">
           <SectionTitle title="이번 주에 할 일" />
           <ol className="sequence-list">
-            <li><span>01</span><div><strong>개념 모듈 {week.modules.length}개 읽기</strong><p>용어와 데이터 흐름을 먼저 확인합니다.</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>
-            <li><span>02</span><div><strong>내부 실습으로 관찰 기록</strong><p>단계형 힌트는 막힌 경우에만 엽니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>
-            {hasExtensionLab && <li><span>03</span><div><strong>공식 외부 실습 또는 심화 과제</strong><p>자격 증명과 토큰을 마스킹하고 수행 과정을 기록합니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>}
-            <li><span>{hasExtensionLab ? '04' : '03'}</span><div><strong>이해 확인과 주차 학습 정리</strong><p>오답 개념을 다시 확인한 뒤 이번 주 학습을 본인의 문장으로 정리합니다.</p></div><button type="button" onClick={() => setTab('quiz')}>열기</button></li>
+            <li><span>01</span><div><strong>필수 개념 모듈 {requiredModuleCount}개 읽기</strong><p>용어와 데이터 흐름을 먼저 확인합니다.</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>
+            {extensionModuleCount > 0 && <li><span>02</span><div><strong>심화 개념 모듈 {extensionModuleCount}개</strong><p>필수 경로를 마친 뒤 더 깊게 확인합니다.</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>}
+            <li><span>{extensionModuleCount > 0 ? '03' : '02'}</span><div><strong>내부 실습으로 관찰 기록</strong><p>단계형 힌트는 막힌 경우에만 엽니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>
+            {hasExtensionLab && <li><span>{extensionModuleCount > 0 ? '04' : '03'}</span><div><strong>공식 외부 실습 또는 심화 과제</strong><p>자격 증명과 토큰을 마스킹하고 수행 과정을 기록합니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>}
+            <li><span>{String(3 + Number(extensionModuleCount > 0) + Number(hasExtensionLab)).padStart(2, '0')}</span><div><strong>이해 확인과 주차 학습 정리</strong><p>오답 개념을 다시 확인한 뒤 이번 주 학습을 본인의 문장으로 정리합니다.</p></div><button type="button" onClick={() => setTab('quiz')}>열기</button></li>
           </ol>
         </section>
         <section className="document-section"><SectionTitle title="학습 목표" /><ul className="check-list">{week.objectives.map((item) => <li key={item}><CheckCircle2 size={16} />{item}</li>)}</ul></section>
         {week.index === 0 && <WeekZeroCareerOverview navigate={navigate} />}
-        <section className="document-section"><SectionTitle title="보고서와 연결" /><div className="report-connection"><FileText size={20} /><p>{week.reportConnection}</p>{week.index === 4 && <button className="button secondary" type="button" onClick={() => navigate({ page: 'report-editor', reportId: 'local-xss-draft' })}>Finding 초안 열기<ArrowRight size={15} /></button>}</div></section>
+        <section className="document-section"><SectionTitle title="보고서와 연결" /><div className="report-connection"><FileText size={20} /><p>{week.reportConnection}</p>{week.modules.some((module) => module.id === 'w4-types') && <button className="button secondary" type="button" onClick={() => navigate({ page: 'report-editor', reportId: 'local-xss-draft' })}>Finding 초안 열기<ArrowRight size={15} /></button>}</div></section>
       </div>
       <aside className="week-aside">
         <section><h3>학습 구성</h3><dl><div><dt>핵심 개념</dt><dd>{week.modules.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>필수 활동</dt><dd>{week.labs.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>심화 활동</dt><dd>{week.labs.filter((item) => item.path === 'extension').length}개</dd></div><div><dt>이해 확인</dt><dd>{quizzes[week.index].length}문항</dd></div></dl></section>

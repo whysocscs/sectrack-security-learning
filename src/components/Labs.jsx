@@ -105,9 +105,9 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
       <div className="lab-meta-grid"><section><h3>선수지식</h3><ul>{lab.prerequisites.length ? lab.prerequisites.map((item) => <LabPrerequisite key={item} item={item} navigate={navigate} />) : <li>별도 선수지식 없음</li>}</ul></section><section><h3>필요한 도구</h3><ul>{lab.requiredTools.map((item) => <li key={item}>{item}</li>)}</ul></section><section><h3>성공 조건</h3><ul>{lab.successCriteria.map((item) => <li key={item}>{item}</li>)}</ul></section></div>
 
       <div className="lab-work-layout">
-        <main className="lab-workbench">
+        <div className="lab-workbench">
           <LabWorkArea lab={lab} state={state} updateLab={updateLab} progress={progress} updateProgress={updateProgress} notify={notify} />
-        </main>
+        </div>
         <aside className="lab-coach-column">{['practice', 'investigation'].includes(lab.activityType) && lab.hints?.length > 0 && <HintCoach lab={lab} state={state} updateLab={updateLab} updateProgress={updateProgress} />}<ResultCheck activityType={lab.activityType} passed={validationPassed} criteria={lab.successCriteria} /></aside>
       </div>
 

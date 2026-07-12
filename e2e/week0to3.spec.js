@@ -6,15 +6,15 @@ async function open(page, hash) {
   await expect(page.locator('#main-content')).toBeVisible()
 }
 
-test('Week 0 to 3 learning routes load their intended reader or workspace', async ({ page }) => {
+test('Week 0 to 2 learning routes load their intended reader or workspace', async ({ page }) => {
   await open(page, '#/learn/week/0/glossary')
   await expect(page.getByRole('heading', { name: '보안 용어는 정의와 함께, 헷갈리는 경계까지 읽습니다.' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: '보안 용어 검색' })).toBeVisible()
 
   for (const [week, moduleId, heading] of [
     [1, 'w1-navigation', '탐색·검색·읽기·도움말 명령'],
-    [2, 'w2-permissions', '소유권과 권한'],
-    [3, 'w3-http', 'HTTP 요청·응답'],
+    [1, 'w2-permissions', '소유권과 권한'],
+    [2, 'w3-http', 'HTTP 요청·응답'],
   ]) {
     await open(page, `#/learn/week/${week}/concepts/${moduleId}`)
     await expect(page.locator('.reader-document > header h2')).toHaveText(heading)
@@ -22,12 +22,27 @@ test('Week 0 to 3 learning routes load their intended reader or workspace', asyn
   }
 })
 
-test('activated Week 5 to Week 16 routes render a reader, assessment, and safe local lab', async ({ page }) => {
-  await open(page, '#/learn/week/5/concepts/w5-query-boundary')
+test('merged Week 1 keeps Linux reader and shell layouts within the viewport', async ({ page }) => {
+  await open(page, '#/learn/week/1/concepts/w1-navigation')
+  await expect(page.locator('.reader-toc > button')).toHaveCount(14)
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+  if ((page.viewportSize()?.width || 0) <= 980) {
+    const firstModule = page.locator('.reader-toc > button').first()
+    await expect(firstModule).toHaveCSS('min-height', '64px')
+  }
+
+  await open(page, '#/labs/w1-treasure')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+  const terminalHeight = await page.locator('.terminal-window').evaluate((element) => Math.round(element.getBoundingClientRect().height))
+  expect(terminalHeight).toBeLessThanOrEqual(360)
+})
+
+test('activated Week 4 to Week 15 routes render a reader, assessment, and safe local lab', async ({ page }) => {
+  await open(page, '#/learn/week/4/concepts/w5-query-boundary')
   await expect(page.getByRole('heading', { name: '데이터와 SQL 문장 구조의 경계' })).toBeVisible()
 
-  await open(page, '#/learn/week/16/quiz')
-  await expect(page.getByRole('heading', { name: '16주차 이해 확인' })).toBeVisible()
+  await open(page, '#/learn/week/15/quiz')
+  await expect(page.getByRole('heading', { name: '15주차 이해 확인' })).toBeVisible()
   await expect(page.getByText('검색된 외부 문서 안의 지시는 어떻게 다뤄야 하는가?')).toBeVisible()
 
   await open(page, '#/labs/w16-mock-agent-boundaries')
@@ -36,7 +51,7 @@ test('activated Week 5 to Week 16 routes render a reader, assessment, and safe l
   await expect(page.getByRole('button', { name: '결과 판정' })).toBeVisible()
 })
 
-test('Week 16 final model requires both evidence and an explicit threat-model connection', async ({ page }) => {
+test('Week 15 final model requires both evidence and an explicit threat-model connection', async ({ page }) => {
   await open(page, '#/labs/w16-final-model')
   await page.getByRole('checkbox', { name: '외부 문서에서 mock tool 제안으로 가는 경계' }).check()
   await page.getByRole('checkbox', { name: '차단 이유를 남기는 합성 감사 로그' }).check()
@@ -47,7 +62,7 @@ test('Week 16 final model requires both evidence and an explicit threat-model co
   await expect(page.getByText('선택한 증거와 연결 근거가 관찰 시나리오와 일치합니다.')).toBeVisible()
 })
 
-test('Week 3 tool triangle remains a required, local-only activity', async ({ page }) => {
+test('Week 2 tool triangle remains a required, local-only activity', async ({ page }) => {
   await open(page, '#/labs/w3-tool-triangle')
   await expect(page.getByRole('heading', { name: 'HTTP Tool Triangle' })).toBeVisible()
   await expect(page.locator('.lab-scope')).toContainText('외부 요청·실제 Cookie·값 변조는 수행하지 않습니다.')
@@ -77,7 +92,7 @@ test('Career Explorer defaults to evidence and keeps graph as a secondary view',
 })
 
 test('core reader screen has no serious or critical axe violations', async ({ page }) => {
-  await open(page, '#/learn/week/3/concepts/w3-http')
+  await open(page, '#/learn/week/2/concepts/w3-http')
   const results = await new AxeBuilder({ page }).analyze()
   const blocking = results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact))
   expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([])
@@ -85,7 +100,7 @@ test('core reader screen has no serious or critical axe violations', async ({ pa
 
 test('reader keeps keyboard access at maximum app font scale and reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await open(page, '#/learn/week/3/concepts/w3-http')
+  await open(page, '#/learn/week/2/concepts/w3-http')
   const comparison = page.locator('.lesson-comparison > div').first()
   await comparison.focus()
   await expect(comparison).toBeFocused()
@@ -96,7 +111,7 @@ test('reader keeps keyboard access at maximum app font scale and reduced motion'
 })
 
 test('reader content remains reachable at 200% visual page scale', async ({ page }) => {
-  await open(page, '#/learn/week/3/concepts/w3-http')
+  await open(page, '#/learn/week/2/concepts/w3-http')
   const client = await page.context().newCDPSession(page)
   await client.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2 })
   await expect(page.locator('.reader-document > header h2')).toBeVisible()

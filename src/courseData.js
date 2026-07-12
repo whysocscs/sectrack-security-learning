@@ -144,37 +144,18 @@ function normalizeWeek(week) {
   }
 }
 
-const laterWeekContent = { ...week5to10Content, ...week11to16Content }
-const laterWeekRoadmap = Object.values(laterWeekContent).map((week) => ({
-  id: week.id,
-  index: week.index,
-  title: week.title,
-  summary: week.summary,
-  deliverable: week.deliverables?.[0] || week.recordBlueprint?.title || `${week.title} 학습 기록`,
-  estimatedMinutes: week.estimatedMinutes,
-  status: 'available',
-  keyConcepts: week.keyConcepts || week.objectives?.slice(0, 3) || [],
-}))
-
-const activeRoadmap = [
-  { id: 'week-0', index: 0, title: '정보보안 핵심 용어와 분야·직무 지도', summary: '핵심 보안 용어, 전문 분야, 세부 직무, 실제 공고 근거와 나의 보안 지도', deliverable: '나의 보안 지도', estimatedMinutes: 0, status: 'available', keyConcepts: ['핵심 보안 용어', '분야·직무', '채용 근거'] },
-  { id: 'week-1', index: 1, title: '보안 기초·Linux 1', summary: '파일 시스템, 경로, 기본 명령, SSH', deliverable: 'Bandit 0~5 풀이', estimatedMinutes: 360, status: 'available', keyConcepts: ['파일 시스템', '경로와 권한', 'SSH'] },
-  { id: 'week-2', index: 2, title: 'Linux 2·도구', summary: '권한, 파이프, Git, curl, DevTools, Burp Suite', deliverable: 'Bandit 6~10·요청 변조 기록', estimatedMinutes: 420, status: 'available', keyConcepts: ['권한', '표준 스트림', 'HTTP 관찰 도구'] },
-  { id: 'week-3', index: 3, title: '웹 구조·HTTP', summary: 'URL, DNS, HTTP, Cookie·Session, DOM과 Source·Sink', deliverable: 'HTTP 메시지 분석', estimatedMinutes: 360, status: 'available', keyConcepts: ['HTTP', 'Cookie·Session', 'Source·Sink'] },
-  { id: 'week-4', index: 4, title: 'Cross-Site Scripting', summary: 'Reflected·Stored·DOM XSS, Context, Sanitization, CSP', deliverable: 'XSS Lab·취약점 보고서', estimatedMinutes: 480, status: 'current', keyConcepts: ['XSS 유형', 'Taint Flow', '출력 인코딩'] },
-  ...laterWeekRoadmap,
-]
+const baseLaterWeekContent = { ...week5to10Content, ...week11to16Content }
 
 const commonLabFields = {
   submissionSchema: ['과정 기록', '관찰 결과', '원리 설명', '민감정보 마스킹 확인'],
   rubric: ['재현 가능한 순서', '관찰과 결론의 연결', '안전 범위 준수', '자기 언어로 쓴 설명'],
 }
 
-const rawWeekContent = {
+const baseWeekContent = {
   0: {
     id: 'week-0', index: 0, title: '오리엔테이션·보안 전체 지도',
     summary: '이 과정에서 무엇을, 어디까지, 어떤 증거를 남기며 학습할지 먼저 정합니다.',
-    objectives: ['정보보안의 주요 분야를 한 장의 지도에서 구분한다.', '자산·위협·취약점·위험·통제의 관계를 설명한다.', '허가된 범위와 Rules of Engagement를 판단한다.', '관심 직무와 16주 학습 내용을 연결한다.'],
+    objectives: ['정보보안의 주요 분야를 한 장의 지도에서 구분한다.', '자산·위협·취약점·위험·통제의 관계를 설명한다.', '허가된 범위와 Rules of Engagement를 판단한다.', '관심 직무와 15주 학습 내용을 연결한다.'],
     prerequisites: ['별도 선수지식 없음', '웹 브라우저', '메모를 남길 수 있는 환경'],
     estimatedMinutes: 150, quizMinutes: 15, recordMinutes: 25,
     modules: [
@@ -318,23 +299,65 @@ const rawWeekContent = {
   },
 }
 
-export const weekContent = Object.fromEntries(
-  Object.entries({ ...rawWeekContent, 0: weekZeroDefinition, ...laterWeekContent }).map(([index, week]) => [index, normalizeWeek(week)]),
-)
+function mergeLinuxWeeks(weekOne, weekTwo) {
+  return {
+    ...weekOne,
+    title: '보안 기초·Linux·도구',
+    summary: '파일·경로·권한·텍스트 처리·HTTP 관찰 도구를 한 흐름으로 익히고 Bandit 0~10에 적용합니다.',
+    objectives: [...weekOne.objectives, ...weekTwo.objectives],
+    prerequisites: weekOne.prerequisites,
+    quizMinutes: 25,
+    recordMinutes: 35,
+    modules: [...weekOne.modules, ...weekTwo.modules],
+    labs: [...weekOne.labs, ...weekTwo.labs],
+    deliverables: [...weekOne.deliverables, ...weekTwo.deliverables],
+    recordBlueprint: {
+      title: 'Linux 관찰·명령 기록',
+      description: '경로·권한·텍스트 처리·HTTP 기준선과 Bandit 풀이를 한 기록에서 연결합니다.',
+      sections: ['현재 위치·대상 경로·명령 목적', '권한·스트림·텍스트 처리 관찰', '정상 HTTP 기준선과 마스킹', 'Bandit 0~10 풀이와 막힌 지점', '다음에 재시험할 조건'],
+    },
+    reportConnection: '명령, 현재 위치, 대상 경로, 중간 출력, 권한·마스킹 여부를 남기는 기록 습관을 만듭니다.',
+  }
+}
 
-export const roadmap = [
-  ...activeRoadmap.map((item) => {
-    const week = weekContent[item.index]
-    return {
-      ...item,
-      requiredMinutes: week.requiredMinutes,
-      extensionMinutes: week.extensionMinutes,
-      estimatedMinutes: week.estimatedMinutes,
-    }
-  }),
-]
+function reindexWeek(week, index) {
+  return {
+    ...week,
+    id: `week-${index}`,
+    index,
+    labs: (week.labs || []).map((lab) => ({ ...lab, week: index })),
+  }
+}
 
-export const quizzes = {
+const mergedWeekOne = mergeLinuxWeeks(baseWeekContent[1], baseWeekContent[2])
+const curriculumDefinitions = [
+  weekZeroDefinition,
+  reindexWeek(mergedWeekOne, 1),
+  ...Object.values(baseWeekContent).filter((week) => week.index >= 3).map((week) => reindexWeek(week, week.index - 1)),
+  ...Object.values(baseLaterWeekContent).map((week) => reindexWeek(week, week.index - 1)),
+].sort((left, right) => left.index - right.index)
+
+const definitionsWithNext = curriculumDefinitions.map((week, index, weeks) => ({
+  ...week,
+  next: weeks[index + 1] ? `Week ${weeks[index + 1].index} · ${weeks[index + 1].title}` : '과정 마무리 · 학습 기록과 복습',
+}))
+
+export const weekContent = Object.fromEntries(definitionsWithNext.map((week) => [week.index, normalizeWeek(week)]))
+
+export const roadmap = Object.values(weekContent).map((week) => ({
+  id: week.id,
+  index: week.index,
+  title: week.title,
+  summary: week.summary,
+  deliverable: week.deliverables?.[0] || week.recordBlueprint?.title || `${week.title} 학습 기록`,
+  requiredMinutes: week.requiredMinutes,
+  extensionMinutes: week.extensionMinutes,
+  estimatedMinutes: week.estimatedMinutes,
+  status: week.index === 1 ? 'current' : 'available',
+  keyConcepts: week.keyConcepts || week.objectives?.slice(0, 3) || [],
+}))
+
+const baseQuizzes = {
   0: weekZeroQuizQuestions,
   1: [
     { id: 'w1q1', conceptIds: ['w1-filesystem'], difficulty: 'foundation', remediationModuleIds: ['w1-filesystem'], question: '`/home/student/notes`는 어떤 경로인가?', options: ['상대 경로', '절대 경로', '환경 변수'], answer: 1, explanation: '`/`에서 시작하므로 절대 경로입니다.' },
@@ -372,13 +395,31 @@ export const quizzes = {
   ...week11to16Quizzes,
 }
 
-const coreQuizQuestionIds = {
+export const quizzes = Object.fromEntries([
+  [0, baseQuizzes[0]],
+  [1, [...baseQuizzes[1], ...baseQuizzes[2]]],
+  ...Object.entries(baseQuizzes)
+    .filter(([index]) => Number(index) >= 3)
+    .map(([index, questions]) => [Number(index) - 1, questions]),
+])
+
+const baseCoreQuizQuestionIds = {
   0: ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'],
   1: ['w1q1', 'w1q3', 'w1q4'],
   2: ['w2q1', 'w2q2', 'w2q4'],
   3: ['w3q1', 'w3q2', 'w3q5'],
   4: ['w4q1', 'w4q2', 'w4q3'],
 }
+
+const coreQuizQuestionIds = Object.fromEntries([
+  [0, baseCoreQuizQuestionIds[0]],
+  [1, [...baseCoreQuizQuestionIds[1], ...baseCoreQuizQuestionIds[2]]],
+  ...Object.entries(baseCoreQuizQuestionIds)
+    .filter(([index]) => Number(index) >= 3)
+    .map(([index, questionIds]) => [Number(index) - 1, questionIds]),
+])
+
+const quizMinimumCorrectOverrides = { 1: 10 }
 
 export const quizRules = Object.fromEntries(Object.entries(quizzes).map(([weekIndex, questionPool]) => [
   weekIndex,
@@ -387,7 +428,7 @@ export const quizRules = Object.fromEntries(Object.entries(quizzes).map(([weekIn
     poolQuestionIds: questionPool.map((question) => question.id),
     questionsPerAttempt: questionPool.length,
     selection: 'all-pool',
-    minimumCorrect: questionPool.length - 1,
+    minimumCorrect: quizMinimumCorrectOverrides[weekIndex] || questionPool.length - 1,
     requiredQuestionIds: coreQuizQuestionIds[weekIndex] || questionPool.slice(0, 3).map((question) => question.id),
     passingRule: 'minimum-correct-and-all-core',
     allowRetry: true,

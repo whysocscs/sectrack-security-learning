@@ -46,9 +46,9 @@ test('CodeCureLAB uses fixed safe training data', () => {
   assert.match(codeCureLab.safeExamples.sessionCookie, /redacted/)
 })
 
-test('Week 1 to Week 3 modules use the complete ordered lesson contract', () => {
+test('the merged Linux week and Week 2 web modules use the complete ordered lesson contract', () => {
   const requiredTypes = ['question', 'explanation', 'comparison', 'misconception', 'practice-link', 'sources', 'summary']
-  for (const module of [...weekContent[1].modules, ...weekContent[2].modules, ...weekContent[3].modules]) {
+  for (const module of [...weekContent[1].modules, ...weekContent[2].modules]) {
     const blocks = getLessonBlocks(module)
     const types = blocks.map((block) => block.type)
     assert.deepEqual(validateLessonModule(module), [], module.id)

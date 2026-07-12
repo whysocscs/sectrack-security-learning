@@ -87,7 +87,7 @@ export const week1LessonBlocks = Object.freeze({
     { type: 'checkpoint', id: 'w1-permission-check-01', title: '디렉터리 권한', prompt: '디렉터리의 실행(`x`) 권한과 가장 직접적으로 관련된 행동은?', options: ['하위 경로로 들어가거나 탐색하기', '파일 내용을 자동으로 암호화하기', '파일 확장자 바꾸기'], answer: 0, explanation: '디렉터리의 `x`는 경로 탐색과 진입에 관여합니다.' },
     { type: 'checkpoint', id: 'w1-permission-check-02', title: '최소 권한 설명', prompt: '교직원만 피드백 파일을 수정하고 학생은 자신의 피드백만 읽게 하려면 어떤 주체·행동을 분리해야 하는지 적어 보세요.', mode: 'short-answer' },
     { type: 'work-context', title: '보안 업무에서의 사용', body: 'Linux 권한, 클라우드 IAM, 데이터베이스 권한, 애플리케이션 객체 인가는 모두 “누가 어떤 대상에 어떤 행동을 할 수 있는가”를 다룹니다. 표현은 달라도 최소 권한과 재검증 원칙은 연결됩니다.' },
-    { type: 'practice-link', title: '다음 활동', body: 'Week 2에서 기호 권한과 숫자 권한을 계산하고 최소 권한 수정안을 비교합니다.', labIds: ['w2-permission-lab'] },
+    { type: 'practice-link', title: '다음 활동', body: '이 주차의 Linux 도구 모듈에서 기호 권한과 숫자 권한을 계산하고 최소 권한 수정안을 비교합니다.', labIds: ['w2-permission-lab'] },
     { type: 'sources', title: '공식 참고자료', items: [sources.coreutils, sources.fhs] },
     { type: 'summary', title: '핵심 정리', bullets: ['권한은 소유자·그룹·기타와 파일·디렉터리 유형을 함께 읽는다.', '디렉터리의 `rwx`는 파일의 `rwx`와 다른 행동을 뜻한다.', '권한 오류는 더 큰 권한이 아니라 최소 권한과 검증 조건으로 해결한다.'] },
   ],

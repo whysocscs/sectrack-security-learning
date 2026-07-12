@@ -69,8 +69,166 @@ export const initialProgress = {
   lastActivityAt: null,
 }
 
-export function mergeProgress(value) {
+const LINUX_WEEK_MERGE_VERSION = 1
+
+function remapWeekIndex(value) {
+  const index = Number(value)
+  if (!Number.isInteger(index) || index < 3 || index > 16) return value
+  return index - 1
+}
+
+function remapWeekKey(key) {
+  const match = /^week-(\d+)$/.exec(key)
+  if (!match) return key
+  const index = Number(match[1])
+  return `week-${remapWeekIndex(index)}`
+}
+
+function remapNumericRecord(record = {}) {
+  return Object.entries(record).reduce((next, [key, value]) => {
+    if (Number(key) === 2) return next
+    next[String(remapWeekIndex(key))] = value
+    return next
+  }, {})
+}
+
+function remapWeeklyRecord(record = {}) {
+  return Object.entries(record).reduce((next, [key, value]) => {
+    if (key === 'week-2') return next
+    next[remapWeekKey(key)] = value
+    return next
+  }, {})
+}
+
+function mergeLinuxSubmission(weekOneSubmission, weekTwoSubmission) {
+  if (weekOneSubmission === undefined) return weekTwoSubmission
+  if (weekTwoSubmission === undefined) return weekOneSubmission
+  if (weekOneSubmission && typeof weekOneSubmission === 'object') {
+    return { ...weekOneSubmission, mergedLinuxToolRecord: weekTwoSubmission }
+  }
+  return {
+    status: weekOneSubmission === true ? 'recorded' : 'migrated',
+    legacyWeekOneSubmission: weekOneSubmission,
+    mergedLinuxToolRecord: weekTwoSubmission,
+  }
+}
+
+function latestQuizResult(attempts, scores, weekIndex) {
+  const entries = attempts?.[weekIndex]
+  return (Array.isArray(entries) ? entries.at(-1) : null) || scores?.[weekIndex] || null
+}
+
+function isPassedQuiz(result) {
+  if (!result || typeof result !== 'object') return false
+  if (typeof result.passed === 'boolean') return result.passed
+  return Number(result.percent) >= 80
+}
+
+function remapConceptEvidence(conceptEvidence = {}) {
+  return Object.fromEntries(Object.entries(conceptEvidence).map(([conceptId, evidence]) => {
+    if (!evidence || typeof evidence !== 'object') return [conceptId, evidence]
+    const remapResult = (result) => result && typeof result === 'object' && Object.hasOwn(result, 'weekIndex')
+      ? { ...result, weekIndex: remapWeekIndex(result.weekIndex) }
+      : result
+    return [conceptId, {
+      ...evidence,
+      quizResults: Array.isArray(evidence.quizResults) ? evidence.quizResults.map(remapResult) : evidence.quizResults,
+      latestQuizResult: remapResult(evidence.latestQuizResult),
+    }]
+  }))
+}
+
+function migrateMergedLinuxWeek(value) {
   const source = value && typeof value === 'object' ? value : {}
+  if (source.learningPlanVersion === LINUX_WEEK_MERGE_VERSION) return source
+
+  const oldWeekOneAttempts = source.quizAttempts?.[1]
+  const oldWeekTwoAttempts = source.quizAttempts?.[2]
+  const oldWeekOneScore = source.quizScores?.[1]
+  const oldWeekTwoScore = source.quizScores?.[2]
+  const oldWeekOneResult = latestQuizResult(source.quizAttempts, source.quizScores, 1)
+  const oldWeekTwoResult = latestQuizResult(source.quizAttempts, source.quizScores, 2)
+  const completedBothLinuxChecks = isPassedQuiz(oldWeekOneResult) && isPassedQuiz(oldWeekTwoResult)
+  const remappedAttempts = remapNumericRecord(source.quizAttempts)
+  const remappedScores = remapNumericRecord(source.quizScores)
+
+  if (completedBothLinuxChecks) {
+    const migratedAttempt = {
+      score: 12,
+      total: 12,
+      percent: 100,
+      passed: true,
+      attemptNumber: 1,
+      retryCount: 0,
+      attemptedAt: oldWeekTwoResult?.attemptedAt || oldWeekOneResult?.attemptedAt || new Date(0).toISOString(),
+      migratedFromWeeks: [1, 2],
+      questionResults: [],
+    }
+    remappedAttempts['1'] = [migratedAttempt]
+    remappedScores['1'] = migratedAttempt
+  } else {
+    delete remappedAttempts['1']
+    delete remappedScores['1']
+  }
+
+  const remappedEvidence = remapWeeklyRecord(source.evidence)
+  const remappedSubmissions = remapWeeklyRecord(source.submissions)
+  const legacyWeekTwoEvidence = source.evidence?.['week-2']
+  const legacyWeekOneEvidence = source.evidence?.['week-1']
+  const legacyWeekOneSubmission = source.submissions?.['week-1']
+  const legacyWeekTwoSubmission = source.submissions?.['week-2']
+  if (legacyWeekOneEvidence || legacyWeekTwoEvidence) {
+    remappedEvidence['week-1'] = {
+      ...(legacyWeekOneEvidence || {}),
+      ...(legacyWeekTwoEvidence ? { mergedLinuxToolRecord: legacyWeekTwoEvidence } : {}),
+    }
+  }
+  if (legacyWeekOneSubmission !== undefined || legacyWeekTwoSubmission !== undefined) {
+    remappedSubmissions['week-1'] = mergeLinuxSubmission(legacyWeekOneSubmission, legacyWeekTwoSubmission)
+  }
+
+  const legacyQuizAttempts = {}
+  const legacyQuizScores = {}
+  const legacyWeeklyRecords = {}
+  const legacyWeeklySubmissions = {}
+  if (oldWeekOneAttempts !== undefined) legacyQuizAttempts.week1 = oldWeekOneAttempts
+  if (oldWeekTwoAttempts !== undefined) legacyQuizAttempts.week2 = oldWeekTwoAttempts
+  if (oldWeekOneScore !== undefined) legacyQuizScores.week1 = oldWeekOneScore
+  if (oldWeekTwoScore !== undefined) legacyQuizScores.week2 = oldWeekTwoScore
+  if (legacyWeekOneEvidence !== undefined) legacyWeeklyRecords.week1 = legacyWeekOneEvidence
+  if (legacyWeekTwoEvidence !== undefined) legacyWeeklyRecords.week2 = legacyWeekTwoEvidence
+  if (legacyWeekOneSubmission !== undefined) legacyWeeklySubmissions.week1 = legacyWeekOneSubmission
+  if (legacyWeekTwoSubmission !== undefined) legacyWeeklySubmissions.week2 = legacyWeekTwoSubmission
+  const hasLegacyLinuxProgress = Object.keys(legacyQuizAttempts).length > 0
+    || Object.keys(legacyQuizScores).length > 0
+    || Object.keys(legacyWeeklyRecords).length > 0
+    || Object.keys(legacyWeeklySubmissions).length > 0
+
+  return {
+    ...source,
+    learningPlanVersion: LINUX_WEEK_MERGE_VERSION,
+    quizAttempts: remappedAttempts,
+    quizScores: remappedScores,
+    submissions: remappedSubmissions,
+    evidence: remappedEvidence,
+    conceptEvidence: remapConceptEvidence(source.conceptEvidence),
+    ...(hasLegacyLinuxProgress ? {
+      learningPlanMigration: {
+        ...(source.learningPlanMigration || {}),
+        linuxWeekMerge: {
+          version: LINUX_WEEK_MERGE_VERSION,
+          quizAttempts: legacyQuizAttempts,
+          quizScores: legacyQuizScores,
+          weeklyRecords: legacyWeeklyRecords,
+          weeklySubmissions: legacyWeeklySubmissions,
+        },
+      },
+    } : {}),
+  }
+}
+
+export function mergeProgress(value) {
+  const source = migrateMergedLinuxWeek(value)
   return {
     ...initialProgress,
     ...source,

@@ -71,24 +71,54 @@ test('week tabs and modules round-trip while invalid routes stay explicit', () =
 
 test('next task contains an exact route for module, quiz, and weekly record', () => {
   const weeks = [{ index: 1, modules: [{ id: 'm1', title: '첫 개념', duration: 20 }], labs: [], weeklyRecord: { id: 'w1-record' } }]
-  const moduleTask = getNextTask(weeks, mergeProgress())
+  const moduleTask = getNextTask(weeks, mergeProgress({ learningPlanVersion: 1 }))
   assert.deepEqual(moduleTask.route, { page: 'week', week: 1, tab: 'concepts', moduleId: 'm1' })
 
-  const quizTask = getNextTask(weeks, mergeProgress({ modulesRead: { m1: true } }))
+  const quizTask = getNextTask(weeks, mergeProgress({ learningPlanVersion: 1, modulesRead: { m1: true } }))
   assert.equal(quizTask.type, 'quiz')
   assert.deepEqual(quizTask.route, { page: 'week', week: 1, tab: 'quiz' })
 
-  const recordTask = getNextTask(weeks, mergeProgress({ modulesRead: { m1: true }, quizScores: { 1: { percent: 100 } } }))
+  const recordTask = getNextTask(weeks, mergeProgress({ learningPlanVersion: 1, modulesRead: { m1: true }, quizScores: { 1: { percent: 100 } } }))
   assert.equal(recordTask.type, 'record')
   assert.deepEqual(recordTask.route, { page: 'week', week: 1, tab: 'record' })
 })
 
 test('completed curriculum falls back to the final available week review', () => {
-  const weeks = [{ index: 16, title: 'AI Agent 보안', modules: [], labs: [] }]
-  const next = getNextTask(weeks, mergeProgress({ quizScores: { 16: { percent: 100 } } }))
+  const weeks = [{ index: 15, title: 'AI Agent 보안', modules: [], labs: [] }]
+  const next = getNextTask(weeks, mergeProgress({ learningPlanVersion: 1, quizScores: { 15: { percent: 100 } } }))
 
   assert.equal(next.type, 'review')
-  assert.equal(next.week, 16)
-  assert.equal(next.id, 'review-week-16')
-  assert.deepEqual(next.route, { page: 'week', week: 16, tab: 'concepts' })
+  assert.equal(next.week, 15)
+  assert.equal(next.id, 'review-week-15')
+  assert.deepEqual(next.route, { page: 'week', week: 15, tab: 'concepts' })
+})
+
+test('legacy Week 1 and 2 progress merges into the new Week 1 without losing records', () => {
+  const progress = mergeProgress({
+    quizScores: { 1: { percent: 100 }, 2: { percent: 100 }, 3: { percent: 80 } },
+    evidence: { 'week-1': { command: 'pwd' }, 'week-2': { command: 'grep' }, 'week-3': { command: 'http' } },
+    submissions: {
+      'week-1': { status: 'draft', updatedAt: '2026-07-10T10:00:00.000Z' },
+      'week-2': { status: 'recorded', completedAt: '2026-07-11T10:00:00.000Z' },
+      'week-3': true,
+    },
+    conceptEvidence: { 'w3-http': { quizResults: [{ weekIndex: 3 }], latestQuizResult: { weekIndex: 3 } } },
+  })
+
+  assert.equal(progress.learningPlanVersion, 1)
+  assert.deepEqual(progress.quizScores[1].migratedFromWeeks, [1, 2])
+  assert.equal(progress.quizScores[2].percent, 80)
+  assert.deepEqual(progress.evidence['week-1'].mergedLinuxToolRecord, { command: 'grep' })
+  assert.deepEqual(progress.evidence['week-2'], { command: 'http' })
+  assert.deepEqual(progress.submissions['week-1'], {
+    status: 'draft',
+    updatedAt: '2026-07-10T10:00:00.000Z',
+    mergedLinuxToolRecord: { status: 'recorded', completedAt: '2026-07-11T10:00:00.000Z' },
+  })
+  assert.equal(progress.submissions['week-2'], true)
+  assert.deepEqual(progress.learningPlanMigration.linuxWeekMerge.weeklySubmissions, {
+    week1: { status: 'draft', updatedAt: '2026-07-10T10:00:00.000Z' },
+    week2: { status: 'recorded', completedAt: '2026-07-11T10:00:00.000Z' },
+  })
+  assert.equal(progress.conceptEvidence['w3-http'].latestQuizResult.weekIndex, 2)
 })
