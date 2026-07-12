@@ -76,7 +76,7 @@ const navItems = [
 
 const pageMeta = {
   home: ['내 학습', '오늘 할 항목과 복습할 개념을 확인합니다.'],
-  learn: ['16주 로드맵', 'Week 0은 사전 준비이며 Week 1부터 정규 과정입니다.'],
+  learn: ['학습 로드맵', 'Week 0은 사전 준비이며 이후 주차는 정규 과정입니다.'],
   week: ['주차 학습', '개념, 실습, 이해 확인과 학습 기록을 한 흐름으로 진행합니다.'],
   mindmap: ['정보보안 핵심 용어와 분야·직무 지도', '실제 공개 공고 표본의 근거 범위를 구분하며 분야와 세부 직무를 탐색합니다.'],
   labs: ['실습실', '로컬 또는 명시적으로 허가된 교육 환경만 사용합니다.'],
@@ -87,6 +87,41 @@ const pageMeta = {
   progress: ['내 진도', '완료 여부와 개념 숙련도를 따로 확인합니다.'],
   insights: ['내 학습 분석', '이 브라우저에 저장된 실제 학습 기록만 계산합니다.'],
   'not-found': ['페이지를 찾을 수 없습니다', '주소를 확인하거나 로드맵에서 다시 이동하세요.'],
+}
+
+function getAvailableWeeks() {
+  return Object.values(weekContent).sort((left, right) => left.index - right.index)
+}
+
+function getRecordableWeeks(weeks) {
+  return weeks.filter((week) => Boolean(week.weeklyRecord))
+}
+
+function formatWeekRange(weeks) {
+  if (!weeks.length) return '학습 과정'
+  const first = String(weeks[0].index).padStart(2, '0')
+  const last = String(weeks.at(-1).index).padStart(2, '0')
+  return first === last ? `Week ${first}` : `Week ${first}~${last}`
+}
+
+function getRoadmapItems() {
+  const roadmapByIndex = new Map(roadmap.map((item) => [item.index, item]))
+  const indexes = new Set([...roadmapByIndex.keys(), ...getAvailableWeeks().map((week) => week.index)])
+  return [...indexes].sort((left, right) => left - right).map((index) => {
+    const contentWeek = weekContent[index]
+    const roadmapWeek = roadmapByIndex.get(index)
+    if (!contentWeek) return roadmapWeek
+    return {
+      ...roadmapWeek,
+      id: contentWeek.id,
+      index: contentWeek.index,
+      title: contentWeek.title,
+      summary: contentWeek.summary,
+      deliverable: contentWeek.deliverable || contentWeek.deliverables?.[0] || roadmapWeek?.deliverable || '학습 결과 정리',
+      keyConcepts: contentWeek.keyConcepts || roadmapWeek?.keyConcepts || contentWeek.modules.slice(0, 3).map((module) => module.title),
+      status: roadmapWeek?.status === 'current' ? 'current' : 'available',
+    }
+  }).filter(Boolean)
 }
 
 function readInitialProgress() {
@@ -236,8 +271,8 @@ export default function App() {
 }
 
 function Sidebar({ route, navigate, open, close, progress, mode, setMode }) {
-  const availableWeeks = Object.values(weekContent)
-  const total = Math.round(availableWeeks.reduce((sum, week) => sum + calculateWeekProgress(week, progress), 0) / availableWeeks.length)
+  const availableWeeks = getAvailableWeeks()
+  const total = availableWeeks.length ? Math.round(availableWeeks.reduce((sum, week) => sum + calculateWeekProgress(week, progress), 0) / availableWeeks.length) : 0
   const active = route.page === 'week' ? 'learn' : route.page === 'lab' ? 'labs' : route.page === 'report-editor' ? 'reports' : route.page
   const next = getNextTask(availableWeeks, progress)
   const sidebarRef = useRef(null)
@@ -277,14 +312,18 @@ function Sidebar({ route, navigate, open, close, progress, mode, setMode }) {
               <Icon size={18} /><span>{label}</span>
             </button>
           ))}
+          <span className="nav-label nav-label-spaced">WEEKS</span>
+          <div className="sidebar-week-links" aria-label="학습 주차">
+            {availableWeeks.map((week) => <button type="button" key={week.id} title={mode === 'compact' ? `Week ${String(week.index).padStart(2, '0')} · ${week.title}` : undefined} aria-label={`Week ${String(week.index).padStart(2, '0')} · ${week.title}`} aria-current={route.page === 'week' && route.week === week.index ? 'page' : undefined} className={route.page === 'week' && route.week === week.index ? 'active' : ''} onClick={() => navigate({ page: 'week', week: week.index, tab: 'overview' })}><span>W{String(week.index).padStart(2, '0')}</span><strong>{week.title}</strong></button>)}
+          </div>
           <span className="nav-label nav-label-spaced">MANAGEMENT</span>
           {navItems.slice(-1).map(({ page, label, icon: Icon }) => <button type="button" key={page} title={mode === 'compact' ? label : undefined} aria-label={label} aria-current={active === page ? 'page' : undefined} className={active === page ? 'active' : ''} onClick={() => navigate({ page })}><Icon size={18} /><span>{label}</span></button>)}
         </nav>
-        <section className="sidebar-progress" aria-label="Week 0부터 4까지 학습 진행률">
-          <div><span>Week 0~4 진행</span><strong>{total}%</strong></div>
+        <section className="sidebar-progress" aria-label={`${formatWeekRange(availableWeeks)} 학습 진행률`}>
+          <div><span>{formatWeekRange(availableWeeks)} 진행</span><strong>{total}%</strong></div>
           <ProgressBar value={total} />
           <p>다음 할 일</p>
-          <strong>Week {String(next.week).padStart(2, '0')} · {next.label}</strong>
+          {next && <strong>Week {String(next.week).padStart(2, '0')} · {next.label}</strong>}
         </section>
         <div className="sidebar-user"><span className="avatar"><UserRoundCheck size={16} /></span><span><strong>{progress.settings.displayName || '내 학습'}</strong><small>이 브라우저에만 저장</small></span></div>
       </aside>
@@ -321,11 +360,12 @@ function Topbar({ title, subtitle, onMenu, navigate, menuButtonRef, menuOpen, pr
 }
 
 function HomePage({ progress, navigate }) {
-  const weeks = Object.values(weekContent)
+  const weeks = getAvailableWeeks()
+  const recordableWeeks = getRecordableWeeks(weeks)
   const next = getNextTask(weeks, progress)
   const week = weekContent[next.week]
   const progressValues = weeks.map((item) => calculateWeekProgress(item, progress))
-  const submitted = Object.keys(progress.submissions).length
+  const submitted = recordableWeeks.filter((item) => progress.submissions[`week-${item.index}`]).length
   const reviewed = Object.values(progress.conceptMastery).filter((value) => ['apply', 'reproduce'].includes(value)).length
   const reviewModules = weeks.flatMap((item) => item.modules.map((module) => ({ ...module, week: item.index }))).filter((module) => ['now', 'later'].includes(progress.moduleChecks[module.id]?.reviewState) || ['unknown', 'heard'].includes(progress.conceptMastery[module.id])).slice(0, 3)
   const guidance = getLocalLearningGuidance(next)
@@ -345,7 +385,7 @@ function HomePage({ progress, navigate }) {
           </div>
         </div>
 
-        <SectionTitle title="Week 0~4 학습 흐름" description="완료 표시와 개념 숙련도는 별도로 기록됩니다." action="전체 로드맵" onAction={() => navigate({ page: 'learn' })} />
+        <SectionTitle title={`${formatWeekRange(weeks)} 학습 흐름`} description="완료 표시와 개념 숙련도는 별도로 기록됩니다." action="전체 로드맵" onAction={() => navigate({ page: 'learn' })} />
         <div className="week-progress-list">
           {weeks.map((item, index) => (
             <button type="button" key={item.id} onClick={() => navigate({ page: 'week', week: item.index })}>
@@ -361,29 +401,32 @@ function HomePage({ progress, navigate }) {
         <div className="feedback-row"><BookMarked size={18} /><div><strong>{guidance.title}</strong><p>{guidance.body}</p><small>자동 학습 안내 · 로컬 규칙</small></div></div>
       </section>
       <aside className="home-rail">
-        <section className="rail-section"><h2>이번 과정</h2><dl className="compact-stats"><div><dt>주차 학습 정리</dt><dd>{submitted} / 5</dd></div><div><dt>기초 적용 이상</dt><dd>{reviewed}개</dd></div><div><dt>열어 본 힌트</dt><dd>{Object.values(progress.labs).reduce((sum, item) => sum + (item.hintLevel || 0), 0)}단계</dd></div></dl></section>
+        <section className="rail-section"><h2>이번 과정</h2><dl className="compact-stats"><div><dt>주차 학습 정리</dt><dd>{submitted} / {recordableWeeks.length}</dd></div><div><dt>기초 적용 이상</dt><dd>{reviewed}개</dd></div><div><dt>열어 본 힌트</dt><dd>{Object.values(progress.labs).reduce((sum, item) => sum + (item.hintLevel || 0), 0)}단계</dd></div></dl></section>
         <section className="rail-section"><h2>복습할 개념</h2>{reviewModules.length ? reviewModules.map((module) => <button className="review-item" type="button" key={module.id} onClick={() => navigate({ page: 'week', week: module.week, tab: 'concepts', moduleId: module.id })}><span>W{String(module.week).padStart(2, '0')}</span><strong>{module.title}</strong><small>최근 숙련 근거를 다시 확인</small></button>) : <p className="rail-empty">아직 복습 대상으로 기록된 개념이 없습니다.</p>}</section>
-        <section className="rail-section due-list"><h2>정리하지 않은 주차</h2>{weeks.filter((item) => !progress.submissions[`week-${item.index}`]).slice(0, 3).map((item) => <button type="button" key={item.id} onClick={() => navigate({ page: 'week', week: item.index, tab: 'record' })}><span>W{String(item.index).padStart(2, '0')}</span><strong>{item.deliverables[0]}</strong><ChevronRight size={15} /></button>)}</section>
+        <section className="rail-section due-list"><h2>정리하지 않은 주차</h2>{recordableWeeks.filter((item) => !progress.submissions[`week-${item.index}`]).slice(0, 3).map((item) => <button type="button" key={item.id} onClick={() => navigate({ page: 'week', week: item.index, tab: 'record' })}><span>W{String(item.index).padStart(2, '0')}</span><strong>{item.deliverables[0]}</strong><ChevronRight size={15} /></button>)}</section>
       </aside>
     </div>
   )
 }
 
 function RoadmapPage({ progress, navigate }) {
+  const roadmapItems = getRoadmapItems()
+  const orientation = roadmapItems.find((item) => item.index === 0)
+  const formalWeeks = roadmapItems.filter((item) => item.index !== 0)
   const phases = [
-    { id: 'foundation', label: 'FOUNDATION', title: 'Linux와 관찰의 기본', weeks: [1, 2] },
-    { id: 'web', label: 'WEB', title: '웹 요청과 브라우저 보안', weeks: [3, 4, 5, 6] },
-    { id: 'system', label: 'SYSTEM · PWN', title: '시스템 구조와 취약점 분석', weeks: [7, 8, 9, 10, 11] },
-    { id: 'applied', label: 'APPLIED SECURITY', title: '분야 확장과 종합', weeks: [12, 13, 14, 15, 16] },
+    { id: 'foundation', label: 'FOUNDATION', title: 'Linux와 관찰의 기본', matches: (index) => index >= 1 && index <= 2 },
+    { id: 'web', label: 'WEB', title: '웹 요청과 브라우저 보안', matches: (index) => index >= 3 && index <= 6 },
+    { id: 'system', label: 'SYSTEM · PWN', title: '시스템 구조와 취약점 분석', matches: (index) => index >= 7 && index <= 11 },
+    { id: 'applied', label: 'APPLIED SECURITY', title: '분야 확장과 종합', matches: (index) => index >= 12 },
   ]
   return (
     <div className="page-width roadmap-page">
-      <div className="orientation-row">
+      {orientation && <div className="orientation-row">
         <span className="orientation-label">사전 준비</span>
-        <RoadmapItem item={roadmap[0]} progress={calculateWeekProgress(weekContent[0], progress)} navigate={navigate} />
-      </div>
-      <div className="roadmap-divider"><span>정규 16주 과정</span></div>
-      {phases.map((phase) => <section className="roadmap-phase" key={phase.id}><header><span>{phase.label}</span><h2>{phase.title}</h2></header><div className="roadmap-path">{roadmap.filter((item) => phase.weeks.includes(item.index)).map((item) => <RoadmapItem key={item.id} item={item} progress={weekContent[item.index] ? calculateWeekProgress(weekContent[item.index], progress) : 0} navigate={navigate} />)}</div></section>)}
+        <RoadmapItem item={orientation} progress={weekContent[orientation.index] ? calculateWeekProgress(weekContent[orientation.index], progress) : 0} navigate={navigate} />
+      </div>}
+      <div className="roadmap-divider"><span>정규 {formalWeeks.length}주 과정</span></div>
+      {phases.map((phase) => { const items = formalWeeks.filter((item) => phase.matches(item.index)); return items.length ? <section className="roadmap-phase" key={phase.id}><header><span>{phase.label}</span><h2>{phase.title}</h2></header><div className="roadmap-path">{items.map((item) => <RoadmapItem key={item.id} item={item} progress={weekContent[item.index] ? calculateWeekProgress(weekContent[item.index], progress) : 0} navigate={navigate} />)}</div></section> : null })}
     </div>
   )
 }
@@ -403,7 +446,7 @@ function RoadmapItem({ item, progress, navigate }) {
 function PreviewWeekPage({ week, navigate }) {
   return (
     <div className="page-width week-preview-page">
-      <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />16주 로드맵</button>
+      <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />학습 로드맵</button>
       <header className="preview-week-header"><span>WEEK {String(week.index).padStart(2, '0')} · 미리보기</span><h2>{week.title}</h2><p>{week.summary}</p><Status text="설계 중" tone="muted" /></header>
       <div className="preview-week-grid">
         <section className="document-section"><SectionTitle title="학습 목표" /><ul className="check-list">{week.objectives.map((item) => <li key={item}><CheckCircle2 size={16} />{item}</li>)}</ul></section>
@@ -432,7 +475,7 @@ function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
   ]
   return (
     <div className="page-width week-page">
-      <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />16주 로드맵</button>
+      <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />학습 로드맵</button>
       <section className="week-header">
         <div><span className="section-kicker">WEEK {String(week.index).padStart(2, '0')}</span><h2>{week.title}</h2><p>{week.summary}</p></div>
         <div className="week-header-progress"><span><small>필수 경로 진행</small><strong>{value}%</strong></span><ProgressBar value={value} /><small>{readModules}/{requiredModules.length}개 개념 · {completedLabs}/{requiredLabs.length}개 활동</small></div>
@@ -456,7 +499,7 @@ function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify 
   const quizScore = progress.quizScores[0]?.percent
   const openTab = (next) => navigate({ page: 'week', week: 0, tab: next })
   return <div className="page-width week-page week0-page">
-    <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />16주 로드맵</button>
+    <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />학습 로드맵</button>
     <section className="week-header"><div><span className="section-kicker">WEEK 00</span><h2>{week.title}</h2><p>{week.summary}</p></div><div className="week0-header-status"><span><small>나의 보안 지도</small><strong>{mapCompleted ? '완료' : '작성 중'}</strong></span><span><small>이해 확인</small><strong>{quizScore === undefined ? '미응시' : `${quizScore}%`}</strong></span></div></section>
     <nav className="tab-bar week0-tab-bar" aria-label="Week 0 학습 메뉴" role="tablist">{tabs.map(([id, label]) => <button type="button" role="tab" aria-selected={tab === id} key={id} className={tab === id ? 'active' : ''} onClick={() => openTab(id)}>{label}</button>)}</nav>
     {tab === 'quiz' ? <QuizView key="week-zero" week={week} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} /> : <WeekZeroWorkspace activeTab={tab} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} onTabChange={openTab} onCompleteMap={() => { updateProgress((current) => ({ ...current, labs: { ...current.labs, 'w0-map': { ...(current.labs['w0-map'] || {}), status: 'completed', completedAt: new Date().toISOString() } } })); notify('나의 보안 지도를 완료했습니다.') }} />}
@@ -464,6 +507,7 @@ function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify 
 }
 
 function WeekOverview({ week, navigate, setTab }) {
+  const hasExtensionLab = week.labs.some((lab) => lab.path === 'extension')
   return (
     <div className="week-overview">
       <div className="week-overview-main">
@@ -472,8 +516,8 @@ function WeekOverview({ week, navigate, setTab }) {
           <ol className="sequence-list">
             <li><span>01</span><div><strong>개념 모듈 {week.modules.length}개 읽기</strong><p>용어와 데이터 흐름을 먼저 확인합니다.</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>
             <li><span>02</span><div><strong>내부 실습으로 관찰 기록</strong><p>단계형 힌트는 막힌 경우에만 엽니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>
-            <li><span>03</span><div><strong>공식 외부 실습 또는 심화 과제</strong><p>자격 증명과 토큰을 마스킹하고 수행 과정을 기록합니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>
-            <li><span>04</span><div><strong>이해 확인과 주차 학습 정리</strong><p>오답 개념을 다시 확인한 뒤 이번 주 학습을 본인의 문장으로 정리합니다.</p></div><button type="button" onClick={() => setTab('quiz')}>열기</button></li>
+            {hasExtensionLab && <li><span>03</span><div><strong>공식 외부 실습 또는 심화 과제</strong><p>자격 증명과 토큰을 마스킹하고 수행 과정을 기록합니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>}
+            <li><span>{hasExtensionLab ? '04' : '03'}</span><div><strong>이해 확인과 주차 학습 정리</strong><p>오답 개념을 다시 확인한 뒤 이번 주 학습을 본인의 문장으로 정리합니다.</p></div><button type="button" onClick={() => setTab('quiz')}>열기</button></li>
           </ol>
         </section>
         <section className="document-section"><SectionTitle title="학습 목표" /><ul className="check-list">{week.objectives.map((item) => <li key={item}><CheckCircle2 size={16} />{item}</li>)}</ul></section>
@@ -585,6 +629,7 @@ function QuizView({ week, progress, updateProgress, navigate, notify }) {
   const [submitted, setSubmitted] = useState(false)
   const result = evaluateQuizAttempt(week.index, answers, questions)
   const rule = quizRules[week.index]
+  const coreQuestionIds = new Set(rule.requiredQuestionIds || [])
   const submit = () => {
     setSubmitted(true)
     updateProgress((current) => recordQuizAttempt(current, { weekIndex: week.index, answers, questions, attemptedAt: new Date().toISOString() }))
@@ -595,8 +640,9 @@ function QuizView({ week, progress, updateProgress, navigate, notify }) {
   const retryCount = getQuizRetryCount(progress, week.index)
   return (
     <section className="quiz-page">
-      <header><span>KNOWLEDGE CHECK</span><h2>{week.index}주차 이해 확인</h2><p>{questions.length}문항 중 {rule.minimumCorrect}문항 이상과 지정된 핵심 문항을 모두 맞히면 통과합니다. 재시도와 오답 개념은 기록되지만 감점은 없습니다.</p>{previous && <small>최근 결과 {previous.score}/{previous.total} · {previous.percent}% · 재시도 {retryCount}회</small>}</header>
-      {questions.map((question, index) => { const correct = answers[index] === question.answer; return <article className="quiz-card" key={question.id}><div><span>Q{index + 1} · {question.difficulty}</span><h3>{question.question}</h3></div><div className="quiz-options">{question.options.map((option, optionIndex) => <button type="button" aria-pressed={answers[index] === optionIndex} key={option} className={answers[index] === optionIndex ? 'selected' : ''} onClick={() => { setAnswers((current) => ({ ...current, [index]: optionIndex })); setSubmitted(false) }}><i>{String.fromCharCode(65 + optionIndex)}</i>{option}</button>)}</div>{submitted && <div className={`quiz-explanation ${correct ? 'correct' : 'wrong'}`}><strong>{correct ? '정답' : '다시 확인'}</strong><p>{question.explanation}</p>{!correct && <div className="quiz-remediation"><span>복습할 개념</span>{question.remediationModuleIds.map((moduleId) => <button type="button" key={moduleId} onClick={() => navigate({ page: 'week', week: week.index, tab: 'concepts', moduleId })}>{getConceptTitle(moduleId) || '관련 개념 모듈'}<ChevronRight size={14} /></button>)}</div>}</div>}</article> })}
+      <header><span>KNOWLEDGE CHECK</span><h2>{week.index}주차 이해 확인</h2><p>{questions.length}문항 중 {rule.minimumCorrect}문항 이상과 <b>핵심 문항</b>을 모두 맞히면 통과합니다. 핵심 문항은 각 질문에 표시됩니다. 재시도와 오답 개념은 기록되지만 감점은 없습니다.</p>{previous && <small>최근 결과 {previous.score}/{previous.total} · {previous.percent}% · 재시도 {retryCount}회</small>}</header>
+      {questions.map((question, index) => { const correct = answers[index] === question.answer; const isCore = coreQuestionIds.has(question.id); return <article className="quiz-card" key={question.id}><div><span>Q{index + 1} · {question.difficulty}{isCore && <b className="quiz-core">핵심 문항</b>}</span><h3>{question.question}</h3></div><div className="quiz-options">{question.options.map((option, optionIndex) => <button type="button" aria-pressed={answers[index] === optionIndex} key={option} className={answers[index] === optionIndex ? 'selected' : ''} onClick={() => { setAnswers((current) => ({ ...current, [index]: optionIndex })); setSubmitted(false) }}><i>{String.fromCharCode(65 + optionIndex)}</i>{option}</button>)}</div>{submitted && <div className={`quiz-explanation ${correct ? 'correct' : 'wrong'}`}><strong>{correct ? '정답' : '다시 확인'}</strong><p>{question.explanation}</p>{!correct && <div className="quiz-remediation"><span>복습할 개념</span>{question.remediationModuleIds.map((moduleId) => <button type="button" key={moduleId} onClick={() => navigate({ page: 'week', week: week.index, tab: 'concepts', moduleId })}>{getConceptTitle(moduleId) || '관련 개념 모듈'}<ChevronRight size={14} /></button>)}</div>}</div>}</article> })}
+      {submitted && result.passed && <section className="quiz-next-action"><div><strong>이해 확인을 통과했습니다.</strong><p>이번 주에 남긴 관찰과 근거를 주차 학습 정리로 연결하세요.</p></div><button className="button secondary" type="button" onClick={() => navigate({ page: 'week', week: week.index, tab: 'record' })}>주차 정리로<ArrowRight size={16} /></button></section>}
       <footer><span>{submitted ? `${result.score} / ${questions.length} · ${result.percent}% · ${result.passed ? '통과' : '재시도'}` : `${Object.keys(answers).length} / ${questions.length} 응답`}</span><button className="button primary" type="button" disabled={Object.keys(answers).length !== questions.length} onClick={submit}>결과 확인<CheckCircle2 size={16} /></button></footer>
     </section>
   )
@@ -648,12 +694,14 @@ function ResourcesPage() {
 }
 
 function ProgressPage({ progress, navigate }) {
-  const weeks = Object.values(weekContent)
+  const weeks = getAvailableWeeks()
+  const recordableWeeks = getRecordableWeeks(weeks)
+  const submittedWeeks = recordableWeeks.filter((week) => progress.submissions[`week-${week.index}`]).length
   const conceptIds = new Set([...Object.keys(progress.conceptMastery), ...Object.keys(progress.conceptEvidence), ...Object.keys(progress.mindmap?.conceptMastery || {})])
   const masteryEntries = [...conceptIds].map((id) => [id, progress.conceptMastery[id] || progress.mindmap?.conceptMastery?.[id] || 'unknown'])
   return (
     <div className="page-width progress-page">
-      <section className="progress-summary"><div><small>읽은 개념</small><strong>{Object.values(progress.modulesRead).filter(Boolean).length}<span> / {weeks.reduce((sum, week) => sum + week.modules.length, 0)}</span></strong></div><div><small>완료한 실습</small><strong>{Object.values(progress.labs).filter((item) => item.status === 'completed').length}<span> / {weeks.reduce((sum, week) => sum + week.labs.length, 0)}</span></strong></div><div><small>정리한 주차</small><strong>{Object.keys(progress.submissions).length}<span> / 5</span></strong></div></section>
+      <section className="progress-summary"><div><small>읽은 개념</small><strong>{Object.values(progress.modulesRead).filter(Boolean).length}<span> / {weeks.reduce((sum, week) => sum + week.modules.length, 0)}</span></strong></div><div><small>완료한 실습</small><strong>{Object.values(progress.labs).filter((item) => item.status === 'completed').length}<span> / {weeks.reduce((sum, week) => sum + week.labs.length, 0)}</span></strong></div><div><small>정리한 주차</small><strong>{submittedWeeks}<span> / {recordableWeeks.length}</span></strong></div></section>
       <section className="document-section"><SectionTitle title="주차별 진행" description="읽음, 실습 시도·완료, 이해 확인, 주차 정리를 별도로 표시합니다." /><div className="progress-week-table"><div><span>주차</span><span>개념</span><span>실습</span><span>이해 확인</span><span>주차 정리</span><span>진행</span></div>{weeks.map((week) => { const value = calculateWeekProgress(week, progress); return <button type="button" key={week.id} onClick={() => navigate({ page: 'week', week: week.index, tab: 'overview' })}><strong>W{String(week.index).padStart(2, '0')} · {week.title}</strong><span>{week.modules.filter((item) => progress.modulesRead[item.id]).length}/{week.modules.length}</span><span>{week.labs.filter((item) => progress.labs[item.id]?.status === 'completed').length}/{week.labs.length}</span><span>{progress.quizScores[week.index]?.percent ?? 0}%</span><span>{progress.submissions[`week-${week.index}`] ? '완료' : '미작성'}</span><span><ProgressBar value={value} /><b>{value}%</b></span></button>})}</div></section>
       <section className="document-section"><SectionTitle title="개념 숙련도" description="읽음과 숙련도는 별도이며, 자기 설명과 퀴즈 결과를 확인 근거로 표시합니다." />{masteryEntries.length ? <div className="mastery-list">{masteryEntries.map(([id, level]) => { const evidence = progress.conceptEvidence[id] || {}; return <div key={id}><span><strong>{getConceptTitle(id) || getMindmapNode(id)?.title || '이름을 확인할 수 없는 이전 개념'}</strong><small>퀴즈 근거 {evidence.quizResults?.length || 0}개 · 자기 설명 {String(evidence.selfExplanation?.text || '').trim() ? '기록' : '미기록'} · 확신도 {progress.confidence[id] || progress.mindmap?.confidence?.[id] || '미기록'}</small></span><Status text={masteryLabels[level] || level} tone="progress" /></div> })}</div> : <EmptyState icon={BookMarked} title="아직 기록한 숙련도가 없습니다." text="개념 모듈이나 직무 지도에서 현재 설명·적용 수준을 선택하고 확인 근거를 함께 기록합니다." />}</section>
     </div>

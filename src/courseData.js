@@ -4,6 +4,8 @@ import { week2LessonBlocks } from './content/week2Blocks.js'
 import { week3LessonBlocks } from './content/week3Blocks.js'
 import { weekZeroDefinition } from './data/week0/weekDefinition.js'
 import { weekZeroQuizQuestions, weekZeroQuizRule } from './data/week0/quiz.js'
+import { week5to10Content, week5to10Quizzes } from './data/curriculum/week5to10.js'
+import { week11to16Content, week11to16Quizzes } from './data/curriculum/week11to16.js'
 
 export const masteryLabels = {
   unknown: '아직 모름',
@@ -142,26 +144,16 @@ function normalizeWeek(week) {
   }
 }
 
-const previewWeeks = [
-  { index: 5, title: 'SQL Injection', summary: 'DB·Table·Query, 인증 우회, UNION, Blind SQLi, Prepared Statement', deliverable: 'SQLi Lab 및 풀이', prerequisites: ['Week 3 HTTP', '서버와 데이터베이스의 역할'], plannedLabs: ['고정된 query 흐름 분석', 'Prepared Statement 수정 비교'], relatedRoles: ['웹 취약점 진단', 'AppSec'], requiredMinutes: 240, extensionMinutes: 120 },
-  { index: 6, title: 'CSRF·웹 종합', summary: 'CSRF Token, SameSite, 인증·세션 흐름, 웹 종합 문제', deliverable: 'AI 활용 기록 포함 웹 문제', prerequisites: ['Week 3 Cookie·Session', 'Week 4~5 웹 취약점'], plannedLabs: ['요청 위조 조건 비교', '웹 종합 문제'], relatedRoles: ['웹 취약점 진단', 'Product Security'], requiredMinutes: 240, extensionMinutes: 120 },
-  { index: 7, title: 'C·컴퓨터 구조', summary: 'C 기초, 컴파일, 레지스터, 주소, 포인터, ELF, 메모리 영역', deliverable: 'C 프로그램 메모리 분석', prerequisites: ['Week 1~2 Linux', '기초 프로그래밍'], plannedLabs: ['C 컴파일 결과 관찰', '프로세스 메모리 지도 읽기'], relatedRoles: ['취약점 연구', '시스템 보안'], requiredMinutes: 300, extensionMinutes: 120 },
-  { index: 8, title: '어셈블리·호출 규약', summary: 'x86-64, Stack, call, ret, SysV 인자 전달, System Call', deliverable: 'C 코드와 어셈블리 대응', prerequisites: ['Week 7 레지스터·메모리', 'C 함수'], plannedLabs: ['C와 x86-64 대응', '호출 규약 추적'], relatedRoles: ['리버스 엔지니어링', '취약점 연구'], requiredMinutes: 300, extensionMinutes: 120 },
-  { index: 9, title: 'GDB·Pwntools', summary: 'breakpoint, register, memory examine, process·remote, byte packing', deliverable: '디버깅 기록 및 통신 스크립트', prerequisites: ['Week 8 어셈블리·호출 규약'], plannedLabs: ['GDB 실행 흐름 추적', '로컬 프로세스 입출력 자동화'], relatedRoles: ['리버스 엔지니어링', '모의침투'], requiredMinutes: 300, extensionMinutes: 120 },
-  { index: 10, title: 'BOF·셸코드', summary: 'Stack BOF, NX·ASLR·PIE·Canary, execve, ORW', deliverable: '기초 BOF 문제', prerequisites: ['Week 7~9 메모리·어셈블리·GDB'], plannedLabs: ['스택 손상 원인 분석', '보호 기법 관찰'], relatedRoles: ['취약점 연구', 'Product Security'], requiredMinutes: 300, extensionMinutes: 120 },
-  { index: 11, title: 'AI 활용 Pwn', summary: '가설 수립, 함수 분석, 크래시 재현, AI 답변 검증', deliverable: 'AI 대화·검증 과정 포함 풀이', prerequisites: ['Week 7~10 Pwn 기초'], plannedLabs: ['AI 제안 검증 기록', '재현 가능한 문제 풀이'], relatedRoles: ['취약점 연구', '보안 연구개발'], requiredMinutes: 180, extensionMinutes: 120 },
-  { index: 12, title: 'Crypto·Forensics 맛보기', summary: 'Encoding·XOR·Hash·AES·RSA, 파일 시그니처·메타데이터·PCAP', deliverable: '분야별 입문 문제 2개', prerequisites: ['Week 2 파일·인코딩 관찰'], plannedLabs: ['암호와 인코딩 구분', '파일 메타데이터 관찰'], relatedRoles: ['암호·PKI', '디지털 포렌식'], requiredMinutes: 240, extensionMinutes: 120 },
-  { index: 13, title: '네트워크 보안', summary: 'Ethernet, ARP, IP, TCP·UDP, DNS, TLS, Wireshark Filter', deliverable: 'PCAP 분석 보고서', prerequisites: ['Week 3 요청 흐름'], plannedLabs: ['TCP 흐름 재구성', 'Wireshark display filter'], relatedRoles: ['네트워크 보안', '침해사고 대응'], requiredMinutes: 240, extensionMinutes: 120 },
-  { index: 14, title: '퍼징', summary: 'Mutation, Seed Corpus, Coverage, Harness, Sanitizer, Crash Triage', deliverable: 'Fuzzing101 Exercise 1개', prerequisites: ['기초 프로그래밍', '크래시와 디버깅'], plannedLabs: ['작은 harness 구성', 'crash 재현과 분류'], relatedRoles: ['취약점 연구', '보안 QA'], requiredMinutes: 240, extensionMinutes: 120 },
-  { index: 15, title: '클라우드 보안', summary: '공유 책임, IAM, EC2, S3, VPC, Security Group, CloudTrail', deliverable: 'CloudGoat 시나리오 1개', prerequisites: ['네트워크·권한 기초'], plannedLabs: ['IAM 정책 비교', '허가된 CloudGoat 시나리오'], relatedRoles: ['Cloud Security', 'IAM 엔지니어'], requiredMinutes: 240, extensionMinutes: 120 },
-  { index: 16, title: 'AI 보안·최종전', summary: 'Prompt Injection, 정보 노출, 과도한 권한, Tool Abuse', deliverable: '소규모 종합 CTF 또는 최종 프로젝트', prerequisites: ['Week 0 안전 범위', '선택 트랙 기초'], plannedLabs: ['로컬 AI 위협 모델', '최종 학습 기록 정리'], relatedRoles: ['AI Security', 'Product Security'], requiredMinutes: 240, extensionMinutes: 120 },
-].map((week) => ({
-  ...week,
-  id: `week-${week.index}`,
-  estimatedMinutes: week.requiredMinutes + week.extensionMinutes,
-  status: 'preview',
-  keyConcepts: week.summary.split(', ').slice(0, 3),
-  objectives: [`${week.title}의 핵심 용어와 흐름을 설명한다.`, '허가된 교육 환경에서 관찰 결과를 기록한다.'],
+const laterWeekContent = { ...week5to10Content, ...week11to16Content }
+const laterWeekRoadmap = Object.values(laterWeekContent).map((week) => ({
+  id: week.id,
+  index: week.index,
+  title: week.title,
+  summary: week.summary,
+  deliverable: week.deliverables?.[0] || week.recordBlueprint?.title || `${week.title} 학습 기록`,
+  estimatedMinutes: week.estimatedMinutes,
+  status: 'available',
+  keyConcepts: week.keyConcepts || week.objectives?.slice(0, 3) || [],
 }))
 
 const activeRoadmap = [
@@ -170,6 +162,7 @@ const activeRoadmap = [
   { id: 'week-2', index: 2, title: 'Linux 2·도구', summary: '권한, 파이프, Git, curl, DevTools, Burp Suite', deliverable: 'Bandit 6~10·요청 변조 기록', estimatedMinutes: 420, status: 'available', keyConcepts: ['권한', '표준 스트림', 'HTTP 관찰 도구'] },
   { id: 'week-3', index: 3, title: '웹 구조·HTTP', summary: 'URL, DNS, HTTP, Cookie·Session, DOM과 Source·Sink', deliverable: 'HTTP 메시지 분석', estimatedMinutes: 360, status: 'available', keyConcepts: ['HTTP', 'Cookie·Session', 'Source·Sink'] },
   { id: 'week-4', index: 4, title: 'Cross-Site Scripting', summary: 'Reflected·Stored·DOM XSS, Context, Sanitization, CSP', deliverable: 'XSS Lab·취약점 보고서', estimatedMinutes: 480, status: 'current', keyConcepts: ['XSS 유형', 'Taint Flow', '출력 인코딩'] },
+  ...laterWeekRoadmap,
 ]
 
 const commonLabFields = {
@@ -326,7 +319,7 @@ const rawWeekContent = {
 }
 
 export const weekContent = Object.fromEntries(
-  Object.entries({ ...rawWeekContent, 0: weekZeroDefinition }).map(([index, week]) => [index, normalizeWeek(week)]),
+  Object.entries({ ...rawWeekContent, 0: weekZeroDefinition, ...laterWeekContent }).map(([index, week]) => [index, normalizeWeek(week)]),
 )
 
 export const roadmap = [
@@ -339,7 +332,6 @@ export const roadmap = [
       estimatedMinutes: week.estimatedMinutes,
     }
   }),
-  ...previewWeeks,
 ]
 
 export const quizzes = {
@@ -376,6 +368,8 @@ export const quizzes = {
     { id: 'w4q5', conceptIds: ['w4-context', 'w4-defense'], difficulty: 'analysis', remediationModuleIds: ['w4-context', 'w4-defense'], question: '사용자가 제한된 HTML을 작성해야 할 때 가장 적절한 방어 조합은?', options: ['모든 입력에 같은 문자열 치환', '검증된 Sanitizer 정책과 안전한 출력 처리', 'CSP만 적용'], answer: 1, explanation: 'HTML이 꼭 필요한 경우 검증된 Sanitizer를 정책에 맞게 적용하고 최종 컨텍스트도 안전하게 처리합니다.' },
     { id: 'w4q6', conceptIds: ['w4-bypass', 'w4-defense'], difficulty: 'analysis', remediationModuleIds: ['w4-bypass', 'w4-defense'], question: 'CSP가 고정 PoC 실행을 막았지만 innerHTML 데이터 흐름이 남아 있다. 올바른 결론은?', options: ['취약점 원인이 제거됨', '실행은 완화됐지만 취약한 원인은 별도 수정 필요', '모든 브라우저에서 영향이 동일하게 사라짐'], answer: 1, explanation: 'CSP의 실행 제한과 취약한 Source-to-Sink 원인 제거는 별도로 확인해야 합니다.' },
   ],
+  ...week5to10Quizzes,
+  ...week11to16Quizzes,
 }
 
 const coreQuizQuestionIds = {
@@ -394,7 +388,7 @@ export const quizRules = Object.fromEntries(Object.entries(quizzes).map(([weekIn
     questionsPerAttempt: questionPool.length,
     selection: 'all-pool',
     minimumCorrect: questionPool.length - 1,
-    requiredQuestionIds: coreQuizQuestionIds[weekIndex],
+    requiredQuestionIds: coreQuizQuestionIds[weekIndex] || questionPool.slice(0, 3).map((question) => question.id),
     passingRule: 'minimum-correct-and-all-core',
     allowRetry: true,
   },

@@ -82,3 +82,13 @@ test('next task contains an exact route for module, quiz, and weekly record', ()
   assert.equal(recordTask.type, 'record')
   assert.deepEqual(recordTask.route, { page: 'week', week: 1, tab: 'record' })
 })
+
+test('completed curriculum falls back to the final available week review', () => {
+  const weeks = [{ index: 16, title: 'AI Agent 보안', modules: [], labs: [] }]
+  const next = getNextTask(weeks, mergeProgress({ quizScores: { 16: { percent: 100 } } }))
+
+  assert.equal(next.type, 'review')
+  assert.equal(next.week, 16)
+  assert.equal(next.id, 'review-week-16')
+  assert.deepEqual(next.route, { page: 'week', week: 16, tab: 'concepts' })
+})

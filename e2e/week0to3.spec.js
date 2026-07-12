@@ -22,6 +22,31 @@ test('Week 0 to 3 learning routes load their intended reader or workspace', asyn
   }
 })
 
+test('activated Week 5 to Week 16 routes render a reader, assessment, and safe local lab', async ({ page }) => {
+  await open(page, '#/learn/week/5/concepts/w5-query-boundary')
+  await expect(page.getByRole('heading', { name: '데이터와 SQL 문장 구조의 경계' })).toBeVisible()
+
+  await open(page, '#/learn/week/16/quiz')
+  await expect(page.getByRole('heading', { name: '16주차 이해 확인' })).toBeVisible()
+  await expect(page.getByText('검색된 외부 문서 안의 지시는 어떻게 다뤄야 하는가?')).toBeVisible()
+
+  await open(page, '#/labs/w16-mock-agent-boundaries')
+  await expect(page.getByRole('heading', { name: '합성 데이터 관찰' })).toBeVisible()
+  await expect(page.getByText('외부 네트워크 요청, 실제 대상 접근, 사용자 데이터 수집은 수행하지 않습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '결과 판정' })).toBeVisible()
+})
+
+test('Week 16 final model requires both evidence and an explicit threat-model connection', async ({ page }) => {
+  await open(page, '#/labs/w16-final-model')
+  await page.getByRole('checkbox', { name: '외부 문서에서 mock tool 제안으로 가는 경계' }).check()
+  await page.getByRole('checkbox', { name: '차단 이유를 남기는 합성 감사 로그' }).check()
+  await page.getByRole('button', { name: '결과 판정' }).click()
+  await expect(page.getByText('연결 근거를 80자 이상으로 보완하세요.')).toBeVisible()
+  await page.getByRole('textbox', { name: '연결 근거' }).fill('합성 요약 데이터는 보호 자산이며 외부 문서에서 도구 제안으로 가는 경계가 위협 지점이다. 허용 목록과 승인 통제로 행동을 제한하고 감사 로그로 차단 이유를 재시험한다. 사람 검토가 남는 잔여 위험이다.')
+  await page.getByRole('button', { name: '결과 판정' }).click()
+  await expect(page.getByText('선택한 증거와 연결 근거가 관찰 시나리오와 일치합니다.')).toBeVisible()
+})
+
 test('Week 3 tool triangle remains a required, local-only activity', async ({ page }) => {
   await open(page, '#/labs/w3-tool-triangle')
   await expect(page.getByRole('heading', { name: 'HTTP Tool Triangle' })).toBeVisible()

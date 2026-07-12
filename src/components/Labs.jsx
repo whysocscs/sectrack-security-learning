@@ -13,7 +13,6 @@ import {
   Circle,
   ExternalLink,
   Eye,
-  FlaskConical,
   Lightbulb,
   LockKeyhole,
   Play,
@@ -27,18 +26,33 @@ import { recordHintUsage } from '../learningModel'
 import MindmapStudio from './MindmapStudio'
 
 const allLabs = Object.values(weekContent).flatMap((week) => week.labs.map((lab) => ({ ...lab, weekTitle: week.title })))
+const supportedLabKinds = new Set([
+  'mindmap', 'roe', 'baseline', 'linux-shell', 'path', 'sequence', 'permission', 'pipeline',
+  'request-editor', 'http-baseline', 'tool-triangle', 'http-label', 'timeline', 'cookie',
+  'source-sink', 'threat-model', 'xss-reflected', 'xss-stored', 'xss-dom', 'xss-filtering',
+  'external', 'guided-observation',
+])
 
 function findLab(id) { return allLabs.find((lab) => lab.id === id) }
+function isSupportedLabKind(kind) { return supportedLabKinds.has(kind) }
+
+function LabKindIcon({ kind }) {
+  if (kind === 'external') return <ExternalLink size={18} />
+  if (kind === 'guided-observation') return <Eye size={18} />
+  if (String(kind).startsWith('xss')) return <Braces size={18} />
+  return <Terminal size={18} />
+}
 
 export function LabCatalog({ progress, navigate }) {
   const [weekFilter, setWeekFilter] = useState('all')
   const [scopeFilter, setScopeFilter] = useState('all')
+  const weekOptions = [...new Set(allLabs.map((lab) => lab.week))].sort((left, right) => Number(left) - Number(right))
   const visible = allLabs.filter((lab) => (weekFilter === 'all' || lab.week === Number(weekFilter)) && (scopeFilter === 'all' || (scopeFilter === 'local' ? lab.kind !== 'external' : lab.kind === 'external')))
   return (
     <div className="page-width labs-catalog">
       <section className="safety-notice"><ShieldCheck size={20} /><div><strong>실습 범위</strong><p>내장 실습은 브라우저 안의 교육용 데이터만 사용합니다. 외부 실습은 제공 기관이 명시한 계정·대상·기법 범위를 따릅니다.</p></div></section>
-      <div className="catalog-toolbar"><div>{['all', '0', '1', '2', '3', '4'].map((item) => <button type="button" key={item} className={weekFilter === item ? 'active' : ''} onClick={() => setWeekFilter(item)}>{item === 'all' ? '전체 주차' : `Week ${item}`}</button>)}</div><label><span>실습 범위</span><select value={scopeFilter} onChange={(event) => setScopeFilter(event.target.value)}><option value="all">전체</option><option value="local">내부 로컬</option><option value="external">공식 외부</option></select><ChevronDown size={14} /></label></div>
-      <div className="lab-catalog-list">{visible.map((lab) => { const state = progress.labs[lab.id]; return <button type="button" key={lab.id} onClick={() => navigate({ page: 'lab', labId: lab.id })}><span className="catalog-week">W{String(lab.week).padStart(2, '0')}</span><span className="catalog-icon">{lab.kind === 'external' ? <ExternalLink size={18} /> : lab.kind.startsWith('xss') ? <Braces size={18} /> : <Terminal size={18} />}</span><span className="catalog-copy"><small>{lab.path === 'extension' ? '심화' : lab.kind === 'external' ? '공식 외부 실습' : '필수 핵심'}</small><strong>{lab.title}</strong><p>{lab.objective}</p></span><Status state={state?.status || 'not_started'} /><ChevronRight size={18} /></button>})}</div>
+      <div className="catalog-toolbar"><div>{['all', ...weekOptions.map(String)].map((item) => <button type="button" key={item} className={weekFilter === item ? 'active' : ''} onClick={() => setWeekFilter(item)}>{item === 'all' ? '전체 주차' : `Week ${item}`}</button>)}</div><label><span>실습 범위</span><select value={scopeFilter} onChange={(event) => setScopeFilter(event.target.value)}><option value="all">전체</option><option value="local">내부 로컬</option><option value="external">공식 외부</option></select><ChevronDown size={14} /></label></div>
+      <div className="lab-catalog-list">{visible.map((lab) => { const state = progress.labs[lab.id]; return <button type="button" key={lab.id} onClick={() => navigate({ page: 'lab', labId: lab.id })}><span className="catalog-week">W{String(lab.week).padStart(2, '0')}</span><span className="catalog-icon"><LabKindIcon kind={lab.kind} /></span><span className="catalog-copy"><small>{lab.path === 'extension' ? '심화' : lab.kind === 'external' ? '공식 외부 실습' : '필수 핵심'}</small><strong>{lab.title}</strong><p>{lab.objective}</p></span><Status state={state?.status || 'not_started'} /><ChevronRight size={18} /></button>})}</div>
     </div>
   )
 }
@@ -61,11 +75,16 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
     ? Object.keys(progress.mindmap.statuses).length >= 10 && Object.values(progress.mindmap.notes).filter((item) => String(item).length >= 5).length >= 3 && progress.mindmap.interests.length >= 2
     : lab.id === 'w0-baseline' ? Object.keys(progress.baseline).length >= 6
       : lab.id === 'w0-roe' ? Object.keys(progress.roeAnswers).length >= roeCases.length : false
-  const validationPassed = Boolean(state.validationPassed || derivedPassed)
+  const supportedKind = isSupportedLabKind(lab.kind)
+  const validationPassed = supportedKind && Boolean(state.validationPassed || derivedPassed)
   const recordReady = isActivityRecordReady(lab.activityType, record)
   const tone = state.tone || 'teal'
 
   const complete = () => {
+    if (!supportedKind) {
+      notify('이 실습 유형은 아직 지원되지 않아 완료 처리할 수 없습니다.')
+      return
+    }
     if (!validationPassed || !recordReady) {
       notify(lab.activityType === 'assessment' ? '이해 확인을 먼저 완료하세요.' : '결과 확인과 필수 실습 기록을 먼저 채워주세요.')
       return
@@ -83,7 +102,7 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
       </header>
       <div className="lab-scope"><ShieldCheck size={18} /><div><strong>안전한 실습 범위</strong><p>{lab.safeScope}</p></div></div>
 
-      <div className="lab-meta-grid"><section><h3>선수지식</h3><ul>{lab.prerequisites.length ? lab.prerequisites.map((item) => <li key={item}>{item}</li>) : <li>별도 선수지식 없음</li>}</ul></section><section><h3>필요한 도구</h3><ul>{lab.requiredTools.map((item) => <li key={item}>{item}</li>)}</ul></section><section><h3>성공 조건</h3><ul>{lab.successCriteria.map((item) => <li key={item}>{item}</li>)}</ul></section></div>
+      <div className="lab-meta-grid"><section><h3>선수지식</h3><ul>{lab.prerequisites.length ? lab.prerequisites.map((item) => <LabPrerequisite key={item} item={item} navigate={navigate} />) : <li>별도 선수지식 없음</li>}</ul></section><section><h3>필요한 도구</h3><ul>{lab.requiredTools.map((item) => <li key={item}>{item}</li>)}</ul></section><section><h3>성공 조건</h3><ul>{lab.successCriteria.map((item) => <li key={item}>{item}</li>)}</ul></section></div>
 
       <div className="lab-work-layout">
         <main className="lab-workbench">
@@ -93,7 +112,7 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
       </div>
 
       {lab.activityType !== 'assessment' && <ActivityRecordPanel lab={lab} record={record} updateRecord={updateRecord} hintLevel={state.hintLevel || 0} />}
-      <footer className="lab-complete-footer"><div><strong>{state.status === 'completed' ? '활동 완료' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{lab.activityType === 'assessment' ? '응답 결과와 완료 상태는 별도로 저장됩니다.' : '완료 후에도 실습 기록을 수정할 수 있습니다.'}</p></div><button className="button primary" type="button" disabled={state.status === 'completed'} onClick={complete}>{state.status === 'completed' ? <><Check size={16} />완료됨</> : <>활동 완료 표시<ArrowRight size={16} /></>}</button></footer>
+      <footer className="lab-complete-footer"><div><strong>{!supportedKind ? '실습 유형 미지원' : state.status === 'completed' ? '활동 완료' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{!supportedKind ? '검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.' : lab.activityType === 'assessment' ? '응답 결과와 완료 상태는 별도로 저장됩니다.' : '완료 후에도 실습 기록을 수정할 수 있습니다.'}</p></div><button className="button primary" type="button" disabled={state.status === 'completed' || !supportedKind} onClick={complete}>{state.status === 'completed' ? <><Check size={16} />완료됨</> : <>활동 완료 표시<ArrowRight size={16} /></>}</button></footer>
     </div>
   )
 }
@@ -122,8 +141,16 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
     case 'xss-dom':
     case 'xss-filtering': return <XssLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'external': return <ExternalLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
-    default: return <GenericLab lab={lab} onPass={validate} />
+    case 'guided-observation': return <GuidedObservationLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
+    default: return <UnsupportedLab />
   }
+}
+
+function LabPrerequisite({ item, navigate }) {
+  const module = Object.values(weekContent).flatMap((week) => week.modules || []).find((candidate) => candidate.id === item)
+  if (!module) return <li>{item}</li>
+  const week = Object.values(weekContent).find((candidate) => candidate.modules?.some((entry) => entry.id === item))
+  return <li><button className="lab-prerequisite-link" type="button" onClick={() => navigate({ page: 'week', week: week.index, tab: 'concepts', moduleId: module.id })}>{module.title}</button></li>
 }
 
 function HintCoach({ lab, state, updateLab, updateProgress }) {
@@ -576,6 +603,110 @@ function XssLab({ lab, state, updateLab, onPass }) {
 
 function FlowStep({ index, label, value, last }) { return <div className="flow-step"><span>{index}</span><div><small>{label}</small><strong>{value}</strong></div>{!last && <ArrowDown size={15} />}</div> }
 
+function normalizeGuidedObservationScenario(scenario) {
+  if (!scenario || typeof scenario !== 'object' || Array.isArray(scenario)) return null
+  if (!Array.isArray(scenario.steps) || scenario.steps.length === 0) return null
+
+  const steps = scenario.steps.map((step) => {
+    if (typeof step === 'string' && step.trim()) return step.trim()
+    if (!step || typeof step !== 'object' || Array.isArray(step)) return null
+    const title = typeof step.title === 'string' ? step.title.trim() : ''
+    const body = typeof step.body === 'string' ? step.body.trim() : ''
+    return title && body ? `${title}: ${body}` : title || body || null
+  })
+  if (steps.some((step) => !step)) return null
+  if (!Array.isArray(scenario.evidenceOptions) || scenario.evidenceOptions.length === 0) return null
+
+  const optionIds = new Set()
+  const evidenceOptions = []
+  for (const option of scenario.evidenceOptions) {
+    if (!option || typeof option !== 'object' || Array.isArray(option) || typeof option.id !== 'string' || !option.id.trim() || typeof option.label !== 'string' || !option.label.trim() || optionIds.has(option.id)) return null
+    optionIds.add(option.id)
+    evidenceOptions.push({ id: option.id, label: option.label, detail: typeof option.detail === 'string' && option.detail.trim() ? option.detail.trim() : null })
+  }
+
+  if (!Array.isArray(scenario.correctEvidenceIds) || scenario.correctEvidenceIds.some((id) => typeof id !== 'string' || !optionIds.has(id))) return null
+  const correctEvidenceIds = [...new Set(scenario.correctEvidenceIds)]
+  if (correctEvidenceIds.length !== scenario.correctEvidenceIds.length) return null
+
+  const artifacts = Array.isArray(scenario.artifacts) ? scenario.artifacts.map((artifact) => {
+    if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) return null
+    const title = typeof artifact.title === 'string' ? artifact.title.trim() : ''
+    const body = typeof artifact.body === 'string' ? artifact.body.trim() : ''
+    const code = typeof artifact.code === 'string' ? artifact.code.trim() : ''
+    return title && (body || code) ? { title, body, code } : null
+  }) : []
+  if (artifacts.some((artifact) => !artifact)) return null
+
+  const reflection = scenario.reflection && typeof scenario.reflection === 'object' && !Array.isArray(scenario.reflection)
+    ? {
+      prompt: typeof scenario.reflection.prompt === 'string' ? scenario.reflection.prompt.trim() : '',
+      minimumLength: Number.isInteger(scenario.reflection.minimumLength) ? scenario.reflection.minimumLength : 0,
+    }
+    : null
+  if (reflection && (!reflection.prompt || reflection.minimumLength < 20)) return null
+
+  return {
+    steps,
+    evidenceOptions,
+    correctEvidenceIds,
+    artifacts,
+    reflection,
+    conclusion: typeof scenario.conclusion === 'string' && scenario.conclusion.trim() ? scenario.conclusion : null,
+  }
+}
+
+function hasExactEvidenceSelection(selectedEvidenceIds, correctEvidenceIds) {
+  const selected = [...new Set(Array.isArray(selectedEvidenceIds) ? selectedEvidenceIds.filter((id) => typeof id === 'string') : [])]
+  return selected.length === correctEvidenceIds.length && selected.every((id) => correctEvidenceIds.includes(id))
+}
+
+function GuidedObservationLab({ lab, state, updateLab, onPass }) {
+  const scenario = normalizeGuidedObservationScenario(lab.scenario)
+  if (!scenario) return <section className="generic-lab" role="alert"><AlertTriangle size={24} /><h2>관찰 시나리오를 확인할 수 없습니다.</h2><p>필수 단계나 증거 데이터가 올바르지 않아 이 실습은 완료 처리할 수 없습니다.</p></section>
+
+  const optionIds = new Set(scenario.evidenceOptions.map((option) => option.id))
+  const selectedEvidenceIds = [...new Set(Array.isArray(state.selectedEvidenceIds) ? state.selectedEvidenceIds.filter((id) => typeof id === 'string' && optionIds.has(id)) : [])]
+  const checked = Boolean(state.guidedObservationChecked)
+  const exactMatch = hasExactEvidenceSelection(selectedEvidenceIds, scenario.correctEvidenceIds)
+  const reflection = String(state.guidedObservationReflection || '').trim()
+  const reflectionReady = !scenario.reflection || reflection.length >= scenario.reflection.minimumLength
+  const conclusion = scenario.conclusion || '선택한 관찰 근거를 기준으로 방어 조치를 적용한 뒤, 같은 합성 조건에서 재시험해 예상한 변화가 재현되는지 확인합니다.'
+  const toggleEvidence = (id, selected) => {
+    const next = selected ? [...selectedEvidenceIds, id] : selectedEvidenceIds.filter((selectedId) => selectedId !== id)
+    updateLab({
+      selectedEvidenceIds: next,
+      guidedObservationChecked: false,
+      validationPassed: false,
+      validation: null,
+      validatedAt: null,
+    })
+  }
+  const verify = () => {
+    const passed = exactMatch && reflectionReady
+    updateLab({
+      guidedObservationChecked: true,
+      guidedObservationOutcome: passed ? 'passed' : 'retry',
+      guidedObservationCheckedAt: new Date().toISOString(),
+    })
+    if (passed) onPass({ evidenceIds: selectedEvidenceIds, conclusion, ...(scenario.reflection ? { reflection } : {}) })
+  }
+
+  return <section className="generic-lab guided-observation-lab">
+    <header><Eye size={24} /><div><span>GUIDED OBSERVATION</span><h2>합성 데이터 관찰</h2><p>이 실습은 브라우저에 포함된 합성 교육 데이터만 읽습니다. 외부 네트워크 요청, 실제 대상 접근, 사용자 데이터 수집은 수행하지 않습니다.</p></div></header>
+    <section><h3>읽기 순서</h3><ol>{scenario.steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></section>
+    {scenario.artifacts.length > 0 && <section className="guided-observation-artifacts"><h3>합성 관찰 전사</h3><p>아래 전사는 이 실습 안에서만 사용하는 고정 교육 자료입니다. 표시된 사실만 근거로 선택하세요.</p>{scenario.artifacts.map((artifact) => <article key={artifact.title}><h4>{artifact.title}</h4>{artifact.body && <p>{artifact.body}</p>}{artifact.code && <pre><code>{artifact.code}</code></pre>}</article>)}</section>}
+    <fieldset>
+      <legend>관찰한 증거 선택</legend>
+      <p>읽기 순서에서 직접 확인한 사실만 고르세요. 추측이나 결론 자체는 증거로 선택하지 않습니다.</p>
+      {scenario.evidenceOptions.map((option) => <label key={option.id}><input type="checkbox" checked={selectedEvidenceIds.includes(option.id)} onChange={(event) => toggleEvidence(option.id, event.target.checked)} /><span><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</span></label>)}
+    </fieldset>
+    {scenario.reflection && <section className="guided-observation-reflection"><h3>연결 근거</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="연결 근거" rows="5" value={reflection} onChange={(event) => updateLab({ guidedObservationReflection: event.target.value, guidedObservationChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로 합성 자료 안의 근거만 연결해 적으세요.`} /></label><small>{reflection.length} / {scenario.reflection.minimumLength}자</small></section>}
+    <section aria-live="polite"><h3>결과 판정</h3>{checked ? <p>{exactMatch && reflectionReady ? '선택한 증거와 연결 근거가 관찰 시나리오와 일치합니다.' : !exactMatch ? '선택한 증거 집합이 일치하지 않습니다. 읽기 순서와 증거의 직접성을 다시 확인하세요.' : `연결 근거를 ${scenario.reflection.minimumLength}자 이상으로 보완하세요.`}</p> : <p>증거를 선택한 뒤 결과를 판정하세요.</p>}<button className="button primary" type="button" onClick={verify}>결과 판정<CheckCircle2 size={16} /></button></section>
+    <section><h3>방어·재시험 결론</h3><p>{conclusion}</p></section>
+  </section>
+}
+
 function ExternalLab({ lab, state, updateLab, onPass }) {
   const isBandit = lab.id.includes('bandit')
   const [confirmed, setConfirmed] = useState(state.confirmed || { scope: false, masked: false, record: false })
@@ -584,7 +715,7 @@ function ExternalLab({ lab, state, updateLab, onPass }) {
   return <section className="external-lab"><header><ExternalLink size={20} /><div><span>OFFICIAL TRAINING PLATFORM</span><h2>{isBandit ? 'OverTheWire Bandit' : lab.title}</h2><p>외부 계정이 필요할 수 있습니다. 이 사이트는 외부 서버에 요청을 보내거나 정답·결과를 가져오지 않습니다.</p></div></header><div className="external-meta"><div><small>제공 기관</small><strong>{lab.provider || 'OverTheWire'}</strong></div><div><small>경로</small><strong>{lab.path === 'extension' ? '심화' : '필수 핵심'}</strong></div><div><small>외부 계정</small><strong>{isBandit ? '제공 계정 사용' : '플랫폼별 확인'}</strong></div></div><div className="external-link-row">{links.map((link) => <a className="button primary" href={link.url} target="_blank" rel="noreferrer" key={link.url}>{link.label}<ExternalLink size={16} /></a>)}</div><section><h3>플랫폼 내부 완료 확인</h3><label><input type="checkbox" checked={confirmed.scope} onChange={(event) => update('scope', event.target.checked)} /><span>제공 기관이 지정한 Lab·호스트·계정과 문제 범위만 사용했습니다.</span></label><label><input type="checkbox" checked={confirmed.masked} onChange={(event) => update('masked', event.target.checked)} /><span>비밀번호, Cookie와 자격 증명을 `[REDACTED]`로 처리했습니다.</span></label><label><input type="checkbox" checked={confirmed.record} onChange={(event) => update('record', event.target.checked)} /><span>{isBandit ? '레벨별 목표·명령·원리·막힌 지점·힌트 사용·결과 기록' : 'Lab별 Source·Transform·Sink·Context·수정 방향'}을 실습 기록에 정리했습니다.</span></label><p>이 체크는 외부 결과 판정이 아니라 학습자 자기 확인입니다.</p></section></section>
 }
 
-function GenericLab({ lab, onPass }) { return <section className="generic-lab"><FlaskConical size={24} /><h2>{lab.title}</h2><p>{lab.objective}</p><button className="button primary" type="button" onClick={() => onPass({ manual: true })}>관찰 완료</button></section> }
+function UnsupportedLab() { return <section className="generic-lab" role="status"><AlertTriangle size={24} /><h2>이 실습 유형은 아직 지원되지 않습니다.</h2><p>검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.</p></section> }
 
 function Status({ state, text }) {
   const labels = { not_started: '미시작', attempted: '시도함', completed: '완료' }

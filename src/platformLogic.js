@@ -141,26 +141,36 @@ export function calculateWeekProgress(week, progress) {
 }
 
 export function getNextTask(weeks, progress) {
-  for (const week of weeks) {
+  const availableWeeks = Array.isArray(weeks) ? weeks.filter((week) => week && typeof week === 'object') : []
+  const state = progress && typeof progress === 'object' ? progress : {}
+  const latestQuizAttempt = (weekIndex) => {
+    const attempts = state.quizAttempts?.[weekIndex]
+    return (Array.isArray(attempts) ? attempts.at(-1) : undefined) || state.quizScores?.[weekIndex]
+  }
+  for (const week of availableWeeks) {
     if (week.index === 0) {
-      if (progress.labs?.['w0-map']?.status !== 'completed') return { type: 'lab', week: 0, id: 'w0-map', title: '나의 보안 지도 만들기', label: '나의 보안 지도', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'map' } }
-      const latestQuiz = progress.quizAttempts?.[0]?.at(-1) || progress.quizScores?.[0]
+      if (state.labs?.['w0-map']?.status !== 'completed') return { type: 'lab', week: 0, id: 'w0-map', title: '나의 보안 지도 만들기', label: '나의 보안 지도', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'map' } }
+      const latestQuiz = latestQuizAttempt(0)
       const quizPassed = latestQuiz?.passed ?? (latestQuiz?.percent || 0) >= 80
       if (!quizPassed) return { type: 'quiz', week: 0, id: 'quiz-0', title: 'Week 0 이해 확인', label: '이해 확인', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'quiz' } }
       continue
     }
-    for (const module of (week.modules || []).filter((item) => item.path !== 'extension')) {
-      if (!progress.modulesRead[module.id]) return { type: 'module', week: week.index, id: module.id, title: module.title, label: '개념 읽기', estimatedMinutes: module.duration, route: { page: 'week', week: week.index, tab: 'concepts', moduleId: module.id } }
+    for (const module of (Array.isArray(week.modules) ? week.modules : []).filter((item) => item?.path !== 'extension')) {
+      if (!state.modulesRead?.[module.id]) return { type: 'module', week: week.index, id: module.id, title: module.title, label: '개념 읽기', estimatedMinutes: module.duration, route: { page: 'week', week: week.index, tab: 'concepts', moduleId: module.id } }
     }
-    for (const lab of (week.labs || []).filter((item) => item.path !== 'extension')) {
-      if (progress.labs[lab.id]?.status !== 'completed') return { type: 'lab', week: week.index, id: lab.id, title: lab.title, label: lab.kind === 'external' ? '공식 외부 활동' : '실습', estimatedMinutes: lab.estimatedMinutes, route: { page: 'lab', labId: lab.id } }
+    for (const lab of (Array.isArray(week.labs) ? week.labs : []).filter((item) => item?.path !== 'extension')) {
+      if (state.labs?.[lab.id]?.status !== 'completed') return { type: 'lab', week: week.index, id: lab.id, title: lab.title, label: lab.kind === 'external' ? '공식 외부 활동' : '실습', estimatedMinutes: lab.estimatedMinutes, route: { page: 'lab', labId: lab.id } }
     }
-    const latestQuiz = progress.quizAttempts?.[week.index]?.at(-1) || progress.quizScores[week.index]
+    const latestQuiz = latestQuizAttempt(week.index)
     const quizPassed = latestQuiz?.passed ?? (latestQuiz?.percent || 0) >= 80
     if (!quizPassed) return { type: 'quiz', week: week.index, id: `quiz-${week.index}`, title: `${week.index}주차 이해 확인`, label: '이해 확인', estimatedMinutes: week.quizMinutes || 15, route: { page: 'week', week: week.index, tab: 'quiz' } }
-    if (week.weeklyRecord && !progress.submissions[`week-${week.index}`]) return { type: 'record', week: week.index, id: `record-${week.index}`, title: `${week.index}주차 학습 정리`, label: '주차 정리', estimatedMinutes: week.recordMinutes || 25, route: { page: 'week', week: week.index, tab: 'record' } }
+    if (week.weeklyRecord && !state.submissions?.[`week-${week.index}`]) return { type: 'record', week: week.index, id: `record-${week.index}`, title: `${week.index}주차 학습 정리`, label: '주차 정리', estimatedMinutes: week.recordMinutes || 25, route: { page: 'week', week: week.index, tab: 'record' } }
   }
-  return { type: 'review', week: 4, id: 'review-week-4', title: 'Week 4 XSS 복습', label: '복습', estimatedMinutes: 20, route: { page: 'week', week: 4, tab: 'concepts' } }
+  const finalWeek = availableWeeks.reduce((latest, week) => (
+    !latest || Number(week.index) > Number(latest.index) ? week : latest
+  ), null)
+  if (!finalWeek) return { type: 'review', week: null, id: 'review', title: '학습 내용 복습', label: '복습', estimatedMinutes: 20, route: { page: 'learn' } }
+  return { type: 'review', week: finalWeek.index, id: `review-week-${finalWeek.index}`, title: `${finalWeek.index}주차 ${finalWeek.title || '학습 내용'} 복습`, label: '복습', estimatedMinutes: 20, route: { page: 'week', week: finalWeek.index, tab: 'concepts' } }
 }
 
 export function validateReport(report = {}) {

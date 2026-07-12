@@ -4,6 +4,7 @@ import { activityTypes, quizzes, quizRules, weekContent } from '../src/courseDat
 import {
   calculateProgressBreakdown,
   calculateWeekWorkload,
+  evaluateQuizAttempt,
   getConceptResultEvidence,
   getConceptTitle,
   getQuizRetryCount,
@@ -13,20 +14,23 @@ import {
   validateLearningData,
 } from '../src/learningModel.js'
 
-test('Week 0-4 activities, paths, workloads, and references are valid', () => {
+test('Week 0-16 activities and workloads are available', () => {
   assert.deepEqual(activityTypes, ['exploration', 'lesson', 'practice', 'investigation', 'simulation', 'external', 'report', 'assessment'])
-  assert.deepEqual(Object.values(weekContent).map((week) => {
+  assert.deepEqual(Object.values(weekContent).map((week) => week.index), Array.from({ length: 17 }, (_, index) => index))
+  for (const week of Object.values(weekContent)) {
     const workload = calculateWeekWorkload(week)
     assert.equal(workload.totalMinutes, week.estimatedMinutes)
-    return [workload.requiredMinutes, workload.extensionMinutes]
-  }), [[0, 0], [420, 120], [385, 265], [695, 35], [640, 120]])
+    assert.equal(workload.requiredMinutes, week.requiredMinutes)
+    assert.equal(workload.extensionMinutes, week.extensionMinutes)
+  }
   assert.deepEqual(validateLearningData(), { valid: true, errors: [] })
 })
 
 test('quiz pools use explicit rules and complete concept metadata', () => {
   for (const [weekIndex, pool] of Object.entries(quizzes)) {
-    assert.equal(pool.length, Number(weekIndex) === 0 ? 13 : 6)
-    assert.equal(quizRules[weekIndex].minimumCorrect, Number(weekIndex) === 0 ? 11 : 5)
+    assert.ok(pool.length)
+    assert.ok(quizRules[weekIndex].minimumCorrect > 0)
+    assert.ok(quizRules[weekIndex].minimumCorrect <= pool.length)
     for (const question of pool) {
       assert.ok(question.conceptIds.length)
       assert.ok(question.difficulty)
@@ -34,6 +38,46 @@ test('quiz pools use explicit rules and complete concept metadata', () => {
     }
   }
   assert.deepEqual(quizRules[0].requiredQuestionIds, ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'])
+})
+
+test('malformed or missing quiz definitions are reported without breaking progress reads', () => {
+  const malformedWeeks = {
+    91: {
+      id: 'week-91', index: 91,
+      modules: [{ id: 'shared-activity', activityType: 'lesson', path: 'required', estimatedMinutes: 10 }],
+      labs: [], assessment: null, weeklyRecord: null,
+      requiredMinutes: 10, extensionMinutes: 0,
+    },
+    92: {
+      id: 'week-92', index: 92,
+      modules: [],
+      labs: [{ id: 'shared-activity', activityType: 'practice', path: 'required', estimatedMinutes: 10 }],
+      assessment: null, weeklyRecord: null,
+      requiredMinutes: 10, extensionMinutes: 0,
+    },
+    93: {
+      id: 'week-93', index: 93,
+      modules: [], labs: [],
+      assessment: { id: 'w93-quiz', activityType: 'assessment', path: 'required', estimatedMinutes: 0 },
+      weeklyRecord: null,
+      requiredMinutes: 0, extensionMinutes: 0,
+    },
+  }
+  const validation = validateLearningData(malformedWeeks)
+  assert.equal(validation.valid, false)
+  assert.ok(validation.errors.includes('duplicate activity id shared-activity: weeks 91 and 92'))
+  assert.ok(validation.errors.includes('week-93: missing quiz definition'))
+  assert.ok(validation.errors.includes('week-93: missing quiz rule definition'))
+
+  assert.deepEqual(evaluateQuizAttempt(93, {}, undefined), {
+    score: 0,
+    total: 0,
+    percent: 0,
+    passed: false,
+    questionResults: [],
+  })
+  const migratedProgress = calculateProgressBreakdown(malformedWeeks[93], { quizScores: { 93: { percent: 100 } } })
+  assert.deepEqual(migratedProgress.understandingCheck, { attempted: true, passed: true })
 })
 
 test('progress is explainable and remains separate from mastery', () => {

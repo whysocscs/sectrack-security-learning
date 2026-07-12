@@ -28,8 +28,8 @@ export function isValidLearningPath(value) {
 export function getWeekActivities(week) {
   if (!week) return []
   return [
-    ...(week.modules || []).map((item) => ({ ...item, source: 'module' })),
-    ...(week.labs || []).map((item) => ({ ...item, source: 'lab' })),
+    ...(Array.isArray(week.modules) ? week.modules : []).map((item) => ({ ...item, source: 'module' })),
+    ...(Array.isArray(week.labs) ? week.labs : []).map((item) => ({ ...item, source: 'lab' })),
     ...(week.assessment ? [{ ...week.assessment, source: 'assessment' }] : []),
     ...(week.weeklyRecord ? [{ ...week.weeklyRecord, source: 'record' }] : []),
   ]
@@ -58,13 +58,17 @@ export function calculateWeekWorkload(week) {
 }
 
 function quizState(week, progress) {
-  const attempts = progress.quizAttempts?.[week.index] || []
-  const latest = attempts.at(-1) || progress.quizScores?.[week.index]
+  const attempts = progress.quizAttempts?.[week.index]
+  const attemptList = Array.isArray(attempts) ? attempts : []
+  const latest = attemptList.at(-1) || progress.quizScores?.[week.index]
   if (!latest) return { attempted: false, passed: false }
   const rule = quizRules[week.index]
+  const passedFromScore = Number.isFinite(latest.score) && Number.isFinite(rule?.minimumCorrect)
+    ? latest.score >= rule.minimumCorrect
+    : (Number.isFinite(latest.percent) ? latest.percent >= 80 : false)
   return {
     attempted: true,
-    passed: latest.passed ?? latest.score >= rule.minimumCorrect,
+    passed: typeof latest.passed === 'boolean' ? latest.passed : passedFromScore,
   }
 }
 
@@ -121,38 +125,43 @@ export function calculateProgressBreakdown(week, progress = {}, options = {}) {
 
 function answerFor(answers, question, index) {
   if (Array.isArray(answers)) return answers[index]
-  return answers?.[question.id] ?? answers?.[index]
+  return answers?.[question?.id] ?? answers?.[index]
 }
 
 export function evaluateQuizAttempt(weekIndex, answers, questions = quizzes[weekIndex]) {
   const rule = quizRules[weekIndex]
-  const questionResults = questions.map((question, index) => {
+  const questionPool = Array.isArray(questions) ? questions : []
+  const questionResults = questionPool.map((question, index) => {
+    const conceptIds = Array.isArray(question?.conceptIds) ? question.conceptIds : []
+    const remediationModuleIds = Array.isArray(question?.remediationModuleIds) ? question.remediationModuleIds : []
     const selectedAnswer = answerFor(answers, question, index)
     return {
-      questionId: question.id,
-      conceptIds: [...question.conceptIds],
-      difficulty: question.difficulty,
-      remediationModuleIds: [...question.remediationModuleIds],
+      questionId: question?.id,
+      conceptIds: [...conceptIds],
+      difficulty: question?.difficulty,
+      remediationModuleIds: [...remediationModuleIds],
       selectedAnswer,
-      correct: selectedAnswer === question.answer,
+      correct: selectedAnswer === question?.answer,
     }
   })
   const score = questionResults.filter((result) => result.correct).length
-  const allCoreCorrect = rule.requiredQuestionIds.every((id) => questionResults.some((result) => result.questionId === id && result.correct))
+  const hasValidRule = Number.isFinite(rule?.minimumCorrect) && Array.isArray(rule.requiredQuestionIds)
+  const allCoreCorrect = hasValidRule && rule.requiredQuestionIds.every((id) => questionResults.some((result) => result.questionId === id && result.correct))
   return {
     score,
     total: questionResults.length,
-    percent: Math.round((score / questionResults.length) * 100),
-    passed: score >= rule.minimumCorrect && allCoreCorrect,
+    percent: questionResults.length ? Math.round((score / questionResults.length) * 100) : 0,
+    passed: hasValidRule && score >= rule.minimumCorrect && allCoreCorrect,
     questionResults,
   }
 }
 
 export function recordQuizAttempt(progress = {}, input, suppliedAnswers) {
-  const config = typeof input === 'object' ? input : { weekIndex: input, answers: suppliedAnswers }
+  const config = input && typeof input === 'object' ? input : { weekIndex: input, answers: suppliedAnswers }
   const weekIndex = Number(config.weekIndex)
-  const result = evaluateQuizAttempt(weekIndex, config.answers, config.questions || quizzes[weekIndex])
-  const previousAttempts = progress.quizAttempts?.[weekIndex] || []
+  const result = evaluateQuizAttempt(weekIndex, config.answers, config.questions ?? quizzes[weekIndex])
+  const storedAttempts = progress.quizAttempts?.[weekIndex]
+  const previousAttempts = Array.isArray(storedAttempts) ? storedAttempts : []
   const attemptNumber = previousAttempts.length + 1
   const attemptedAt = config.attemptedAt || new Date().toISOString()
   const attempt = { ...result, attemptNumber, retryCount: attemptNumber - 1, attemptedAt }
@@ -174,7 +183,8 @@ export function recordQuizAttempt(progress = {}, input, suppliedAnswers) {
 }
 
 export function getQuizRetryCount(progress, weekIndex) {
-  return Math.max(0, (progress.quizAttempts?.[weekIndex]?.length || 0) - 1)
+  const attempts = progress.quizAttempts?.[weekIndex]
+  return Math.max(0, (Array.isArray(attempts) ? attempts.length : 0) - 1)
 }
 
 export function getConceptResultEvidence(progress, conceptId) {
@@ -243,22 +253,43 @@ export function getConceptTitle(conceptId, weeks = weekContent) {
 
 export function validateLearningData(weeks = weekContent) {
   const errors = []
-  const moduleIds = new Set(Object.values(weeks).flatMap((week) => week.modules.map((item) => item.id)))
-  for (const week of Object.values(weeks)) {
+  const weekList = Object.values(weeks || {}).filter((week) => week && typeof week === 'object')
+  const moduleIds = new Set(weekList.flatMap((week) => (Array.isArray(week.modules) ? week.modules : []).map((item) => item?.id).filter(Boolean)))
+  const activityWeeks = new Map()
+  for (const week of weekList) {
     for (const item of getWeekActivities(week)) {
       if (!isValidActivityType(item.activityType)) errors.push(`${item.id}: invalid activity type`)
       if (!isValidLearningPath(item.path)) errors.push(`${item.id}: invalid path`)
+      if (item.id) {
+        const previousWeek = activityWeeks.get(item.id)
+        if (activityWeeks.has(item.id)) errors.push(`duplicate activity id ${item.id}: weeks ${previousWeek} and ${week.index}`)
+        else activityWeeks.set(item.id, week.index)
+      }
     }
     const calculated = calculateWeekWorkload(week)
     if (calculated.requiredMinutes !== week.requiredMinutes || calculated.extensionMinutes !== week.extensionMinutes) errors.push(`${week.id}: workload mismatch`)
-    for (const question of quizzes[week.index]) {
-      for (const id of [...question.conceptIds, ...question.remediationModuleIds]) {
+    const questionPool = quizzes[week.index]
+    const rule = quizRules[week.index]
+    const expectsQuiz = week.disableAssessment !== true && week.assessment !== null
+    if (expectsQuiz && !Array.isArray(questionPool)) errors.push(`${week.id}: missing quiz definition`)
+    if (expectsQuiz && (!rule || typeof rule !== 'object')) errors.push(`${week.id}: missing quiz rule definition`)
+    for (const question of (Array.isArray(questionPool) ? questionPool : [])) {
+      if (!question || typeof question !== 'object') {
+        errors.push(`${week.id}: malformed quiz question`)
+        continue
+      }
+      const references = [
+        ...(Array.isArray(question.conceptIds) ? question.conceptIds : []),
+        ...(Array.isArray(question.remediationModuleIds) ? question.remediationModuleIds : []),
+      ]
+      if (!Array.isArray(question.conceptIds) || !Array.isArray(question.remediationModuleIds)) errors.push(`${question.id || week.id}: malformed quiz references`)
+      for (const id of references) {
         if (!moduleIds.has(id)) errors.push(`${question.id}: unknown reference ${id}`)
       }
     }
     for (const coverage of week.contextCoverage || []) {
-      for (const id of coverage.moduleIds) if (!moduleIds.has(id)) errors.push(`${coverage.id}: unknown module ${id}`)
-      for (const id of coverage.labIds) if (!week.labs.some((lab) => lab.id === id)) errors.push(`${coverage.id}: unknown lab ${id}`)
+      for (const id of (Array.isArray(coverage.moduleIds) ? coverage.moduleIds : [])) if (!moduleIds.has(id)) errors.push(`${coverage.id}: unknown module ${id}`)
+      for (const id of (Array.isArray(coverage.labIds) ? coverage.labIds : [])) if (!(Array.isArray(week.labs) ? week.labs : []).some((lab) => lab.id === id)) errors.push(`${coverage.id}: unknown lab ${id}`)
     }
   }
   return { valid: errors.length === 0, errors }
