@@ -483,7 +483,7 @@ function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
         <div><span className="section-kicker">WEEK {String(week.index).padStart(2, '0')}</span><h2>{week.title}</h2><p>{week.summary}</p></div>
         <div className="week-header-progress"><span><small>필수 경로 진행</small><strong>{value}%</strong></span><ProgressBar value={value} /><small>{readModules}/{requiredModules.length}개 개념 · {completedLabs}/{requiredLabs.length}개 활동</small></div>
       </section>
-      <nav className="tab-bar" aria-label="주차 학습 메뉴" role="tablist">{tabs.map(([id, label]) => <button type="button" role="tab" aria-selected={tab === id} key={id} className={tab === id ? 'active' : ''} onClick={() => openTab(id)}>{label}</button>)}</nav>
+      <nav className="tab-bar" aria-label="주차 학습 메뉴">{tabs.map(([id, label]) => <button type="button" aria-current={tab === id ? 'page' : undefined} key={id} className={tab === id ? 'active' : ''} onClick={() => openTab(id)}>{label}</button>)}</nav>
       {tab === 'overview' && <WeekOverview week={week} progress={progress} navigate={navigate} setTab={openTab} />}
       {tab === 'concepts' && <ConceptReader week={week} selectedId={route.moduleId} progress={progress} updateProgress={updateProgress} openModule={(moduleId) => openTab('concepts', moduleId)} openLab={(labId) => navigate({ page: 'lab', labId })} />}
       {tab === 'labs' && <WeekLabs week={week} progress={progress} navigate={navigate} />}
@@ -504,7 +504,7 @@ function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify 
   return <div className="page-width week-page week0-page">
     <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />학습 로드맵</button>
     <section className="week-header"><div><span className="section-kicker">WEEK 00</span><h2>{week.title}</h2><p>{week.summary}</p></div><div className="week0-header-status"><span><small>나의 보안 지도</small><strong>{mapCompleted ? '완료' : '작성 중'}</strong></span><span><small>이해 확인</small><strong>{quizScore === undefined ? '미응시' : `${quizScore}%`}</strong></span></div></section>
-    <nav className="tab-bar week0-tab-bar" aria-label="Week 0 학습 메뉴" role="tablist">{tabs.map(([id, label]) => <button type="button" role="tab" aria-selected={tab === id} key={id} className={tab === id ? 'active' : ''} onClick={() => openTab(id)}>{label}</button>)}</nav>
+    <nav className="tab-bar week0-tab-bar" aria-label="Week 0 학습 메뉴">{tabs.map(([id, label]) => <button type="button" aria-current={tab === id ? 'page' : undefined} key={id} className={tab === id ? 'active' : ''} onClick={() => openTab(id)}>{label}</button>)}</nav>
     {tab === 'quiz' ? <QuizView key="week-zero" week={week} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} /> : <WeekZeroWorkspace activeTab={tab} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} onTabChange={openTab} onCompleteMap={() => { updateProgress((current) => ({ ...current, labs: { ...current.labs, 'w0-map': { ...(current.labs['w0-map'] || {}), status: 'completed', completedAt: new Date().toISOString() } } })); notify('나의 보안 지도를 완료했습니다.') }} />}
   </div>
 }

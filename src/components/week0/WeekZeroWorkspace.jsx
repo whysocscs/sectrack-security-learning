@@ -169,7 +169,7 @@ function CareerEvidenceExplorer({ progress, updateProgress, navigate }) {
   return <div className="career-evidence-explorer">
     <SectionIntro kicker="CAREER EVIDENCE EXPLORER" title="분야에서 직무군으로, 직무군에서 실제 역할로 내려가는 직무 지도" body={`${researchDomains.length}개 전문 분야와 ${representativeRoleCatalog.length}개 역할을 직무군으로 묶고, 근거가 충분한 역할만 상세 문서와 공고·공식 체계 근거로 확장합니다.`} />
     <section className="market-caveat"><ShieldCheck size={20} /><div><strong>전문 분야 {researchDomains.length}개 · 대표 역할 {representativeRoleCatalog.length}개 · 상세 근거 카드 {researchRoles.length}개</strong><p>대표 역할은 운영자가 제공한 분야·직무군 목록입니다. 독립 공고·공식 직무 체계 근거가 충분한 역할만 상세 문서로 확장하며, 공개 URL이 보존되지 않은 인용에는 링크를 만들지 않습니다.</p></div></section>
-    <nav className="career-evidence-tabs" role="tablist" aria-label="직무 근거 탐색 보기">{evidenceSections.map(([id, label]) => <button type="button" role="tab" aria-selected={section === id} className={section === id ? 'active' : ''} key={id} onClick={() => setSectionState(id)}>{id === 'graph' && <GitBranch size={15} />}{label}</button>)}</nav>
+    <nav className="career-evidence-tabs" aria-label="직무 근거 탐색 보기">{evidenceSections.map(([id, label]) => <button type="button" aria-pressed={section === id} className={section === id ? 'active' : ''} key={id} onClick={() => setSectionState(id)}>{id === 'graph' && <GitBranch size={15} />}{label}</button>)}</nav>
     {section === 'market' && <MarketOverview onOpenRoles={() => setSectionState('roles')} />}
     {section === 'domains' && <DomainExplorer progress={progress} updateProgress={updateProgress} onOpenRole={() => setSectionState('roles')} />}
     {section === 'roles' && <RoleExplorer progress={progress} updateProgress={updateProgress} navigate={navigate} />}

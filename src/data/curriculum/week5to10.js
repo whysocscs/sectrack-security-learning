@@ -7,15 +7,32 @@ const sources = Object.freeze({
   postgresPrepare: { label: 'PostgreSQL · PREPARE', url: 'https://www.postgresql.org/docs/current/sql-prepare.html', note: '준비된 문장과 위치 기반 파라미터의 DB 측 동작을 확인합니다.' },
   postgresGrant: { label: 'PostgreSQL · GRANT', url: 'https://www.postgresql.org/docs/current/sql-grant.html', note: '객체별 권한을 역할에 부여하는 공식 문법과 의미입니다.' },
   owaspCsrf: { label: 'OWASP CSRF Prevention Cheat Sheet', url: 'https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html', note: '상태 변경 요청의 정당성을 확인하는 방어 원칙입니다.' },
-  mdnSetCookie: { label: 'MDN · Set-Cookie', url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie', note: '쿠키의 Domain·Path·Secure·HttpOnly·SameSite 속성과 전송 범위를 설명합니다.' },
-  mdnFetchSite: { label: 'MDN · Sec-Fetch-Site', url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site', note: '요청 시작점과 대상 사이 관계를 나타내는 Fetch Metadata 헤더입니다.' },
-  mdnCsrf: { label: 'MDN · Cross-site request forgery', url: 'https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/CSRF', note: 'CSRF의 전제와 웹 애플리케이션 방어의 개요입니다.' },
+  mdnSetCookie: { label: 'RFC 6265 · HTTP State Management Mechanism', url: 'https://www.rfc-editor.org/rfc/rfc6265', note: '쿠키의 scope와 전송 모델을 표준에서 확인합니다.' },
+  mdnFetchSite: { label: 'W3C · Fetch Metadata Request Headers', url: 'https://w3c.github.io/webappsec-fetch-metadata/', note: '요청 시작점과 대상 사이 관계를 나타내는 Fetch Metadata 헤더입니다.' },
+  mdnCsrf: { label: 'RFC 6454 · The Web Origin Concept', url: 'https://www.rfc-editor.org/rfc/rfc6454', note: 'CSRF에서 origin 경계를 해석하는 표준 용어를 확인합니다.' },
   gcc: { label: 'GCC online documentation', url: 'https://gcc.gnu.org/onlinedocs/', note: 'C 프로그램의 빌드와 보호 옵션을 확인하는 공식 문서입니다.' },
   abi: { label: 'System V ABI: x86-64', url: 'https://gitlab.com/x86-psABIs/x86-64-ABI', note: 'x86-64 호출 규약과 실행 환경의 공식 ABI 문서입니다.' },
   gdb: { label: 'GNU GDB documentation', url: 'https://sourceware.org/gdb/documentation/', note: '로컬 프로그램의 실행 상태를 관찰하는 공식 문서입니다.' },
   pwntools: { label: 'pwntools documentation', url: 'https://docs.pwntools.com/en/stable/', note: '교육용 로컬 프로세스의 입출력 자동화 문서입니다.' },
   cwe120: { label: 'MITRE CWE-120', url: 'https://cwe.mitre.org/data/definitions/120.html', note: '버퍼 복사에서의 경계 검증 실패와 완화 관점을 확인합니다.' },
   cwe787: { label: 'MITRE CWE-787', url: 'https://cwe.mitre.org/data/definitions/787.html', note: '범위를 벗어난 쓰기와 방어적 설계 관점을 확인합니다.' },
+  nvdMoveit: { label: 'NVD · CVE-2023-34362', url: 'https://nvd.nist.gov/vuln/detail/CVE-2023-34362', note: 'MOVEit Transfer SQL injection의 영향 버전·인증 전 조건·공급자 권고를 확인합니다.' },
+  progressMoveit: { label: 'Progress · MOVEit Transfer 보안 권고', url: 'https://community.progress.com/s/article/MOVEit-Transfer-Critical-Vulnerability-31May2023', note: '공급자가 게시한 업데이트·완화 안내입니다.' },
+  nvdGradio: { label: 'NVD · CVE-2024-1727', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-1727', note: '로컬 Gradio 서버의 파일 upload CSRF 조건과 upstream patch 참조를 확인합니다.' },
+  gradioPatch: { label: 'Gradio · CVE-2024-1727 upstream patch', url: 'https://github.com/gradio-app/gradio/commit/84802ee6a4806c25287344dce581f9548a99834a', note: 'NVD가 Patch로 연결한 upstream 커밋입니다.' },
+  nvdSudo: { label: 'NVD · CVE-2021-3156', url: 'https://nvd.nist.gov/vuln/detail/CVE-2021-3156', note: 'sudo의 heap-based buffer overflow 기록과 영향 범위를 확인합니다.' },
+  sudoPatch: { label: 'Sudo · heap-based overflow 보안 권고', url: 'https://www.sudo.ws/security/advisories/heap_based_overflow/', note: 'Sudo 프로젝트의 공식 수정 권고입니다.' },
+  nvdXz: { label: 'NVD · CVE-2024-3094', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-3094', note: 'xz 공급망 compromise의 영향 버전과 공식 기록을 확인합니다.' },
+  redHatXz: { label: 'Red Hat · CVE-2024-3094', url: 'https://access.redhat.com/security/cve/CVE-2024-3094', note: '배포판 공급자의 영향 판정과 권고를 확인합니다.' },
+})
+
+const lessonCveCases = Object.freeze({
+  'w5-db-basics': { type: 'cve-case', title: 'SQLi 사례: MOVEit Transfer의 인증 전 DB 접근', cve: 'CVE-2023-34362', classification: 'SQL Injection · 공식 기록', cause: 'NVD는 MOVEit Transfer 웹 애플리케이션의 SQL injection을 기록합니다. 공개 기록은 취약한 SQL 문장이나 입력값을 이 수업에서 재현할 근거로 제공하지 않습니다.', condition: 'NVD는 영향을 받은 버전과 인증 없이 데이터베이스에 접근할 수 있는 조건을 명시합니다. 이 카드에는 그 범위를 넘는 실제 환경 재현을 넣지 않습니다.', patch: 'NVD와 Progress 권고는 업데이트된 수정 버전과 공급자 지침을 연결합니다. 제품에서는 적용 버전, DB 권한, 정상 기능을 함께 확인해야 합니다.', followOn: '관련 후속 CVE를 이 패치의 우회로 묶을 공식 근거는 검증되지 않아 미채택입니다.', facts: ['NVD는 이 취약점을 CWE-89로 분류합니다.', '로컬 실습은 고정 `category` 값이 문자열 조립 또는 parameter array 중 어디로 가는지만 비교합니다.'], sources: [sources.nvdMoveit, sources.progressMoveit] },
+  'w6-state-change': { type: 'cve-case', title: 'CSRF 사례: 로컬 Gradio upload 흐름', cve: 'CVE-2024-1727', classification: 'CSRF · 공식 기록', cause: 'NVD는 로컬에서 실행 중인 Gradio의 파일 upload 기능에서 승인되지 않은 upload를 유발할 수 있는 CSRF를 기록합니다.', condition: 'NVD 설명은 피해자의 로컬 Gradio 서버가 실행 중인 상황과 사용자 상호작용을 전제로 하며, 여러 큰 파일로 디스크 공간이 소진될 수 있다고 설명합니다.', patch: 'NVD가 Patch로 연결한 upstream 변경은 localhost 계열 host에서 Origin을 localhost 계열로 제한하는 확인을 추가합니다. 이는 server-side 요청 검증의 사례이지 실제 upload 실습 지침이 아닙니다.', followOn: '후속 우회 관계는 공식 근거로 검증되지 않아 미채택입니다.', facts: ['이 수업은 실제 form·파일·cookie·token을 만들지 않고 고정 request 표지만 비교합니다.', 'Origin/CORS 정책, token, 객체별 인가는 각자 다른 질문에 답합니다.'], sources: [sources.nvdGradio, sources.gradioPatch] },
+  'w7-c-values': { type: 'cve-case', title: '메모리 경계 사례: sudo heap-based overflow', cve: 'CVE-2021-3156', classification: 'Heap buffer overflow · 공식 기록', cause: 'NVD와 Sudo 보안 권고는 sudo의 heap-based buffer overflow를 기록합니다. 이 수업은 취약 명령행·권한 상승 절차·재현 코드를 다루지 않습니다.', condition: '공식 기록의 영향 조건을 일반 C 포인터 또는 특정 ABI의 결함으로 확대하지 않습니다. 여기서는 길이·용량·수명 계약이 맞는지 읽는 출발점으로만 사용합니다.', patch: 'Sudo 프로젝트의 보안 권고가 수정 릴리스를 제공합니다. 로컬 학습에서는 16-byte 고정 marker의 경계 검사와 정상 fixture 재시험만 비교합니다.', followOn: '다음 주차에서 같은 CVE를 독해 사례로 재사용하지만 새 우회 관계는 검증되지 않아 미채택입니다.', facts: ['CVE 기록은 heap overflow를 말하지만 모든 포인터·힙 사용이 취약하다는 뜻은 아닙니다.', '합성 메모리 지도에는 실제 주소·원격 대상·권한 상승 절차가 없습니다.'], sources: [sources.nvdSudo, sources.sudoPatch] },
+  'w8-instruction-flow': { type: 'cve-case', title: '함수 상태 독해 사례: sudo 수정 경로', cve: 'CVE-2021-3156', classification: 'Patch-reading lens · 공식 기록', cause: '공식 Sudo 권고의 heap overflow 기록을 함수의 입력 길이·상태 변화·수정 전후 조건을 읽는 사례로만 사용합니다.', condition: 'System V AMD64 ABI는 함수 호출의 약속을 설명할 뿐 이 CVE의 원인이라는 공식 근거는 없습니다.', patch: '공급자 권고의 수정 릴리스를 확인한 뒤, 이 학습에서는 C 수준의 길이 검사와 call/return 상태 변화만 합성 전사로 비교합니다.', followOn: 'ABI와 이 CVE의 인과 관계 또는 패치 우회 관계는 검증되지 않아 미채택입니다.', facts: ['합성 디스어셈블리는 return address·offset·payload를 제공하지 않습니다.', '호출 규약은 입력과 반환 상태를 독해하는 계약입니다.'], sources: [sources.nvdSudo, sources.sudoPatch] },
+  'w9-debugger-flow': { type: 'cve-case', title: 'artifact 검증 사례: xz 공급망 compromise', cve: 'CVE-2024-3094', classification: 'Supply-chain compromise · 공식 기록', cause: 'NVD와 Red Hat은 xz 5.6.0·5.6.1 관련 공급망 compromise를 기록합니다. 파일명이나 AI 설명만으로 artifact의 안전성을 확정할 수 없다는 사례입니다.', condition: '학습자는 공식 권고, 버전, artifact provenance를 대조할 뿐 악성 build artifact·backdoor·원격 연결을 재현하지 않습니다.', patch: '이 사례의 대응은 일반적인 입력 패치가 아니라 공급자 권고에 따른 영향 버전 제거·안전 버전 확인·artifact 재검증입니다.', followOn: '다른 사례와의 우회 연결은 공식 근거로 검증되지 않아 미채택입니다.', facts: ['디버거 출력은 artifact provenance나 공급망 상태를 단독으로 증명하지 않습니다.', '로컬 driver는 고정 fixture와 output 비교에만 사용합니다.'], sources: [sources.nvdXz, sources.redHatXz] },
+  'w10-bounds': { type: 'cve-case', title: '경계 검사 사례: sudo의 heap overflow와 root fix', cve: 'CVE-2021-3156', classification: 'Memory-safety case · 공식 기록', cause: '공식 기록의 heap-based buffer overflow를 “길이·용량·안전한 실패 처리”라는 경계 계약의 사례로 제한합니다.', condition: '크래시, 메모리 손상, 제어 흐름 효과, 악용 가능성, 사업 영향은 서로 다른 주장입니다. 이 카드만으로 그 어느 것도 추가 확정하지 않습니다.', patch: 'Sudo 프로젝트의 수정 권고를 적용 근거로 보고, 로컬에서는 capacity 경계와 정상 입력을 함께 재시험합니다. canary·NX·ASLR·PIE는 root fix의 대체물이 아닙니다.', followOn: '후속 우회 관계는 공식 근거로 검증되지 않아 미채택입니다.', facts: ['로컬 fixture는 0·경계값·경계 초과 marker만 사용합니다.', '실제 sudo 명령행, 권한 상승, 보호 우회는 이 과정에 포함되지 않습니다.'], sources: [sources.nvdSudo, sources.sudoPatch] },
 })
 
 const recordSchema = ['관찰 순서와 합성 자료 이름', '선택한 증거와 선택 이유', '사실과 해석을 구분한 설명', '실제 비밀·개인정보·운영 식별자가 없음을 확인']
@@ -33,6 +50,7 @@ function lesson({ id, title, duration, summary, question, paragraphs, nodes, det
     blocks: [
       { id: `${id}-question`, type: 'question', title: '학습 질문', body: question },
       { id: `${id}-explanation`, type: 'explanation', title: '핵심 설명', paragraphs },
+      ...(lessonCveCases[id] ? [lessonCveCases[id]] : []),
       { id: `${id}-diagram`, type: 'diagram', title: '관찰 흐름', body: '값·상태·경계를 순서대로 읽고, 근거보다 큰 결론은 다음 확인 항목으로 남깁니다.', nodes },
       ...detailBlocks,
       { id: `${id}-misconception`, type: 'misconception', title: '흔한 오해', items: misconception },

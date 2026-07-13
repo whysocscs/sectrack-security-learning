@@ -71,8 +71,10 @@ const labActivityTypes = {
   external: 'external',
 }
 
+const week4CveFirstModuleOrder = ['w4-nature', 'w4-types', 'w4-taint', 'w4-context', 'w4-impact', 'w4-defense', 'w4-validation']
+
 function normalizeWeek(week) {
-  const modules = week.modules.map((module) => ({
+  const normalizedModules = week.modules.map((module) => ({
     ...module,
     ...(week0LessonBlocks[module.id] ? { blocks: week0LessonBlocks[module.id] } : {}),
     ...(week1LessonBlocks[module.id] ? { blocks: week1LessonBlocks[module.id] } : {}),
@@ -83,7 +85,10 @@ function normalizeWeek(week) {
     path: module.path || 'required',
     estimatedMinutes: module.estimatedMinutes ?? module.duration,
   }))
-  const labs = week.labs.map((lab) => ({
+  const modules = week.curriculumId === 'week-4'
+    ? [...normalizedModules].sort((left, right) => week4CveFirstModuleOrder.indexOf(left.id) - week4CveFirstModuleOrder.indexOf(right.id))
+    : normalizedModules
+  const labs = week.labs.filter((lab) => !week.retiredActivityIds?.includes(lab.id)).map((lab) => ({
     ...lab,
     activityType: lab.activityType || labActivityTypes[lab.kind] || 'practice',
     path: lab.path || (lab.kind === 'external' ? 'extension' : 'required'),
@@ -267,9 +272,9 @@ const baseWeekContent = {
     reportConnection: '자산, Endpoint, Method, Parameter, 인증, Source, Sink, 컨텍스트, 기대·실제 동작, 요청·응답 증거 필드를 연습합니다.', next: 'Week 4 · Cross-Site Scripting',
   },
   4: {
-    id: 'week-4', index: 4, title: 'Cross-Site Scripting(XSS)·취약점 보고서',
-    summary: 'XSS를 페이로드 모음이 아니라 Source에서 브라우저 실행 지점까지 이어지는 데이터 흐름으로 분석합니다.',
-    objectives: ['Reflected·Stored·DOM XSS를 데이터 흐름으로 구분한다.', 'Source·Transform·Sink·Context·실행 위치를 추적한다.', '허가된 환경에서 무해한 PoC로 최소 영향만 검증한다.', '컨텍스트별 방어와 재시험이 포함된 Finding을 작성한다.'],
+    id: 'week-4', index: 4, title: 'Cross-Site Scripting(XSS)·CVE 사례와 방어',
+    summary: 'XSS를 페이로드 모음이 아니라 실제 CVE의 원인·조건·패치와 브라우저 데이터 흐름으로 분석합니다.',
+    objectives: ['Reflected·Stored·DOM XSS를 실제 CVE와 데이터 흐름으로 구분한다.', 'Source·Transform·Sink·Context·실행 위치를 추적한다.', '공식 패치와 root defense를 구분하고 안전한 로컬 sandbox로만 확인한다.', '검증되지 않은 우회 관계는 미채택으로 기록하고 재시험 범위를 정한다.'],
     prerequisites: ['Week 3 HTTP·Cookie·DOM', 'HTML 요소·속성·JavaScript 문자열 기초', '안전한 실습 범위'], estimatedMinutes: 480, quizMinutes: 15, recordMinutes: 25,
     contextCoverage: [
       { id: 'html-body', title: 'HTML body', required: true, moduleIds: ['w4-context'], labIds: ['w4-reflected'] },
@@ -277,8 +282,7 @@ const baseWeekContent = {
       { id: 'url-scheme', title: 'URL과 허용 scheme', required: true, moduleIds: ['w4-context', 'w4-defense'], labIds: ['w4-dom'] },
       { id: 'javascript-data', title: 'JavaScript string 또는 안전한 데이터 전달', required: true, moduleIds: ['w4-context', 'w4-defense'], labIds: ['w4-stored'] },
       { id: 'dom-flow', title: 'DOM-based flow', required: true, moduleIds: ['w4-types', 'w4-taint'], labIds: ['w4-dom'] },
-      { id: 'sanitizer-comparison', title: 'Sanitizer 전·후 비교', required: true, moduleIds: ['w4-defense'], labIds: ['w4-filtering'] },
-      { id: 'csp-vs-root-cause', title: 'CSP 실행 차단과 근본 원인 제거 비교', required: true, moduleIds: ['w4-defense'], labIds: ['w4-filtering'] },
+      { id: 'root-defense', title: '근본 방어와 보완 통제 비교', required: true, moduleIds: ['w4-defense', 'w4-validation'], labIds: ['w4-reflected', 'w4-dom'] },
     ],
     modules: [
       { id: 'w4-nature', title: 'XSS의 본질', duration: 40, summary: '신뢰할 수 없는 데이터가 피해자 브라우저에서 코드로 해석되는 취약점입니다.', paragraphs: ['서버가 입력을 응답에 넣는 과정에서 원인이 생길 수 있지만 최종 실행 지점은 브라우저입니다. 실행 코드는 해당 페이지의 Origin과 로그인한 사용자의 세션 맥락에서 동작할 수 있습니다.', '교육용 검증은 `alert(1)`이나 고정 문자열 표시처럼 무해한 동작으로 제한합니다. 외부 전송, 쿠키 탈취, 키로깅, 피싱 UI는 구현하거나 제출하지 않습니다.'], points: ['문자열 반사와 코드 실행은 서로 다른 주장이다.', '취약점 존재와 실제 영향 확인을 보고서에서 분리한다.', 'SOP를 없애는 것이 아니라 취약한 페이지와 같은 Origin 권한으로 스크립트가 실행되는 효과가 생긴다.'] },
@@ -297,8 +301,13 @@ const baseWeekContent = {
       { ...commonLabFields, id: 'w4-filtering', week: 4, title: '잘못된 필터링 원리', kind: 'xss-filtering', contextIds: ['sanitizer-comparison', 'csp-vs-root-cause'], estimatedMinutes: 40, objective: '문자열 블랙리스트와 클라이언트 전용 검증이 구조적으로 실패하는 이유를 설명합니다.', prerequisites: ['브라우저 컨텍스트', '서버·클라이언트 신뢰 경계'], requiredTools: ['내장 필터 비교기'], safeScope: '우회 페이로드 목록을 제공하지 않고 고정된 교육 예시만 비교합니다.', successCriteria: ['두 필터의 검사 위치 표시', '근본 원인 작성', '올바른 방어 선택'], hints: ['검사가 어느 파서보다 먼저 일어나는지 보세요.', '클라이언트 코드는 사용자가 바꿀 수 있습니다.', '차단 문자열을 늘리는 대신 데이터를 코드와 분리하세요.'], relatedConceptIds: ['w4-defense'], nextRecommendations: ['XSS Finding 완성', '외부 공식 Lab'] },
       { ...commonLabFields, id: 'w4-official-xss', week: 4, title: '공식 XSS Lab 연결', kind: 'external', estimatedMinutes: 120, objective: '내부 실습에서 익힌 Source·Sink·Context 추적표를 공식 교육 플랫폼의 XSS Lab에 적용합니다.', prerequisites: ['내부 XSS Lab 3개 이상', '안전한 검증 절차'], requiredTools: ['PortSwigger Web Security Academy 또는 Dreamhack 계정', '브라우저'], safeScope: '각 교육 플랫폼이 제공한 Lab 인스턴스와 계정 범위에서만 수행합니다.', successCriteria: ['공식 Lab 최소 2개 완료', 'Lab별 Source·Sink·Context 제출', '자격 증명·Cookie 마스킹'], hints: ['유형 이름보다 입력이 어디에서 들어오는지 먼저 표시하세요.', '응답 원문과 실행 후 DOM 중 어느 쪽에 값이 있는지 비교하세요.', '플랫폼의 성공 표시와 별도로 취약 원인·수정 방향을 한 문장씩 적으세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context', 'w4-defense'], nextRecommendations: ['XSS Finding 완성', 'Week 5 SQL Injection'], provider: 'PortSwigger · Dreamhack', externalLinks: [{ label: 'PortSwigger XSS Academy', url: 'https://portswigger.net/web-security/cross-site-scripting' }, { label: 'Dreamhack XSS 강의·Lab', url: 'https://dreamhack.io/lecture/units/webhacking-xss' }] },
     ],
-    deliverables: ['내부 XSS Lab 최소 3개', 'Lab별 Source·Sink·Context 추적표', '요청·응답 또는 DOM 증거', '취약·수정 코드 비교', '개별 XSS Finding 1개', '블랙리스트 실패 원인 300~500자'],
-    reportConnection: 'Finding ID, 자산, Endpoint, Source, Transform, Sink, Context, 재현, 영향, 근본 원인, 수정 코드, 재시험을 하나의 문서로 연결합니다.', next: 'Week 5 · SQL Injection',
+    retiredActivityIds: ['w4-report-evidence', 'w4-filtering'],
+    retiredActivities: [
+      { id: 'w4-report-evidence', kind: 'report-evidence', reason: 'CVE-first Week 03 학습 흐름에서는 제외합니다. 기존 localStorage 기록은 삭제하거나 변환하지 않습니다.' },
+      { id: 'w4-filtering', kind: 'xss-filtering', reason: 'CVE-first Week 03 학습 흐름에서는 제외합니다. 기존 localStorage 기록은 삭제하거나 변환하지 않습니다.' },
+    ],
+    deliverables: ['안전한 로컬 reflected·stored·DOM 활동 기록', '세 CVE의 원인·조건·공식 패치 메모', 'Source·Sink·Context 추적표', '2차 재시험 체크 결과'],
+    reportConnection: 'CVE, 공식 근거 URL, source, sink, context, 패치, 정상 기능 재시험, 미채택 사유를 하나의 학습 기록으로 연결합니다.', next: 'Week 4 · SQL Injection',
   },
 }
 

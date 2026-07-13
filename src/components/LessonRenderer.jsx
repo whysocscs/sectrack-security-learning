@@ -86,6 +86,22 @@ function Retest({ block }) {
   return <section className="lesson-retest"><BlockHeading block={block} />{block.intro && <p><InlineCodeText text={block.intro} /></p>}<div role="table" aria-label={block.title || '재시험 표'}><div className="lesson-retest-head" role="row"><span role="columnheader">입력 또는 범위</span><span role="columnheader">확인</span><span role="columnheader">기대 결과</span></div>{(block.rows || []).map((row) => <div key={row.label} role="row"><strong role="cell">{row.label}</strong><span role="cell"><InlineCodeText text={row.check} /></span><span role="cell"><InlineCodeText text={row.expected} /></span></div>)}</div></section>
 }
 
+function CveCase({ block }) {
+  return <article className="lesson-cve-case">
+    <header><span>VERIFIED CVE CASE</span><strong>{block.cve}</strong><small>{block.classification}</small></header>
+    <BlockHeading block={block} />
+    <dl>
+      <div><dt>공식 원인</dt><dd><InlineCodeText text={block.cause} /></dd></div>
+      <div><dt>성립 조건</dt><dd><InlineCodeText text={block.condition} /></dd></div>
+      <div><dt>공식 패치</dt><dd><InlineCodeText text={block.patch} /></dd></div>
+      <div><dt>후속 연결</dt><dd><InlineCodeText text={block.followOn} /></dd></div>
+    </dl>
+    <ul>{block.facts.map((fact) => <li key={fact}><CheckCircle2 size={15} /><InlineCodeText text={fact} /></li>)}</ul>
+    <p className="cve-case-safety">이 카드는 공개된 원인과 패치만 요약합니다. 실제 CVE 재현 코드·외부 대상·자격 증명은 사용하지 않습니다.</p>
+    <div className="cve-case-sources" aria-label={`${block.cve} 공식 근거`}>{block.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer"><span>{source.label}</span><ExternalLink size={14} /></a>)}</div>
+  </article>
+}
+
 export default function LessonRenderer({ module, checkpointResults = {}, onCheckpoint, onOpenLab }) {
   const blocks = getLessonBlocks(module)
   const weekOneLinuxModule = /^(w1|w2)-/.test(module.id)
@@ -101,6 +117,7 @@ export default function LessonRenderer({ module, checkpointResults = {}, onCheck
     if (block.type === 'command-guide') return <section id={id} key={id}><CommandGuide block={block} /></section>
     if (block.type === 'timeline') return <section id={id} key={id} className="lesson-timeline"><BlockHeading block={block} /><ol>{(block.items || block.steps || []).map((item, itemIndex, items) => <li key={`${item}-${itemIndex}`}><span>{String(itemIndex + 1).padStart(2, '0')}</span><div><strong>{typeof item === 'string' ? item : item.title}</strong>{typeof item === 'object' && item.body && <p>{item.body}</p>}</div>{itemIndex < items.length - 1 && <i aria-hidden="true" />}</li>)}</ol></section>
     if (block.type === 'case') return <section id={id} key={id} className="lesson-case"><span>사례</span><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p>{block.facts?.length ? <ul>{block.facts.map((fact) => <li key={fact}><CheckCircle2 size={15} />{fact}</li>)}</ul> : null}</section>
+    if (block.type === 'cve-case') return <section id={id} key={id}><CveCase block={block} /></section>
     if (block.type === 'misconception') return <section id={id} key={id} className="lesson-misconception"><BlockHeading block={block} /><ul>{(block.items || []).map((item) => <li key={item}><span>오해</span><div><InlineCodeText text={item} /></div></li>)}</ul></section>
     if (block.type === 'warning') return <section id={id} key={id} className="lesson-warning"><ShieldAlert size={19} /><div><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p></div></section>
     if (block.type === 'checkpoint') return <div id={id} key={id}><Checkpoint block={block} value={checkpointResults[block.id]} onChange={(result) => onCheckpoint?.(block.id, result)} readOnly={weekOneLinuxModule} number={questionNumber} /></div>

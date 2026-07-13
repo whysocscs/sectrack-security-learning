@@ -12,6 +12,22 @@ test('learning roadmap renders from its direct hash route', async ({ page }) => 
   await expect(page.locator('.roadmap-item').filter({ hasText: '보안 기초·Linux·도구' })).toBeVisible()
 })
 
+test('page navigation and local view selectors use current-page or pressed states instead of incomplete tabs', async ({ page }) => {
+  await open(page, '#/learn/week/4')
+  const weekNavigation = page.getByRole('navigation', { name: '주차 학습 메뉴' })
+  await expect(weekNavigation.locator('[role="tab"]')).toHaveCount(0)
+  await expect(weekNavigation.getByRole('button', { name: '이번 주' })).toHaveAttribute('aria-current', 'page')
+  await weekNavigation.getByRole('button', { name: '개념 모듈' }).click()
+  await expect(weekNavigation.getByRole('button', { name: '개념 모듈' })).toHaveAttribute('aria-current', 'page')
+
+  await open(page, '#/labs/w4-reflected')
+  const contexts = page.getByRole('group', { name: 'XSS 출력 컨텍스트' })
+  await expect(contexts.locator('[role="tab"]')).toHaveCount(0)
+  await expect(contexts.getByRole('button', { name: 'HTML Body' })).toHaveAttribute('aria-pressed', 'true')
+  await contexts.getByRole('button', { name: 'JS Data' }).click()
+  await expect(contexts.getByRole('button', { name: 'JS Data' })).toHaveAttribute('aria-pressed', 'true')
+})
+
 test('Week 0 to 2 learning routes load their intended reader or workspace', async ({ page }) => {
   await open(page, '#/learn/week/0/glossary')
   await expect(page.getByRole('heading', { name: '보안 용어는 정의와 함께, 헷갈리는 경계까지 읽습니다.' })).toBeVisible()
@@ -63,24 +79,25 @@ test('merged Week 1 keeps Linux reader and shell layouts within the viewport', a
   await expect(page.locator('.linux-task-strip article.solved')).toHaveCount(3)
 })
 
-test('display Week 03 XSS guide shows deep concepts, evidence, retests, and a local report exercise', async ({ page }) => {
+test('display Week 03 XSS guide shows CVE evidence, retests, and exactly four allowed activities', async ({ page }) => {
   await open(page, '#/learn/week/3/concepts/w4-nature')
   await expect(page.locator('.reader-document > header h2')).toHaveText('검색어는 언제 HTML이 되는가')
   await expect(page.getByText('이 모듈의 질문')).toBeVisible()
   await expect(page.locator('.lesson-concept-ref details')).toHaveCount(5)
 
-  await open(page, '#/learn/week/3/concepts/w4-validation')
-  await expect(page.getByRole('heading', { name: '합성 XSS Finding의 증거 지도' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Finding에 붙일 재시험 표' })).toBeVisible()
+  await open(page, '#/learn/week/3/concepts/w4-taint')
+  await expect(page.getByRole('heading', { name: 'Reflected XSS: RESTEasy 오류 응답의 URL encoding' })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2020-10688', { exact: true })).toBeVisible()
 
-  await open(page, '#/labs/w4-report-evidence')
-  await expect(page.getByRole('heading', { name: 'Finding 문장을 근거에 맞게 분리하기' })).toBeVisible()
-  for (const [index, value] of ['fact', 'impact', 'condition', 'root-cause', 'control', 'retest'].entries()) {
-    await page.getByRole('combobox', { name: `${index + 1}번 문장 분류` }).selectOption(value)
-  }
-  await page.getByRole('textbox', { name: '분류 근거' }).fill('고정 마커가 live DOM 구조로 나타났다는 문장은 실제로 관찰한 화면 변화다. 반면 사용자 기능과 데이터에 미칠 수 있는 결과는 역할, 화면의 기능, HttpOnly와 CSP 같은 조건을 추가로 확인해야 하는 영향 판단이다.')
-  await page.getByRole('button', { name: '결과 판정' }).click()
-  await expect(page.getByText('문장 구분과 근거 설명이 모두 맞습니다. 이 구조를 Finding 초안에도 유지하세요.')).toBeVisible()
+  await open(page, '#/learn/week/3/concepts/w4-validation')
+  await expect(page.getByRole('heading', { name: '두 번째 확인의 증거 지도' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '로컬 안전 실습의 재시험 행렬' })).toBeVisible()
+  await expect(page.locator('.lesson-practice-links button')).toHaveCount(4)
+  await expect(page.locator('.lesson-practice-links')).toContainText('Reflected XSS · 검색어 반사')
+  await expect(page.locator('.lesson-practice-links')).toContainText('Stored XSS · 게시글')
+  await expect(page.locator('.lesson-practice-links')).toContainText('DOM-based XSS · fragment와 innerHTML')
+  await expect(page.locator('.lesson-practice-links')).toContainText('공식 XSS Lab 연결')
 })
 
 test('display Week 03 reader keeps its evidence and retest blocks within a 360px viewport', async ({ page }) => {
@@ -88,6 +105,8 @@ test('display Week 03 reader keeps its evidence and retest blocks within a 360px
   await open(page, '#/learn/week/3/concepts/w4-validation')
   await expect(page.locator('.lesson-evidence-board')).toBeVisible()
   await expect(page.locator('.lesson-retest')).toBeVisible()
+  await open(page, '#/learn/week/3/concepts/w4-impact')
+  await expect(page.locator('.lesson-cve-case')).toBeVisible()
   await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
@@ -111,6 +130,8 @@ test('Week 5 SQLi reader connects database foundations, controls, and a safe des
   await expect(page.locator('.reader-toc > button')).toHaveCount(5)
   await expect(page.getByRole('heading', { name: '처음 알아둘 데이터베이스 언어' })).toBeVisible()
   await expect(page.getByText('읽기 전용 검색 서비스 계정')).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2023-34362', { exact: true })).toBeVisible()
 
   await open(page, '#/learn/week/4/concepts/w5-database-controls')
   await expect(page.getByRole('heading', { name: '최소 권한·오류 처리·로그는 왜 따로 필요한가' })).toBeVisible()
@@ -132,6 +153,8 @@ test('Week 05 CSRF reader connects request legitimacy to safe endpoint review', 
   await expect(page.locator('.reader-document > header h2')).toHaveText('상태 변경 요청과 브라우저의 기본 동작')
   await expect(page.locator('.reader-toc > button')).toHaveCount(5)
   await expect(page.getByRole('heading', { name: '조회와 상태 변경을 구분하는 기준' })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2024-1727', { exact: true })).toBeVisible()
 
   await open(page, '#/learn/week/5/concepts/w6-csrf-controls')
   await expect(page.getByRole('heading', { name: 'CSRF 방어 통제의 역할과 한계' })).toBeVisible()
@@ -147,6 +170,107 @@ test('Week 05 CSRF reader connects request legitimacy to safe endpoint review', 
   ]) await page.getByRole('checkbox', { name }).check()
   await page.getByRole('button', { name: '결과 판정' }).click()
   await expect(page.getByText('선택한 증거와 연결 근거가 관찰 시나리오와 일치합니다.')).toBeVisible()
+})
+
+test('Week 06 memory reader presents the sudo case as a safe boundary-review lesson', async ({ page }) => {
+  await open(page, '#/learn/week/6/concepts/w7-c-values')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('값·주소·포인터의 구분')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2021-3156', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('16-byte 고정 marker')
+  await expect(page.locator('.lesson-cve-case')).toContainText('권한 상승 절차·재현 코드를 다루지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 07 assembly reader separates calling-convention facts from the sudo CVE cause', async ({ page }) => {
+  await open(page, '#/learn/week/7/concepts/w8-instruction-flow')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('명령 흐름과 레지스터')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2021-3156', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('ABI는 함수 호출의 약속')
+  await expect(page.locator('.lesson-cve-case')).toContainText('공식 근거는 없습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 08 debugger reader keeps the xz case at artifact-provenance review', async ({ page }) => {
+  await open(page, '#/learn/week/8/concepts/w9-debugger-flow')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('GDB로 실행 흐름 관찰하기')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2024-3094', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('artifact provenance')
+  await expect(page.locator('.lesson-cve-case')).toContainText('backdoor·원격 연결을 재현하지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 09 memory-safety reader preserves root-fix and safe-retest boundaries', async ({ page }) => {
+  await open(page, '#/learn/week/9/concepts/w10-bounds')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('경계 검증과 메모리 안전성')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2021-3156', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('root fix의 대체물이 아닙니다.')
+  await expect(page.locator('.lesson-cve-case')).toContainText('실제 sudo 명령행, 권한 상승, 보호 우회는 이 과정에 포함되지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 10 AI-analysis reader uses xz only as evidence-verification context', async ({ page }) => {
+  await open(page, '#/learn/week/10/concepts/w11-ai-claims')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('AI 답변을 주장 단위로 검증하기')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2024-3094', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('artifact provenance')
+  await expect(page.locator('.lesson-cve-case')).toContainText('악성 build artifact, backdoor, 원격 연결은 재현하지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 11 crypto reader maps Terrapin to strict-KEX remediation without MITM reproduction', async ({ page }) => {
+  await open(page, '#/learn/week/11/concepts/w12-crypto-boundaries')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('인코딩·해시·암호화의 목적')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2023-48795', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('strict KEX 확장')
+  await expect(page.locator('.lesson-cve-case')).toContainText('패킷 변조·중간자 트래픽·외부 SSH 대상 연결을 포함하지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 12 network reader keeps Rapid Reset at safe PCAP interpretation and mitigation review', async ({ page }) => {
+  await open(page, '#/learn/week/12/concepts/w13-pcap-scope')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('PCAP은 무엇을 보여 주고 무엇을 놓치는가')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2023-44487', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('stream·요청 자원 제한')
+  await expect(page.locator('.lesson-cve-case')).toContainText('대량 요청·reset 전송·외부 네트워크 관찰을 하지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 13 fuzzing reader shows Wasmtime patch versions without reproducing a crash input', async ({ page }) => {
+  await open(page, '#/learn/week/13/concepts/w14-fuzzing-model')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('Fuzzing의 입력·harness·coverage 모델')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2024-47763', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('OSS-Fuzz routine fuzzing')
+  await expect(page.locator('.lesson-cve-case')).toContainText('21.0.2, 22.0.1, 23.0.3, 24.0.1, 25.0.2')
+  await expect(page.locator('.lesson-cve-case')).toContainText('Wasm 모듈·crash 입력을 재현하지 않고')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 14 cloud reader keeps Azure Arc remediation separate from IAM review and live systems', async ({ page }) => {
+  await open(page, '#/learn/week/14/concepts/w15-shared-responsibility')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('공유 책임 모델을 자산별로 읽기')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2022-37968', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('IAM 최소 권한은 필요한 보완 통제')
+  await expect(page.locator('.lesson-cve-case')).toContainText('실제 cloud 계정·cluster·자격 증명을 사용하지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('Week 15 agent reader states only the verified LlamaIndex CVE relationship', async ({ page }) => {
+  await open(page, '#/learn/week/15/concepts/w16-agent-boundaries')
+  await expect(page.locator('.reader-document > header h2')).toHaveText('Mock Agent의 신뢰 경계')
+  await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
+  await expect(page.getByText('CVE-2024-3098', { exact: true })).toBeVisible()
+  await expect(page.locator('.lesson-cve-case')).toContainText('CVE-2023-39662의 bypass라고 명시합니다.')
+  await expect(page.locator('.lesson-cve-case')).toContainText('safe_eval, 실제 파일 생성, 코드 실행은 재현하지 않습니다.')
+  await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test('Week 15 final model requires both evidence and an explicit threat-model connection', async ({ page }) => {
@@ -174,7 +298,10 @@ test('Career Explorer defaults to evidence and keeps graph as a secondary view',
   await expect(page.getByRole('heading', { name: '분야에서 직무군으로, 직무군에서 실제 역할로 내려가는 직무 지도' })).toBeVisible()
   await expect(page.getByText('전문 분야 16개 · 대표 역할 113개 · 상세 근거 카드 33개')).toBeVisible()
   await expect(page.locator('.react-flow__node')).toHaveCount(0)
-  await page.getByRole('tab', { name: '관계도' }).click()
+  const graphView = page.getByRole('button', { name: '관계도' })
+  await expect(graphView).toHaveAttribute('aria-pressed', 'false')
+  await graphView.click()
+  await expect(graphView).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.react-flow__node')).toHaveCount(16)
   const viewportTransform = await page.locator('.react-flow__viewport').getAttribute('style')
   await page.getByTestId('rf__node-domain-ot').click()

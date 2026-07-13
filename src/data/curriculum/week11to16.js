@@ -20,6 +20,19 @@ const officialSources = Object.freeze({
   owaspPromptInjection: { label: 'OWASP GenAI: Prompt Injection', url: 'https://genai.owasp.org/llmrisk/llm01-prompt-injection/', note: '신뢰 경계와 간접 지시의 위험을 공식 프로젝트 문서에서 확인합니다.' },
   owaspLlmTop10: { label: 'OWASP Top 10 for LLM Applications', url: 'https://genai.owasp.org/llm-top-10/', note: 'AI 애플리케이션 위협을 모델, 데이터, 도구, 운영 관점으로 정리합니다.' },
   nistAiRmf: { label: 'NIST AI Risk Management Framework', url: 'https://www.nist.gov/itl/ai-risk-management-framework', note: 'AI 위험을 맥락과 통제로 관리하는 공식 프레임워크입니다.' },
+  nvdXz: { label: 'NVD · CVE-2024-3094', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-3094', note: 'xz upstream tarball의 악성 코드와 영향 버전을 공식 CVE 기록에서 확인합니다.' },
+  redHatXz: { label: 'Red Hat · CVE-2024-3094', url: 'https://access.redhat.com/security/cve/CVE-2024-3094', note: '공급자 권고에 따라 영향 버전과 대응 범위를 확인합니다.' },
+  nvdTerrapin: { label: 'NVD · CVE-2023-48795', url: 'https://nvd.nist.gov/vuln/detail/CVE-2023-48795', note: 'SSH transport protocol의 handshake·sequence number 관련 기록을 확인합니다.' },
+  openSsh96: { label: 'OpenSSH 9.6 release notes', url: 'https://www.openssh.com/txt/release-9.6', note: 'Terrapin 대응 strict KEX 확장의 공식 릴리스 설명입니다.' },
+  nvdRapidReset: { label: 'NVD · CVE-2023-44487', url: 'https://nvd.nist.gov/vuln/detail/CVE-2023-44487', note: 'HTTP/2 request cancellation에 따른 server resource consumption 기록입니다.' },
+  cisaRapidReset: { label: 'CISA · HTTP/2 Rapid Reset alert', url: 'https://www.cisa.gov/news-events/alerts/2023/10/10/http2-rapid-reset-vulnerability-cve-2023-44487', note: 'CISA의 영향 확인과 공급자 완화 안내를 확인합니다.' },
+  rfc9113: { label: 'RFC 9113 · HTTP/2', url: 'https://www.rfc-editor.org/rfc/rfc9113', note: 'HTTP/2 stream과 reset의 표준 문맥을 확인합니다.' },
+  nvdWasmtime: { label: 'NVD · CVE-2024-47763', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-47763', note: 'Wasmtime tail-call·stack trace crash와 패치 버전의 공식 CVE 기록입니다.' },
+  wasmtimePatch: { label: 'Wasmtime · GHSA-q8hx-mm92-4wvg', url: 'https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-q8hx-mm92-4wvg', note: 'Wasmtime 프로젝트의 영향 범위·패치 릴리스·fuzzing 발견 경위를 확인합니다.' },
+  nvdAzureArc: { label: 'NVD · CVE-2022-37968', url: 'https://nvd.nist.gov/vuln/detail/CVE-2022-37968', note: 'Azure Arc-enabled Kubernetes Cluster Connect 권한 상승 기록입니다.' },
+  msrcAzureArc: { label: 'Microsoft MSRC · CVE-2022-37968', url: 'https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-37968', note: 'Microsoft의 보안 업데이트 안내를 확인합니다.' },
+  nvdLlamaIndex: { label: 'NVD · CVE-2024-3098', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-3098', note: 'LlamaIndex safe_eval의 prompt injection과 이전 CVE 우회 관계를 확인합니다.' },
+  llamaIndexPatch: { label: 'LlamaIndex fix commit', url: 'https://github.com/run-llama/llama_index/commit/5fbcb5a8b9f20f81b791c7fc8849e352613ab475', note: '공식 저장소의 CVE-2024-3098 수정 commit입니다.' },
 })
 
 const commonSubmissionSchema = [
@@ -40,6 +53,63 @@ function sources(ids) {
   return ids.map((id) => officialSources[id])
 }
 
+const learningModuleCveCases = Object.freeze({
+  'w11-ai-claims': {
+    id: 'w11-ai-claims-cve', type: 'cve-case', title: 'AI 주장 검증 사례: xz upstream tarball compromise', cve: 'CVE-2024-3094', classification: 'Supply-chain compromise · 공식 기록',
+    cause: 'NVD는 xz upstream tarball 5.6.0부터 악성 코드가 발견되었다고 기록합니다. 이 카드는 AI 답변이나 파일명만으로 artifact의 안전성을 확정할 수 없다는 검증 사례입니다.',
+    condition: '로컬 합성 기록은 소스·버전·artifact provenance를 대조하는 연습만 제공합니다. 악성 build artifact, backdoor, 원격 연결은 재현하지 않습니다.',
+    patch: '공급자 권고에 따라 영향 버전을 제거하고 안전한 버전·artifact provenance를 다시 확인합니다. AI의 요약은 업데이트 적용 또는 영향 판정의 근거를 대체하지 않습니다.',
+    followOn: 'AI 분석 오류와 이 CVE의 인과 관계 또는 다른 CVE로의 우회 연결은 검증되지 않아 미채택입니다.',
+    facts: ['CVE-2024-3094는 upstream xz tarball의 공급망 compromise 기록이며, 일반적인 AI 답변 자체의 취약점 기록은 아닙니다.', '버전·배포 경로·공급자 권고는 서로 대조해야 하며, 화면의 합성 기록만으로 운영 영향은 확정하지 않습니다.'],
+    sources: sources(['nvdXz', 'redHatXz']),
+  },
+  'w12-crypto-boundaries': {
+    id: 'w12-crypto-boundaries-cve', type: 'cve-case', title: '프로토콜 무결성 사례: SSH Terrapin', cve: 'CVE-2023-48795', classification: 'SSH transport integrity · 공식 기록',
+    cause: 'NVD는 특정 OpenSSH 확장과 SSH Binary Packet Protocol의 handshake·sequence number 처리로 초기 협상 메시지 일부가 생략될 수 있는 문제를 기록합니다.',
+    condition: '암호화·해시·인코딩 구분은 이 사례를 읽는 기초일 뿐, 제공 PCAP이나 로컬 카드가 MITM 발생·영향을 입증하지는 않습니다.',
+    patch: 'OpenSSH 9.6은 Terrapin 대응 strict KEX 확장을 도입했습니다. 실제 환경에서는 공급자 릴리스와 양 끝의 지원 여부를 확인하고, 이 수업에서는 합성 협상 상태만 재시험합니다.',
+    followOn: '다른 암호 사례와의 우회 관계는 공식 근거로 검증되지 않아 미채택입니다.',
+    facts: ['초기 협상 무결성 문제와 세션 기밀성 전체에 대한 주장은 구분해야 합니다.', '실습은 패킷 변조·중간자 트래픽·외부 SSH 대상 연결을 포함하지 않습니다.'],
+    sources: sources(['nvdTerrapin', 'openSsh96']),
+  },
+  'w13-pcap-scope': {
+    id: 'w13-pcap-scope-cve', type: 'cve-case', title: '네트워크 관찰 사례: HTTP/2 Rapid Reset', cve: 'CVE-2023-44487', classification: 'HTTP/2 resource consumption · 공식 기록',
+    cause: 'NVD는 HTTP/2에서 요청 취소가 많은 stream을 빠르게 reset해 서버 자원을 소비하게 할 수 있음을 기록합니다.',
+    condition: '제공 PCAP의 stream·시간·상태는 관찰 사실일 뿐 특정 서버의 자원 영향, 요청 출처, 운영 규모를 증명하지 않습니다.',
+    patch: 'CISA와 각 제품 공급자의 업데이트·완화 지침을 적용하고, 서버 측 stream·요청 자원 제한과 정상 트래픽 재시험을 함께 확인합니다. 이 과정은 트래픽 생성이 아닌 고정 PCAP 읽기만 사용합니다.',
+    followOn: 'PCAP의 다른 이벤트와 이 CVE의 인과 또는 우회 관계는 검증되지 않아 미채택입니다.',
+    facts: ['HTTP/2 표준 문맥과 제품별 수정·완화 적용은 구분해 기록합니다.', '이 수업은 대량 요청·reset 전송·외부 네트워크 관찰을 하지 않습니다.'],
+    sources: sources(['nvdRapidReset', 'cisaRapidReset', 'rfc9113']),
+  },
+  'w14-fuzzing-model': {
+    id: 'w14-fuzzing-model-cve', type: 'cve-case', title: 'Fuzzing 발견 사례: Wasmtime tail-call crash', cve: 'CVE-2024-47763', classification: 'Availability / runtime crash · 공식 기록',
+    cause: 'NVD는 Wasmtime의 WebAssembly tail call과 stack trace 조합이 특정 모듈에서 runtime crash를 일으킬 수 있음을 기록합니다. 이 문제는 Wasmtime 프로젝트의 OSS-Fuzz routine fuzzing으로 발견되었습니다.',
+    condition: 'NVD 기록에는 야생 악용 증거가 없다고 명시되어 있습니다. 이 수업은 Wasm 모듈·crash 입력을 재현하지 않고 합성 fuzz log의 분류와 한계만 다룹니다.',
+    patch: '영향 릴리스 계열은 21.0.2, 22.0.1, 23.0.3, 24.0.1, 25.0.2에서 패치되었습니다. 루트 방어는 영향 버전 교체와 최소 corpus의 정상·실패 회귀 재시험입니다.',
+    followOn: '다른 runtime 사례와의 우회 관계는 공식 근거로 검증되지 않아 미채택입니다.',
+    facts: ['fuzzer가 crash를 찾았다는 사실과 전체 보안 영향의 최종 판단은 다른 단계입니다.', '로컬 활동은 고정된 합성 sanitizer 요약과 정상 fixture 비교만 사용합니다.'],
+    sources: sources(['nvdWasmtime', 'wasmtimePatch', 'libFuzzer']),
+  },
+  'w15-shared-responsibility': {
+    id: 'w15-shared-responsibility-cve', type: 'cve-case', title: '관리형 연결 사례: Azure Arc Cluster Connect', cve: 'CVE-2022-37968', classification: 'Elevation of privilege · 공식 기록',
+    cause: 'NVD와 Microsoft는 Azure Arc-enabled Kubernetes cluster의 Cluster Connect 기능에서 인증되지 않은 사용자가 권한을 높여 관리 제어를 얻을 수 있는 취약점을 기록합니다.',
+    condition: '공유 책임 모델은 책임 질문을 정리하는 틀입니다. 이 카드만으로 특정 Azure 구독·cluster·IAM 정책의 영향 여부를 확정하거나 검사하지 않습니다.',
+    patch: 'Microsoft MSRC의 해당 업데이트 안내를 적용하고 적용 버전·cluster 연결 기능·정상 관리 흐름을 확인합니다. 고객 IAM 최소 권한은 필요한 보완 통제이지만 공급자 보안 업데이트의 대체물이 아닙니다.',
+    followOn: 'CloudGoat 또는 다른 cloud 사례와의 우회 관계는 공식 근거로 검증되지 않아 미채택입니다.',
+    facts: ['공급자 서비스 기능의 취약점과 고객 데이터·권한 운영 책임은 분리해 기록합니다.', '실습은 합성 책임 지도를 읽으며 실제 cloud 계정·cluster·자격 증명을 사용하지 않습니다.'],
+    sources: sources(['nvdAzureArc', 'msrcAzureArc']),
+  },
+  'w16-agent-boundaries': {
+    id: 'w16-agent-boundaries-cve', type: 'cve-case', title: 'Prompt injection 사례: LlamaIndex safe_eval', cve: 'CVE-2024-3098', classification: 'Prompt injection / code injection · 공식 기록',
+    cause: 'NVD는 LlamaIndex exec_utils의 safe_eval에서 입력 검증이 부족해 method restriction을 우회할 수 있는 prompt injection 문제를 기록합니다.',
+    condition: '이 과정의 mock agent는 합성 문서·허용된 mock tool·사용자 승인만 사용합니다. safe_eval, 실제 파일 생성, 코드 실행은 재현하지 않습니다.',
+    patch: '공식 LlamaIndex 수정 commit과 영향 버전을 확인하고, 입력 검증·도구 허용 목록·사용자 승인·감사 로그를 별도 통제로 재시험합니다. 통제 하나만으로 수정 적용을 증명하지 않습니다.',
+    followOn: 'NVD는 이 CVE가 CVE-2023-39662의 bypass라고 명시합니다. 이 공식 관계만 기록하며, 로컬 mock agent에서 재현하거나 후속 우회를 확장하지 않습니다.',
+    facts: ['외부 문서의 지시는 데이터로 취급하고 tool 요청은 별도 승인 경계를 통과해야 합니다.', '카드의 CVE 설명은 실제 코드·파일·외부 시스템을 사용하지 않는 방어적 위협 모델에 한정됩니다.'],
+    sources: sources(['nvdLlamaIndex', 'llamaIndexPatch', 'owaspPromptInjection']),
+  },
+})
+
 function learningModule({ id, title, duration, summary, question, explanation, visual, misconception, checkpoints, labIds, sourceIds, bullets }) {
   return {
     id,
@@ -51,6 +121,7 @@ function learningModule({ id, title, duration, summary, question, explanation, v
     blocks: [
       { id: `${id}-question`, type: 'question', title: '학습 질문', body: question },
       { id: `${id}-explanation`, type: 'explanation', title: '핵심 설명', paragraphs: explanation },
+      ...(learningModuleCveCases[id] ? [learningModuleCveCases[id]] : []),
       visual,
       { id: `${id}-misconception`, type: 'misconception', title: '흔한 오해', items: misconception },
       ...checkpoints.map((checkpoint, index) => ({ id: `${id}-checkpoint-${index + 1}`, type: 'checkpoint', ...checkpoint })),

@@ -12,6 +12,7 @@ export const LESSON_BLOCK_TYPES = Object.freeze([
   'command-guide',
   'timeline',
   'case',
+  'cve-case',
   'misconception',
   'warning',
   'checkpoint',
@@ -91,6 +92,15 @@ export function validateLessonModule(module) {
       errors.push(`${index + 1}번째 checkpoint에는 ID와 질문이 필요합니다.`)
     }
     if (block.type === 'sources' && !Array.isArray(block.items)) errors.push(`${index + 1}번째 sources에는 items 배열이 필요합니다.`)
+    if (block.type === 'cve-case') {
+      if (!hasText(block.cve) || !hasText(block.classification) || !hasText(block.cause) || !hasText(block.condition) || !hasText(block.patch) || !hasText(block.followOn)) {
+        errors.push(`${index + 1}번째 cve-case에는 cve, classification, cause, condition, patch, followOn이 필요합니다.`)
+      }
+      if (!Array.isArray(block.facts) || !block.facts.length) errors.push(`${index + 1}번째 cve-case에는 facts 배열이 필요합니다.`)
+      if (!Array.isArray(block.sources) || !block.sources.length || block.sources.some((source) => !hasText(source?.label) || !hasText(source?.url))) {
+        errors.push(`${index + 1}번째 cve-case에는 label과 url을 가진 sources 배열이 필요합니다.`)
+      }
+    }
     if (block.type === 'command-guide' && !Array.isArray(block.commands)) errors.push(`${index + 1}번째 command-guide에는 commands 배열이 필요합니다.`)
     if (block.type === 'concept-ref') {
       if (!Array.isArray(block.conceptIds) || !block.conceptIds.length) errors.push(`${index + 1}번째 concept-ref에는 conceptIds 배열이 필요합니다.`)

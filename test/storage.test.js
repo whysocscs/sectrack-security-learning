@@ -141,6 +141,29 @@ test('partial v3 data is merged with defaults without dropping unknown data', ()
   assert.equal(result.progress.mindmap.view.mode, 'roles')
 })
 
+test('retired Week 03 XSS activity records remain in local storage', () => {
+  const storage = new MemoryStorage({
+    [STORAGE_KEY]: envelopeWith({
+      labs: {
+        'w4-report-evidence': { status: 'completed', completedAt: FIXED_TIME },
+        'w4-filtering': { status: 'attempted', completedAt: FIXED_TIME },
+      },
+      activityRecords: {
+        'w4-report-evidence': { reflection: '기존 학습 기록' },
+        'w4-filtering': { reflection: '기존 필터 비교 기록' },
+      },
+    }),
+  })
+
+  const result = createAdapter(storage).load()
+
+  assert.equal(result.ok, true)
+  assert.equal(result.progress.labs['w4-report-evidence'].status, 'completed')
+  assert.equal(result.progress.labs['w4-filtering'].status, 'attempted')
+  assert.equal(result.progress.activityRecords['w4-report-evidence'].reflection, '기존 학습 기록')
+  assert.equal(result.progress.activityRecords['w4-filtering'].reflection, '기존 필터 비교 기록')
+})
+
 test('export and import round-trip progress with required envelope metadata', () => {
   const progress = {
     modulesRead: { 'w2-http': true },
