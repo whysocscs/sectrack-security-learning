@@ -2,6 +2,7 @@ import { week0LessonBlocks } from './content/week0Blocks.js'
 import { week1LessonBlocks } from './content/week1Blocks.js'
 import { week2LessonBlocks } from './content/week2Blocks.js'
 import { week3LessonBlocks } from './content/week3Blocks.js'
+import { week4LessonBlocks, week4LessonMeta, week4ReportEvidenceScenario } from './content/week4Blocks.js'
 import { weekZeroDefinition } from './data/week0/weekDefinition.js'
 import { weekZeroQuizQuestions, weekZeroQuizRule } from './data/week0/quiz.js'
 import { week5to10Content, week5to10Quizzes } from './data/curriculum/week5to10.js'
@@ -66,6 +67,7 @@ const labActivityTypes = {
   'xss-stored': 'investigation',
   'xss-dom': 'investigation',
   'xss-filtering': 'investigation',
+  'report-evidence': 'investigation',
   external: 'external',
 }
 
@@ -76,6 +78,7 @@ function normalizeWeek(week) {
     ...(week1LessonBlocks[module.id] ? { blocks: week1LessonBlocks[module.id] } : {}),
     ...(week2LessonBlocks[module.id] ? { blocks: week2LessonBlocks[module.id] } : {}),
     ...(week3LessonBlocks[module.id] ? { blocks: week3LessonBlocks[module.id] } : {}),
+    ...(week4LessonMeta[module.id] ? { ...week4LessonMeta[module.id], contentLevel: 'deep-guide-v2', blocks: week4LessonBlocks[module.id] } : {}),
     activityType: module.activityType || 'lesson',
     path: module.path || 'required',
     estimatedMinutes: module.estimatedMinutes ?? module.duration,
@@ -275,7 +278,7 @@ const baseWeekContent = {
       { id: 'javascript-data', title: 'JavaScript string 또는 안전한 데이터 전달', required: true, moduleIds: ['w4-context', 'w4-defense'], labIds: ['w4-stored'] },
       { id: 'dom-flow', title: 'DOM-based flow', required: true, moduleIds: ['w4-types', 'w4-taint'], labIds: ['w4-dom'] },
       { id: 'sanitizer-comparison', title: 'Sanitizer 전·후 비교', required: true, moduleIds: ['w4-defense'], labIds: ['w4-filtering'] },
-      { id: 'csp-vs-root-cause', title: 'CSP 실행 차단과 근본 원인 제거 비교', required: true, moduleIds: ['w4-bypass', 'w4-defense'], labIds: ['w4-filtering'] },
+      { id: 'csp-vs-root-cause', title: 'CSP 실행 차단과 근본 원인 제거 비교', required: true, moduleIds: ['w4-defense'], labIds: ['w4-filtering'] },
     ],
     modules: [
       { id: 'w4-nature', title: 'XSS의 본질', duration: 40, summary: '신뢰할 수 없는 데이터가 피해자 브라우저에서 코드로 해석되는 취약점입니다.', paragraphs: ['서버가 입력을 응답에 넣는 과정에서 원인이 생길 수 있지만 최종 실행 지점은 브라우저입니다. 실행 코드는 해당 페이지의 Origin과 로그인한 사용자의 세션 맥락에서 동작할 수 있습니다.', '교육용 검증은 `alert(1)`이나 고정 문자열 표시처럼 무해한 동작으로 제한합니다. 외부 전송, 쿠키 탈취, 키로깅, 피싱 UI는 구현하거나 제출하지 않습니다.'], points: ['문자열 반사와 코드 실행은 서로 다른 주장이다.', '취약점 존재와 실제 영향 확인을 보고서에서 분리한다.', 'SOP를 없애는 것이 아니라 취약한 페이지와 같은 Origin 권한으로 스크립트가 실행되는 효과가 생긴다.'] },
@@ -284,14 +287,14 @@ const baseWeekContent = {
       { id: 'w4-context', title: '브라우저 컨텍스트', duration: 55, summary: '데이터가 놓인 문법에 따라 필요한 방어가 달라집니다.', points: ['HTML body에서는 텍스트가 태그로 해석되지 않도록 HTML 인코딩한다.', 'Attribute에서는 따옴표로 값을 감싸고 속성 컨텍스트에 맞게 인코딩한다.', 'JavaScript 문자열에 직접 데이터를 삽입하지 말고 JSON 직렬화와 안전한 데이터 전달 방식을 사용한다.', 'URL에는 허용할 scheme과 목적지를 검증하고 URL 구성 요소별 인코딩을 적용한다.', 'CSS와 HTML comment처럼 안전하게 다루기 어려운 위치에는 신뢰할 수 없는 데이터를 넣지 않는다.', '공통 문자열 필터 하나로 모든 파서와 컨텍스트를 방어할 수 없다.'] },
       { id: 'w4-validation', title: '안전한 검증 절차', duration: 45, summary: '고유 마커에서 시작해 최소한의 실행 증거만 확인합니다.', steps: ['입력 지점 식별', '고유한 무해한 마커 삽입', '응답 또는 DOM에서 마커 위치 확인', '브라우저 컨텍스트 판별', '로컬·허가 환경에서 무해한 PoC', '실행 지점과 원인 기록', '최소 영향만 확인', '토큰·개인정보 마스킹', '수정 후 같은 절차로 재시험'] },
       { id: 'w4-impact', title: '영향과 심각도', duration: 40, summary: '실행 여부만으로 심각도를 과장하지 않고 사용자 역할과 통제를 함께 봅니다.', points: ['피해자 권한의 요청 수행, 계정 동작 대행, 화면 변조, 민감정보 노출, 피싱·신뢰 악용 가능성을 검토한다.', '관리자나 운영자처럼 권한이 큰 사용자가 노출되면 영향이 확대될 수 있다.', 'HttpOnly가 쿠키 읽기를 줄여도 DOM 데이터 접근과 사용자 행동 대행은 남을 수 있다.', '실제 위험은 노출 대상, 인증 전제, 사용자 상호작용, CSP, 쿠키 속성, 기능 권한을 근거로 평가한다.', 'CVSS 점수와 조직의 비즈니스 영향은 별도 근거로 작성한다.'] },
-      { id: 'w4-bypass', title: '블랙리스트가 실패하는 이유', duration: 45, summary: '우회 문자열을 외우지 않고 파서와 검증 위치의 불일치를 이해합니다.', points: ['소문자 `script` 한 문자열이나 특정 태그만 막으면 다른 표현과 실행 경로가 남는다.', '클라이언트 검증은 요청을 직접 만들거나 코드를 바꿔 우회할 수 있으므로 서버 신뢰 경계가 될 수 없다.', '입력 검증과 출력 사이의 디코딩 순서가 다르면 검사한 값과 브라우저가 해석한 값이 달라진다.', '프레임워크 auto-escape 해제와 innerHTML 사용은 안전한 기본값을 제거한다.', 'CSP에 unsafe-inline을 허용하거나 CSP만 믿으면 근본 원인이 남는다.'] },
       { id: 'w4-defense', title: '방어와 재시험', duration: 65, summary: '데이터를 코드와 분리하고 필요한 경우에만 검증된 Sanitizer를 사용합니다.', points: ['컨텍스트별 출력 인코딩과 프레임워크 기본 escaping을 유지한다.', '사용자 HTML이 필요 없으면 textContent 등 안전한 Sink를 사용한다.', '정말 HTML 입력이 필요할 때만 DOMPurify 같은 검증된 Sanitizer를 정책에 맞게 사용한다.', '사용자 데이터를 inline JavaScript에 삽입하지 않고 URL scheme은 allowlist로 제한한다.', 'CSP와 Secure·HttpOnly·SameSite Cookie는 defense-in-depth와 영향 완화 수단이다.', 'WAF는 임시 완화나 탐지에 도움을 줄 수 있지만 취약 코드 수정이 아니다.', '같은 입력·컨텍스트·사용자 역할로 재시험하고 인접 기능 회귀도 확인한다.'] },
     ],
     labs: [
+      { ...commonLabFields, id: 'w4-report-evidence', week: 4, title: 'XSS Finding 증거 분류', kind: 'report-evidence', estimatedMinutes: 35, objective: '합성 XSS Finding의 사실·영향·조건·원인·수정·재시험 문장을 분리해 보고서의 근거 구조를 만듭니다.', prerequisites: ['XSS의 본질', '관찰과 추론 구분'], requiredTools: ['내장 보고서 문장 분류기'], safeScope: '실제 서비스·자격 증명·공격 코드는 사용하지 않는 고정 합성 Finding만 다룹니다.', successCriteria: ['여섯 문장을 올바른 보고서 항목으로 분류', '관찰과 영향의 차이를 60자 이상 설명', '근본 원인과 재시험을 분리'], hints: ['직접 보인 변화와 그 영향 해석을 먼저 나누세요.', '원인은 코드·데이터 경로로 적고, 수정은 그 경로를 바꾸는 행동입니다.', '재시험은 같은 결함 경로가 사라졌는지와 정상 기능이 남았는지를 함께 봅니다.'], relatedConceptIds: ['w4-impact', 'w4-validation'], nextRecommendations: ['Reflected XSS 관찰', 'XSS Finding 초안'], scenario: week4ReportEvidenceScenario },
       { ...commonLabFields, id: 'w4-reflected', week: 4, title: 'Reflected XSS · 검색어 반사', kind: 'xss-reflected', contextIds: ['html-body'], estimatedMinutes: 45, objective: 'query `q`가 HTML body에 반사되는 위치와 실행 맥락을 추적합니다.', prerequisites: ['HTTP query', 'HTML body context'], requiredTools: ['내장 격리 시뮬레이터'], safeScope: '고정된 무해한 PoC만 사용하며 외부 요청과 데이터 전송은 차단합니다.', successCriteria: ['고유 마커 반사 확인', 'Source·Sink·Context 표시', '취약·수정 코드 비교', '실습 기록 저장'], hints: ['먼저 실행 문자열이 아닌 고유 마커로 반사 위치를 찾으세요.', '응답에서 마커 주변의 HTML 문법을 확인하세요.', '템플릿의 escaping 설정과 최종 DOM을 비교하세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context'], nextRecommendations: ['Stored XSS', 'Finding 초안'] },
       { ...commonLabFields, id: 'w4-stored', week: 4, title: 'Stored XSS · 게시글', kind: 'xss-stored', contextIds: ['html-attribute', 'javascript-data'], estimatedMinutes: 55, objective: '작성 → 저장 → 재조회 → 다른 사용자 렌더링의 시간 차이를 설명합니다.', prerequisites: ['Stored XSS', '저장과 렌더링'], requiredTools: ['내장 격리 게시판'], safeScope: '브라우저의 training 전용 데이터만 사용하며 실제 계정·서버와 분리됩니다.', successCriteria: ['입력·저장·조회·실행 흐름 표시', '작성 시점과 실행 시점 구분', 'auto-escape 재시험'], hints: ['작성 직후가 아니라 목록을 보는 사용자를 기준으로 보세요.', 'DB 값 자체보다 템플릿 출력 방식을 확인하세요.', '제목과 본문이 서로 다른 컨텍스트인지 비교하세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context'], nextRecommendations: ['DOM-based XSS'] },
       { ...commonLabFields, id: 'w4-dom', week: 4, title: 'DOM-based XSS · fragment와 innerHTML', kind: 'xss-dom', contextIds: ['url-scheme', 'dom-flow'], estimatedMinutes: 45, objective: 'location.hash에서 innerHTML로 이어지는 클라이언트 데이터 흐름을 찾습니다.', prerequisites: ['URL fragment', 'DOM Source·Sink'], requiredTools: ['내장 DOM 비교기'], safeScope: '고정된 fragment와 격리된 미리보기만 사용합니다.', successCriteria: ['서버 원문·실행 후 DOM 비교', 'Source·Sink 코드 줄 표시', 'textContent 수정 재시험'], hints: ['fragment가 HTTP 요청에 포함되는지 먼저 확인하세요.', '서버 응답 원문과 DevTools Elements의 DOM을 비교하세요.', 'HTML이 필요한지 묻고 필요 없다면 textContent를 사용하세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context'], nextRecommendations: ['필터링 원리'] },
-      { ...commonLabFields, id: 'w4-filtering', week: 4, title: '잘못된 필터링 원리', kind: 'xss-filtering', contextIds: ['sanitizer-comparison', 'csp-vs-root-cause'], estimatedMinutes: 40, objective: '문자열 블랙리스트와 클라이언트 전용 검증이 구조적으로 실패하는 이유를 설명합니다.', prerequisites: ['브라우저 컨텍스트', '서버·클라이언트 신뢰 경계'], requiredTools: ['내장 필터 비교기'], safeScope: '우회 페이로드 목록을 제공하지 않고 고정된 교육 예시만 비교합니다.', successCriteria: ['두 필터의 검사 위치 표시', '근본 원인 작성', '올바른 방어 선택'], hints: ['검사가 어느 파서보다 먼저 일어나는지 보세요.', '클라이언트 코드는 사용자가 바꿀 수 있습니다.', '차단 문자열을 늘리는 대신 데이터를 코드와 분리하세요.'], relatedConceptIds: ['w4-bypass', 'w4-defense'], nextRecommendations: ['XSS Finding 완성', '외부 공식 Lab'] },
+      { ...commonLabFields, id: 'w4-filtering', week: 4, title: '잘못된 필터링 원리', kind: 'xss-filtering', contextIds: ['sanitizer-comparison', 'csp-vs-root-cause'], estimatedMinutes: 40, objective: '문자열 블랙리스트와 클라이언트 전용 검증이 구조적으로 실패하는 이유를 설명합니다.', prerequisites: ['브라우저 컨텍스트', '서버·클라이언트 신뢰 경계'], requiredTools: ['내장 필터 비교기'], safeScope: '우회 페이로드 목록을 제공하지 않고 고정된 교육 예시만 비교합니다.', successCriteria: ['두 필터의 검사 위치 표시', '근본 원인 작성', '올바른 방어 선택'], hints: ['검사가 어느 파서보다 먼저 일어나는지 보세요.', '클라이언트 코드는 사용자가 바꿀 수 있습니다.', '차단 문자열을 늘리는 대신 데이터를 코드와 분리하세요.'], relatedConceptIds: ['w4-defense'], nextRecommendations: ['XSS Finding 완성', '외부 공식 Lab'] },
       { ...commonLabFields, id: 'w4-official-xss', week: 4, title: '공식 XSS Lab 연결', kind: 'external', estimatedMinutes: 120, objective: '내부 실습에서 익힌 Source·Sink·Context 추적표를 공식 교육 플랫폼의 XSS Lab에 적용합니다.', prerequisites: ['내부 XSS Lab 3개 이상', '안전한 검증 절차'], requiredTools: ['PortSwigger Web Security Academy 또는 Dreamhack 계정', '브라우저'], safeScope: '각 교육 플랫폼이 제공한 Lab 인스턴스와 계정 범위에서만 수행합니다.', successCriteria: ['공식 Lab 최소 2개 완료', 'Lab별 Source·Sink·Context 제출', '자격 증명·Cookie 마스킹'], hints: ['유형 이름보다 입력이 어디에서 들어오는지 먼저 표시하세요.', '응답 원문과 실행 후 DOM 중 어느 쪽에 값이 있는지 비교하세요.', '플랫폼의 성공 표시와 별도로 취약 원인·수정 방향을 한 문장씩 적으세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context', 'w4-defense'], nextRecommendations: ['XSS Finding 완성', 'Week 5 SQL Injection'], provider: 'PortSwigger · Dreamhack', externalLinks: [{ label: 'PortSwigger XSS Academy', url: 'https://portswigger.net/web-security/cross-site-scripting' }, { label: 'Dreamhack XSS 강의·Lab', url: 'https://dreamhack.io/lecture/units/webhacking-xss' }] },
     ],
     deliverables: ['내부 XSS Lab 최소 3개', 'Lab별 Source·Sink·Context 추적표', '요청·응답 또는 DOM 증거', '취약·수정 코드 비교', '개별 XSS Finding 1개', '블랙리스트 실패 원인 300~500자'],
@@ -300,17 +303,76 @@ const baseWeekContent = {
 }
 
 function mergeLinuxWeeks(weekOne, weekTwo) {
+  const moduleById = (id) => [...weekOne.modules, ...weekTwo.modules].find((module) => module.id === id)
+  const labById = (id) => [...weekOne.labs, ...weekTwo.labs].find((lab) => lab.id === id)
+  const navigation = moduleById('w1-navigation')
+  const permission = moduleById('w1-permission')
+  const bandit = labById('w1-bandit')
+
   return {
     ...weekOne,
     title: '보안 기초·Linux·도구',
-    summary: '파일·경로·권한·텍스트 처리·HTTP 관찰 도구를 한 흐름으로 익히고 Bandit 0~10에 적용합니다.',
+    summary: '경로·파일·권한·텍스트·HTTP 관찰을 하나의 Linux 학습 흐름으로 익히고 Bandit 0~10에 적용합니다.',
     objectives: [...weekOne.objectives, ...weekTwo.objectives],
     prerequisites: weekOne.prerequisites,
     quizMinutes: 25,
     recordMinutes: 35,
-    modules: [...weekOne.modules, ...weekTwo.modules],
-    labs: [...weekOne.labs, ...weekTwo.labs],
-    deliverables: [...weekOne.deliverables, ...weekTwo.deliverables],
+    modules: [
+      moduleById('w1-shell'),
+      moduleById('w1-filesystem'),
+      {
+        ...navigation,
+        title: '파일·탐색·텍스트·형식 관찰 명령',
+        duration: 125,
+        summary: '`pwd`, `ls`, `cd`, `find`, `grep`, `file`과 텍스트 관찰 명령을 문법과 옵션 중심으로 익힙니다.',
+        points: [...navigation.points, ...moduleById('w2-text').points, ...moduleById('w2-binary').points],
+      },
+      moduleById('w1-fileops'),
+      {
+        ...permission,
+        title: '사용자·그룹·소유권과 권한',
+        duration: 75,
+        summary: '파일과 디렉터리의 권한을 읽고, `chmod`·`chown`·`chgrp`가 바꾸는 대상을 구분합니다.',
+        points: [...permission.points, ...moduleById('w2-permissions').points],
+      },
+      moduleById('w1-ssh'),
+      moduleById('w2-streams'),
+      moduleById('w2-curl'),
+      moduleById('w2-process'),
+      moduleById('w2-git'),
+    ].filter(Boolean),
+    labs: [
+      labById('w1-treasure'),
+      {
+        ...commonLabFields,
+        id: 'w1-command-ctf',
+        week: 1,
+        title: '명령어 CTF · 사건 기록',
+        kind: 'linux-shell',
+        scenario: 'command-ctf',
+        estimatedMinutes: 40,
+        objective: '가상 사건 디렉터리에서 목록, 파일 형식, 경로 검색, 텍스트 검색을 조합해 세 개의 교육용 FLAG를 찾습니다.',
+        prerequisites: ['`ls`, `file`, `find`, `grep`의 역할 구분'],
+        requiredTools: ['내장 가상 Linux 셸'],
+        safeScope: '브라우저 메모리 안의 읽기 전용 교육용 파일 시스템입니다.',
+        successCriteria: ['FLAG 3개 확인', '각 FLAG에 사용한 명령 순서 기록', '경로 검색과 내용 검색의 차이 설명'],
+        hints: ['먼저 목록으로 보이는 파일과 숨김 파일을 구분하세요.', '확장자보다 `file` 결과를 먼저 읽어 보세요.', '경로는 `find`, 특정 줄은 `grep`으로 나누어 찾으세요.'],
+        relatedConceptIds: ['w1-navigation', 'w1-filesystem'],
+        nextRecommendations: ['OverTheWire Bandit 0~10'],
+      },
+      {
+        ...bandit,
+        title: 'OverTheWire Bandit 0~10',
+        estimatedMinutes: 240,
+        objective: '공식 워게임에서 Linux 기본 명령·권한·텍스트 처리·SSH 흐름을 적용하고 풀이 기록을 남깁니다.',
+        prerequisites: ['파일 탐색', '권한과 텍스트 처리', 'SSH'],
+        successCriteria: ['0~10 레벨 완료', '레벨별 목표·명령·원리·막힌 지점 기록', '다음 레벨 비밀번호 마스킹'],
+        relatedConceptIds: ['w1-navigation', 'w1-permission', 'w2-streams', 'w2-curl'],
+        nextRecommendations: ['Week 2 웹 구조'],
+        path: 'extension',
+      },
+    ].filter(Boolean),
+    deliverables: ['가상 파일 시스템 보물찾기 기록', '명령어 CTF 풀이 기록', 'Bandit 0~10 풀이 기록', 'Linux 명령 관찰 노트'],
     recordBlueprint: {
       title: 'Linux 관찰·명령 기록',
       description: '경로·권한·텍스트 처리·HTTP 기준선과 Bandit 풀이를 한 기록에서 연결합니다.',
@@ -325,6 +387,10 @@ function reindexWeek(week, index) {
     ...week,
     id: `week-${index}`,
     index,
+    displayWeek: index,
+    curriculumId: week.curriculumId || week.id,
+    legacyPrefix: week.legacyPrefix || `w${week.index}`,
+    route: `/learn/week/${index}`,
     labs: (week.labs || []).map((lab) => ({ ...lab, week: index })),
   }
 }
@@ -368,11 +434,11 @@ const baseQuizzes = {
     { id: 'w1q6', conceptIds: ['w1-permission'], difficulty: 'application', remediationModuleIds: ['w1-permission'], question: '디렉터리 이름을 알지만 하위 파일 경로를 탐색할 수 없다. 우선 확인할 권한은?', options: ['디렉터리 실행(x)', '파일 쓰기(w)', '파일 확장자'], answer: 0, explanation: '디렉터리의 x 권한은 해당 경로를 통과하고 탐색하는 데 필요합니다.' },
   ],
   2: [
-    { id: 'w2q1', conceptIds: ['w2-permissions'], difficulty: 'foundation', remediationModuleIds: ['w2-permissions'], question: '`640` 권한에서 그룹이 할 수 있는 일은?', options: ['읽기만', '읽기와 쓰기', '실행만'], answer: 0, explanation: '가운데 숫자 4는 그룹의 읽기 권한입니다.' },
+    { id: 'w2q1', conceptIds: ['w1-permission'], difficulty: 'foundation', remediationModuleIds: ['w1-permission'], question: '`640` 권한에서 그룹이 할 수 있는 일은?', options: ['읽기만', '읽기와 쓰기', '실행만'], answer: 0, explanation: '가운데 숫자 4는 그룹의 읽기 권한입니다.' },
     { id: 'w2q2', conceptIds: ['w2-streams'], difficulty: 'foundation', remediationModuleIds: ['w2-streams'], question: '`2>`가 보내는 스트림은?', options: ['stdin', 'stdout', 'stderr'], answer: 2, explanation: '파일 설명자 2는 표준 오류입니다.' },
-    { id: 'w2q3', conceptIds: ['w2-binary'], difficulty: 'foundation', remediationModuleIds: ['w2-binary'], question: 'Base64에 대한 올바른 설명은?', options: ['비밀키 암호화', '복호화 불가능한 해시', '문자 기반 표현을 위한 인코딩'], answer: 2, explanation: 'Base64는 비밀성을 제공하지 않는 인코딩입니다.' },
+    { id: 'w2q3', conceptIds: ['w1-navigation'], difficulty: 'foundation', remediationModuleIds: ['w1-navigation'], question: 'Base64에 대한 올바른 설명은?', options: ['비밀키 암호화', '복호화 불가능한 해시', '문자 기반 표현을 위한 인코딩'], answer: 2, explanation: 'Base64는 비밀성을 제공하지 않는 인코딩입니다.' },
     { id: 'w2q4', conceptIds: ['w2-curl'], difficulty: 'application', remediationModuleIds: ['w2-curl'], question: '요청 값을 바꾸기 전 가장 먼저 할 일은?', options: ['정상 요청 기준선 저장', '모든 파라미터 동시 변경', '외부 사이트 스캔'], answer: 0, explanation: '원본 기준선이 있어야 변경의 영향을 비교할 수 있습니다.' },
-    { id: 'w2q5', conceptIds: ['w2-text'], difficulty: 'application', remediationModuleIds: ['w2-text'], question: '같은 경로별 발생 횟수를 세기 전에 필요한 순서는?', options: ['uniq 후 sort', 'sort 후 uniq -c', 'cut 후 chmod'], answer: 1, explanation: '같은 값을 붙여 놓도록 정렬한 뒤 `uniq -c`로 빈도를 셉니다.' },
+    { id: 'w2q5', conceptIds: ['w1-navigation'], difficulty: 'application', remediationModuleIds: ['w1-navigation'], question: '같은 경로별 발생 횟수를 세기 전에 필요한 순서는?', options: ['uniq 후 sort', 'sort 후 uniq -c', 'cut 후 chmod'], answer: 1, explanation: '같은 값을 붙여 놓도록 정렬한 뒤 `uniq -c`로 빈도를 셉니다.' },
     { id: 'w2q6', conceptIds: ['w2-streams', 'w2-curl'], difficulty: 'analysis', remediationModuleIds: ['w2-streams', 'w2-curl'], question: '`curl -i` 결과와 오류를 서로 다른 파일에 남기려면 구분해야 하는 것은?', options: ['stdout과 stderr', 'stdin과 PATH', 'Base64와 gzip'], answer: 0, explanation: '정상 출력과 진단 오류가 각각 stdout과 stderr 중 어디로 가는지 확인해야 합니다.' },
   ],
   3: [
@@ -389,7 +455,7 @@ const baseQuizzes = {
     { id: 'w4q3', conceptIds: ['w4-context', 'w4-defense'], difficulty: 'application', remediationModuleIds: ['w4-context', 'w4-defense'], question: 'HTML이 필요 없는 사용자 입력을 화면에 표시할 때 우선할 수정은?', options: ['블랙리스트 확장', 'textContent 사용', 'WAF만 적용'], answer: 1, explanation: '데이터를 HTML 코드로 해석하지 않는 안전한 Sink를 사용합니다.' },
     { id: 'w4q4', conceptIds: ['w4-taint', 'w4-defense'], difficulty: 'analysis', remediationModuleIds: ['w4-taint', 'w4-defense'], question: '좋은 XSS 보고서의 근본 원인 설명은?', options: ['필터가 약함', '공격 문자열이 강함', 'q 입력을 HTML body에 출력하면서 컨텍스트 인코딩을 적용하지 않음'], answer: 2, explanation: '입력·출력 위치와 빠진 통제를 구체적으로 적어야 합니다.' },
     { id: 'w4q5', conceptIds: ['w4-context', 'w4-defense'], difficulty: 'analysis', remediationModuleIds: ['w4-context', 'w4-defense'], question: '사용자가 제한된 HTML을 작성해야 할 때 가장 적절한 방어 조합은?', options: ['모든 입력에 같은 문자열 치환', '검증된 Sanitizer 정책과 안전한 출력 처리', 'CSP만 적용'], answer: 1, explanation: 'HTML이 꼭 필요한 경우 검증된 Sanitizer를 정책에 맞게 적용하고 최종 컨텍스트도 안전하게 처리합니다.' },
-    { id: 'w4q6', conceptIds: ['w4-bypass', 'w4-defense'], difficulty: 'analysis', remediationModuleIds: ['w4-bypass', 'w4-defense'], question: 'CSP가 고정 PoC 실행을 막았지만 innerHTML 데이터 흐름이 남아 있다. 올바른 결론은?', options: ['취약점 원인이 제거됨', '실행은 완화됐지만 취약한 원인은 별도 수정 필요', '모든 브라우저에서 영향이 동일하게 사라짐'], answer: 1, explanation: 'CSP의 실행 제한과 취약한 Source-to-Sink 원인 제거는 별도로 확인해야 합니다.' },
+    { id: 'w4q6', conceptIds: ['w4-defense'], difficulty: 'analysis', remediationModuleIds: ['w4-defense'], question: 'CSP가 고정 PoC 실행을 막았지만 innerHTML 데이터 흐름이 남아 있다. 올바른 결론은?', options: ['취약점 원인이 제거됨', '실행은 완화됐지만 취약한 원인은 별도 수정 필요', '모든 브라우저에서 영향이 동일하게 사라짐'], answer: 1, explanation: 'CSP의 실행 제한과 취약한 Source-to-Sink 원인 제거는 별도로 확인해야 합니다.' },
   ],
   ...week5to10Quizzes,
   ...week11to16Quizzes,

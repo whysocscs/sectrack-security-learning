@@ -1,5 +1,6 @@
 import { CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react'
 import { weekContent } from '../courseData.js'
+import { getConcepts } from '../content/conceptRegistry.js'
 import { getLessonBlockAnchor, getLessonBlocks } from '../content/lessonSchema.js'
 
 function InlineCodeText({ text }) {
@@ -14,8 +15,27 @@ function BlockHeading({ block }) {
   return block.title ? <h3>{block.title}</h3> : null
 }
 
-function Checkpoint({ block, value, onChange }) {
+function Checkpoint({ block, value, onChange, readOnly = false, number }) {
   const isChoice = Array.isArray(block.options) && block.options.length > 0
+  if (readOnly) {
+    const correctOption = isChoice ? block.options[block.answer] : null
+    const answerGuide = correctOption && block.answerGuide?.startsWith('정답:')
+      ? block.answerGuide.replace(/^정답:\s*/, '')
+      : block.answerGuide || block.explanation || '앞의 예시에서 확인한 명령, 대상, 관찰값을 다시 대조해 보세요.'
+    return (
+      <section className="lesson-checkpoint question-review" aria-labelledby={block.id}>
+        <header><span>QUESTION {number}.</span></header>
+        <p id={block.id}><InlineCodeText text={block.prompt} /></p>
+        <details>
+          <summary>정답 보기</summary>
+          <div>
+            {correctOption && <p><strong>정답: </strong><InlineCodeText text={correctOption} /></p>}
+            <p><InlineCodeText text={answerGuide} /></p>
+          </div>
+        </details>
+      </section>
+    )
+  }
   const isAnswered = value?.answer !== undefined && value?.answer !== ''
   const correct = isChoice && isAnswered ? Number(value.answer) === Number(block.answer) : null
   return (
@@ -27,6 +47,10 @@ function Checkpoint({ block, value, onChange }) {
       {!isChoice && isAnswered && <small>작성한 답은 이 브라우저에 저장됩니다. 정답 채점 대신 다음 읽기와 실습에 연결할 관찰 기록입니다.</small>}
     </section>
   )
+}
+
+function CommandGuide({ block }) {
+  return <section className="lesson-command-guide"><BlockHeading block={block} />{block.intro && <p className="command-guide-intro"><InlineCodeText text={block.intro} /></p>}<div className="command-guide-list">{(block.commands || []).map((command) => <article key={command.syntax}><header><code>{command.syntax}</code><p>{command.purpose}</p></header><ul>{(command.options || []).map((option) => <li key={`${command.syntax}-${option.flag}`}><code>{option.flag}</code><span><InlineCodeText text={option.description} /></span></li>)}</ul></article>)}</div></section>
 }
 
 function Diagram({ block }) {
@@ -49,23 +73,43 @@ function Sources({ block }) {
   return <section className="lesson-sources"><BlockHeading block={block} /><ul>{(block.items || []).map((item) => <li key={item.url || item.label}><a href={item.url} target="_blank" rel="noreferrer"><span>{item.label}</span><ExternalLink size={14} /></a>{item.note && <p>{item.note}</p>}</li>)}</ul></section>
 }
 
+function ConceptReference({ block }) {
+  const concepts = getConcepts(block.conceptIds)
+  return <section className="lesson-concept-ref"><BlockHeading block={block} />{block.intro && <p><InlineCodeText text={block.intro} /></p>}<div>{concepts.map((concept) => <details key={concept.id}><summary><span>{concept.label}</span><small>{concept.english}</small><b>{concept.oneLine}</b></summary><div><p><InlineCodeText text={concept.detail} /></p><a href={concept.coreAnchor}>이 개념이 처음 나오는 곳으로</a></div></details>)}</div></section>
+}
+
+function EvidenceBoard({ block }) {
+  return <section className="lesson-evidence-board"><BlockHeading block={block} /><div>{(block.sections || []).map((section) => <article key={section.label}><h4>{section.label}</h4><ul>{section.items.map((item) => <li key={item}><InlineCodeText text={item} /></li>)}</ul></article>)}</div></section>
+}
+
+function Retest({ block }) {
+  return <section className="lesson-retest"><BlockHeading block={block} />{block.intro && <p><InlineCodeText text={block.intro} /></p>}<div role="table" aria-label={block.title || '재시험 표'}><div className="lesson-retest-head" role="row"><span role="columnheader">입력 또는 범위</span><span role="columnheader">확인</span><span role="columnheader">기대 결과</span></div>{(block.rows || []).map((row) => <div key={row.label} role="row"><strong role="cell">{row.label}</strong><span role="cell"><InlineCodeText text={row.check} /></span><span role="cell"><InlineCodeText text={row.expected} /></span></div>)}</div></section>
+}
+
 export default function LessonRenderer({ module, checkpointResults = {}, onCheckpoint, onOpenLab }) {
   const blocks = getLessonBlocks(module)
+  const weekOneLinuxModule = /^(w1|w2)-/.test(module.id)
   return <div className="lesson-blocks">{blocks.map((block, index) => {
     const id = getLessonBlockAnchor(module.id, block, index)
-    if (block.type === 'question' || block.type === 'prerequisite-check') return <section id={id} key={id} className={`lesson-question ${block.type === 'prerequisite-check' ? 'prerequisite' : ''}`}><span>{block.type === 'question' ? 'LEARNING QUESTION' : 'BEFORE YOU CONTINUE'}</span><BlockHeading block={block} /><p><InlineCodeText text={block.body || block.prompt} /></p></section>
-    if (block.type === 'explanation') return <section id={id} key={id} className="lesson-explanation"><BlockHeading block={block} />{(block.paragraphs || [block.body]).filter(Boolean).map((paragraph, paragraphIndex) => <p key={`${id}-${paragraphIndex}`}><InlineCodeText text={paragraph} /></p>)}</section>
+    const questionNumber = blocks.slice(0, index + 1).filter((item) => item.type === 'checkpoint').length
+    if (block.type === 'question' && weekOneLinuxModule) return null
+    if (block.type === 'question' || block.type === 'prerequisite-check') return <section id={id} key={id} className={`lesson-question ${block.type === 'prerequisite-check' ? 'prerequisite' : ''} ${block.variant ? `variant-${block.variant}` : ''}`}><span>{block.type === 'question' ? 'LEARNING QUESTION' : 'BEFORE YOU CONTINUE'}</span><BlockHeading block={block} /><p><InlineCodeText text={block.body || block.prompt} /></p></section>
+    if (block.type === 'explanation') return <section id={id} key={id} className={`lesson-explanation ${block.variant ? `variant-${block.variant}` : ''}`}><BlockHeading block={block} />{(block.paragraphs || [block.body]).filter(Boolean).map((paragraph, paragraphIndex) => <p key={`${id}-${paragraphIndex}`}><InlineCodeText text={paragraph} /></p>)}</section>
     if (block.type === 'diagram') return <section id={id} key={id}><Diagram block={block} /></section>
     if (block.type === 'terminal' || block.type === 'http-message' || block.type === 'code') return <section id={id} key={id} className={`lesson-transcript ${block.type}`}><header><span>{block.type === 'terminal' ? 'TERMINAL' : block.type === 'http-message' ? 'HTTP MESSAGE' : (block.language || 'CODE').toUpperCase()}</span><BlockHeading block={block} /></header>{block.description && <p><InlineCodeText text={block.description} /></p>}<pre tabIndex="0" aria-label={`${block.title || '전사'} 코드 영역`}><code>{block.command || block.message || block.code || ''}{block.output ? `\n${block.output}` : ''}</code></pre>{block.annotations?.length ? <ol>{block.annotations.map((annotation, annotationIndex) => <li key={`${annotation}-${annotationIndex}`}><InlineCodeText text={annotation} /></li>)}</ol> : null}</section>
     if (block.type === 'comparison') return <section id={id} key={id}><Comparison block={block} anchorId={id} /></section>
+    if (block.type === 'command-guide') return <section id={id} key={id}><CommandGuide block={block} /></section>
     if (block.type === 'timeline') return <section id={id} key={id} className="lesson-timeline"><BlockHeading block={block} /><ol>{(block.items || block.steps || []).map((item, itemIndex, items) => <li key={`${item}-${itemIndex}`}><span>{String(itemIndex + 1).padStart(2, '0')}</span><div><strong>{typeof item === 'string' ? item : item.title}</strong>{typeof item === 'object' && item.body && <p>{item.body}</p>}</div>{itemIndex < items.length - 1 && <i aria-hidden="true" />}</li>)}</ol></section>
-    if (block.type === 'case') return <section id={id} key={id} className="lesson-case"><span>CODECURELAB CASE</span><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p>{block.facts?.length ? <ul>{block.facts.map((fact) => <li key={fact}><CheckCircle2 size={15} />{fact}</li>)}</ul> : null}</section>
+    if (block.type === 'case') return <section id={id} key={id} className="lesson-case"><span>사례</span><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p>{block.facts?.length ? <ul>{block.facts.map((fact) => <li key={fact}><CheckCircle2 size={15} />{fact}</li>)}</ul> : null}</section>
     if (block.type === 'misconception') return <section id={id} key={id} className="lesson-misconception"><BlockHeading block={block} /><ul>{(block.items || []).map((item) => <li key={item}><span>오해</span><div><InlineCodeText text={item} /></div></li>)}</ul></section>
     if (block.type === 'warning') return <section id={id} key={id} className="lesson-warning"><ShieldAlert size={19} /><div><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p></div></section>
-    if (block.type === 'checkpoint') return <div id={id} key={id}><Checkpoint block={block} value={checkpointResults[block.id]} onChange={(result) => onCheckpoint?.(block.id, result)} /></div>
+    if (block.type === 'checkpoint') return <div id={id} key={id}><Checkpoint block={block} value={checkpointResults[block.id]} onChange={(result) => onCheckpoint?.(block.id, result)} readOnly={weekOneLinuxModule} number={questionNumber} /></div>
     if (block.type === 'work-context') return <section id={id} key={id} className="lesson-work-context"><span>WORK CONTEXT</span><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p></section>
     if (block.type === 'practice-link') return <section id={id} key={id} className="lesson-practice-links"><BlockHeading block={block} /><p>{block.body || '이 개념을 읽은 뒤에는 관찰 결과를 직접 기록해 보세요.'}</p><div>{(block.labIds || []).map((labId) => <button type="button" key={labId} onClick={() => onOpenLab?.(labId)}>실습 열기 · {getLabTitle(labId)}</button>)}</div></section>
     if (block.type === 'sources') return <section id={id} key={id}><Sources block={block} /></section>
+    if (block.type === 'concept-ref') return <section id={id} key={id}><ConceptReference block={block} /></section>
+    if (block.type === 'evidence-board') return <section id={id} key={id}><EvidenceBoard block={block} /></section>
+    if (block.type === 'retest') return <section id={id} key={id}><Retest block={block} /></section>
     if (block.type === 'summary') return <section id={id} key={id} className="lesson-summary"><BlockHeading block={block} /><ul>{(block.bullets || []).map((bullet) => <li key={bullet}><CheckCircle2 size={15} /><InlineCodeText text={bullet} /></li>)}</ul></section>
     return null
   })}</div>

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   Circle,
   ExternalLink,
   Eye,
@@ -30,7 +31,7 @@ const supportedLabKinds = new Set([
   'mindmap', 'roe', 'baseline', 'linux-shell', 'path', 'sequence', 'permission', 'pipeline',
   'request-editor', 'http-baseline', 'tool-triangle', 'http-label', 'timeline', 'cookie',
   'source-sink', 'threat-model', 'xss-reflected', 'xss-stored', 'xss-dom', 'xss-filtering',
-  'external', 'guided-observation',
+  'report-evidence', 'external', 'guided-observation',
 ])
 
 function findLab(id) { return allLabs.find((lab) => lab.id === id) }
@@ -38,7 +39,7 @@ function isSupportedLabKind(kind) { return supportedLabKinds.has(kind) }
 
 function LabKindIcon({ kind }) {
   if (kind === 'external') return <ExternalLink size={18} />
-  if (kind === 'guided-observation') return <Eye size={18} />
+  if (kind === 'guided-observation' || kind === 'report-evidence') return <Eye size={18} />
   if (String(kind).startsWith('xss')) return <Braces size={18} />
   return <Terminal size={18} />
 }
@@ -123,7 +124,7 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
     case 'mindmap': return <MindmapStudio progress={progress} updateProgress={updateProgress} notify={notify} />
     case 'roe': return <RoeLab progress={progress} updateProgress={updateProgress} onPass={validate} />
     case 'baseline': return <BaselineLab progress={progress} updateProgress={updateProgress} onPass={validate} />
-    case 'linux-shell': return <LinuxShellLab state={state} updateLab={updateLab} onPass={validate} />
+    case 'linux-shell': return <LinuxShellLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'path': return <PathLab state={state} updateLab={updateLab} onPass={validate} />
     case 'sequence': return <SequenceLab state={state} updateLab={updateLab} onPass={validate} variant="ssh" />
     case 'permission': return <PermissionLab state={state} updateLab={updateLab} onPass={validate} />
@@ -140,6 +141,7 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
     case 'xss-stored':
     case 'xss-dom':
     case 'xss-filtering': return <XssLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
+    case 'report-evidence': return <ReportEvidenceLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'external': return <ExternalLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'guided-observation': return <GuidedObservationLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     default: return <UnsupportedLab />
@@ -292,29 +294,63 @@ const linuxTasks = [
   { id: 'flag3', number: 3, title: '하위 경로의 기록', body: '파일 경로 후보를 찾은 뒤 내용에서 security_flag가 있는 줄을 검색합니다.', flag: 'FLAG{find_then_grep_03}' },
 ]
 
+const commandCtfFs = {
+  '/': { type: 'dir', entries: ['home', 'tmp'] },
+  '/home': { type: 'dir', entries: ['analyst'] },
+  '/home/analyst': { type: 'dir', entries: ['README.md', '.briefing', 'evidence'] },
+  '/home/analyst/README.md': { type: 'file', kind: 'ASCII text', content: 'Incident archive training. Observe first; do not execute unknown files.' },
+  '/home/analyst/.briefing': { type: 'file', kind: 'ASCII text', content: 'Mission token: FLAG{hidden_briefing_01}' },
+  '/home/analyst/evidence': { type: 'dir', entries: ['archive', 'notes.txt'] },
+  '/home/analyst/evidence/notes.txt': { type: 'file', kind: 'UTF-8 Unicode text', content: 'The file name is only a clue. Confirm its format before reading.' },
+  '/home/analyst/evidence/archive': { type: 'dir', entries: ['packet.bin', 'dispatch.log'] },
+  '/home/analyst/evidence/archive/packet.bin': { type: 'file', kind: 'ASCII text', content: 'Recovered note: FLAG{format_before_read_02}' },
+  '/home/analyst/evidence/archive/dispatch.log': { type: 'file', kind: 'ASCII text', content: '2026-07-13 status=closed\n2026-07-13 ACCESS_CODE=FLAG{find_then_grep_03}\n2026-07-13 owner=training' },
+  '/tmp': { type: 'dir', entries: [] },
+}
+
+const commandCtfTasks = [
+  { id: 'briefing', number: 1, title: '숨김 브리핑', body: '`ls -al`로 숨김 파일을 확인한 뒤 첫 번째 FLAG를 읽습니다.', flag: 'FLAG{hidden_briefing_01}', requiredCommands: ['ls', 'cat'] },
+  { id: 'format', number: 2, title: '형식 확인', body: '확장자가 아닌 `file` 결과를 확인한 뒤 두 번째 FLAG를 읽습니다.', flag: 'FLAG{format_before_read_02}', requiredCommands: ['file', 'cat'] },
+  { id: 'dispatch', number: 3, title: '사건 기록', body: '`find`로 경로를 찾고 `grep`으로 ACCESS_CODE 줄을 검색합니다.', flag: 'FLAG{find_then_grep_03}', requiredCommands: ['find', 'grep'] },
+]
+
+const linuxShellScenarios = {
+  treasure: { id: 'treasure', user: 'bandit0', home: '/home/bandit0', title: '파일 시스템 보물찾기', intro: 'SecTrack Linux Lab · 읽기 전용\nhelp를 입력하면 지원 명령을 확인할 수 있습니다.', fs: linuxFs, tasks: linuxTasks },
+  'command-ctf': { id: 'command-ctf', user: 'analyst', home: '/home/analyst', title: '사건 기록 CTF', intro: 'Incident archive CTF · 읽기 전용\n목록, 형식, 경로, 텍스트 순서로 관찰하세요.', fs: commandCtfFs, tasks: commandCtfTasks },
+}
+
 function shellArgs(input) {
   const matches = input.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || []
   return matches.map((item) => item.replace(/^['"]|['"]$/g, ''))
 }
 
-function LinuxShellLab({ state, updateLab, onPass }) {
-  const [cwd, setCwd] = useState('/home/bandit0')
+function LinuxShellLab({ lab, state, updateLab, onPass }) {
+  const scenario = linuxShellScenarios[lab.scenario] || linuxShellScenarios.treasure
+  const { fs, tasks, home, user } = scenario
+  const [cwd, setCwd] = useState(home)
   const [input, setInput] = useState('')
-  const [history, setHistory] = useState([{ output: 'SecTrack Linux Lab · 읽기 전용\nhelp를 입력하면 지원 명령을 확인할 수 있습니다.' }])
+  const [history, setHistory] = useState([{ output: scenario.intro }])
   const inputRef = useRef(null)
   const solved = state.solved || {}
+  const observedCommands = new Set(state.observedCommands || [])
+  const revealedFlags = state.revealedFlags || {}
+  useEffect(() => {
+    setCwd(home)
+    setInput('')
+    setHistory([{ output: scenario.intro }])
+  }, [scenario.id, home, scenario.intro])
   const resolve = (raw = '.') => {
-    if (raw === '~') return '/home/bandit0'
+    if (raw === '~') return home
     const parts = raw.startsWith('/') ? [] : cwd.split('/').filter(Boolean)
-    raw.replace(/^~\/?/, '/home/bandit0/').split('/').forEach((part) => { if (!part || part === '.') return; if (part === '..') parts.pop(); else parts.push(part) })
+    raw.replace(/^~\/?/, `${home}/`).split('/').forEach((part) => { if (!part || part === '.') return; if (part === '..') parts.pop(); else parts.push(part) })
     return `/${parts.join('/')}`
   }
   const completeInput = () => {
     const parts = input.split(/\s+/)
     const partial = parts.pop() || ''
-    const commands = ['pwd', 'ls', 'cd', 'file', 'cat', 'stat', 'head', 'tail', 'find', 'grep', 'whoami', 'history', 'help', 'clear']
-    const candidates = parts.length === 0 ? commands.filter((item) => item.startsWith(partial)) : (linuxFs[cwd]?.entries || []).filter((item) => item.startsWith(partial) && (partial.startsWith('.') || !item.startsWith('.')))
-    if (candidates.length === 1) setInput([...parts, candidates[0] + (linuxFs[resolve(candidates[0])]?.type === 'dir' ? '/' : '')].join(' '))
+    const commands = ['pwd', 'ls', 'cd', 'file', 'cat', 'less', 'stat', 'head', 'tail', 'find', 'grep', 'man', 'whoami', 'history', 'help', 'clear']
+    const candidates = parts.length === 0 ? commands.filter((item) => item.startsWith(partial)) : (fs[cwd]?.entries || []).filter((item) => item.startsWith(partial) && (partial.startsWith('.') || !item.startsWith('.')))
+    if (candidates.length === 1) setInput([...parts, candidates[0] + (fs[resolve(candidates[0])]?.type === 'dir' ? '/' : '')].join(' '))
   }
   const execute = (raw) => {
     const trimmed = raw.trim()
@@ -323,45 +359,58 @@ function LinuxShellLab({ state, updateLab, onPass }) {
     const [command, ...args] = shellArgs(trimmed)
     let output = ''
     let nextCwd = cwd
-    if (command === 'help') output = '지원 명령: pwd, ls [-alh] [경로], cd [경로], file 파일, cat 파일, stat 파일, head [-n N] 파일, tail [-n N] 파일, find [경로] -type f, grep [-in] 패턴 파일, whoami, history, clear'
+    if (command === 'help') output = '지원 명령: pwd, ls [-alh] [경로], cd [경로], file 파일, cat·less 파일, stat 파일, head [-n N] 파일, tail [-n N] 파일, find [경로] -type f, grep [-in] 패턴 파일, man 명령, whoami, history, clear'
     else if (command === 'pwd') output = cwd
-    else if (command === 'whoami') output = 'bandit0'
+    else if (command === 'whoami') output = user
     else if (command === 'history') output = history.filter((item) => item.command).map((item, index) => `${index + 1}  ${item.command.replace(/^.*\$ /, '')}`).join('\n')
     else if (command === 'ls') {
       const options = args.filter((item) => item.startsWith('-')).join('')
       const target = args.find((item) => !item.startsWith('-')) || '.'
-      const path = resolve(target); const entry = linuxFs[path]
+      const path = resolve(target); const entry = fs[path]
       if (!entry) output = `ls: cannot access '${target}': No such file or directory`
       else if (entry.type === 'file') output = target
       else {
         const showAll = options.includes('a'); const long = options.includes('l')
         const names = showAll ? ['.', '..', ...entry.entries] : entry.entries.filter((name) => !name.startsWith('.'))
-        output = long ? names.map((name) => { const item = linuxFs[`${path === '/' ? '' : path}/${name}`]; const mode = name === '.' || name === '..' || item?.type === 'dir' ? 'drwxr-x---' : '-rw-r-----'; return `${mode} 1 bandit0 bandit0 ${options.includes('h') ? '68B' : '68'} Jul 11 10:30 ${name}` }).join('\n') : names.join('  ')
+        output = long ? names.map((name) => { const item = fs[`${path === '/' ? '' : path}/${name}`]; const mode = name === '.' || name === '..' || item?.type === 'dir' ? 'drwxr-x---' : '-rw-r-----'; return `${mode} 1 ${user} training ${options.includes('h') ? '68B' : '68'} Jul 11 10:30 ${name}` }).join('\n') : names.join('  ')
       }
     } else if (command === 'cd') {
-      const target = args[0] || '~'; const path = resolve(target); const entry = linuxFs[path]
+      const target = args[0] || '~'; const path = resolve(target); const entry = fs[path]
       if (!entry) output = `cd: ${target}: No such file or directory`
       else if (entry.type !== 'dir') output = `cd: ${target}: Not a directory`
       else nextCwd = path
-    } else if (['cat', 'file', 'stat', 'head', 'tail'].includes(command)) {
+    } else if (['cat', 'less', 'file', 'stat', 'head', 'tail'].includes(command)) {
       const fileArg = args.filter((item, index) => !(item === '-n' || (index > 0 && args[index - 1] === '-n'))).find((item) => !item.startsWith('-'))
       if (!fileArg) output = `${command}: missing file operand`
-      else { const path = resolve(fileArg); const entry = linuxFs[path]; if (!entry) output = `${command}: ${fileArg}: No such file or directory`; else if (entry.type === 'dir') output = command === 'file' ? `${fileArg}: directory` : `${command}: ${fileArg}: Is a directory`; else if (command === 'file') output = `${fileArg}: ${entry.kind}`; else if (command === 'stat') output = `  File: ${fileArg}\n  Size: ${entry.content.length}\tBlocks: 8\nAccess: (0640/-rw-r-----)  Uid: bandit0  Gid: bandit0`; else { const lines = entry.content.split('\n'); const nIndex = args.indexOf('-n'); const count = nIndex >= 0 ? Number(args[nIndex + 1]) || 10 : 10; output = command === 'head' ? lines.slice(0, count).join('\n') : command === 'tail' ? lines.slice(-count).join('\n') : entry.content } }
+      else { const path = resolve(fileArg); const entry = fs[path]; if (!entry) output = `${command}: ${fileArg}: No such file or directory`; else if (entry.type === 'dir') output = command === 'file' ? `${fileArg}: directory` : `${command}: ${fileArg}: Is a directory`; else if (command === 'file') output = `${fileArg}: ${entry.kind}`; else if (command === 'stat') output = `  File: ${fileArg}\n  Size: ${entry.content.length}\tBlocks: 8\nAccess: (0640/-rw-r-----)  Uid: ${user}  Gid: training`; else { const lines = entry.content.split('\n'); const nIndex = args.indexOf('-n'); const count = nIndex >= 0 ? Number(args[nIndex + 1]) || 10 : 10; output = command === 'head' ? lines.slice(0, count).join('\n') : command === 'tail' ? lines.slice(-count).join('\n') : entry.content } }
     } else if (command === 'find') {
-      const target = args.find((item) => !item.startsWith('-')) || '.'; const path = resolve(target); const entry = linuxFs[path]
+      const target = args.find((item) => !item.startsWith('-')) || '.'; const path = resolve(target); const entry = fs[path]
       if (!entry) output = `find: '${target}': No such file or directory`
-      else output = Object.entries(linuxFs).filter(([filePath, item]) => item.type === 'file' && (path === '/' || filePath.startsWith(`${path}/`))).map(([filePath]) => path === cwd ? `.${filePath.slice(path.length)}` : filePath).join('\n')
+      else output = Object.entries(fs).filter(([filePath, item]) => item.type === 'file' && (path === '/' || filePath.startsWith(`${path}/`))).map(([filePath]) => path === cwd ? `.${filePath.slice(path.length)}` : filePath).join('\n')
     } else if (command === 'grep') {
       const values = args.filter((item) => !item.startsWith('-')); const [pattern, target] = values
       if (!pattern || !target) output = 'grep: usage: grep [-in] 패턴 파일'
-      else { const entry = linuxFs[resolve(target)]; if (!entry) output = `grep: ${target}: No such file`; else if (entry.type !== 'file') output = `grep: ${target}: Is a directory`; else { const insensitive = args.some((item) => item.includes('i')); const withLine = args.some((item) => item.includes('n')); const matches = entry.content.split('\n').map((line, index) => [line, index + 1]).filter(([line]) => (insensitive ? line.toLowerCase() : line).includes(insensitive ? pattern.toLowerCase() : pattern)); output = matches.map(([line, number]) => `${withLine ? `${number}:` : ''}${line}`).join('\n') } }
+      else { const entry = fs[resolve(target)]; if (!entry) output = `grep: ${target}: No such file`; else if (entry.type !== 'file') output = `grep: ${target}: Is a directory`; else { const insensitive = args.some((item) => item.includes('i')); const withLine = args.some((item) => item.includes('n')); const matches = entry.content.split('\n').map((line, index) => [line, index + 1]).filter(([line]) => (insensitive ? line.toLowerCase() : line).includes(insensitive ? pattern.toLowerCase() : pattern)); output = matches.map(([line, number]) => `${withLine ? `${number}:` : ''}${line}`).join('\n') } }
+    } else if (command === 'man') {
+      const pages = { ls: 'ls [옵션] [파일 또는 디렉터리...]\n-a 숨김 이름 포함, -l 상세 목록, -h 읽기 쉬운 크기', file: 'file [옵션] 파일...\n확장자가 아닌 내용 특징과 매직 값을 바탕으로 형식 후보를 봅니다.', find: 'find [시작 경로] [조건...]\n-type f 일반 파일, -name 패턴 이름 조건', grep: 'grep [옵션] 패턴 [파일...]\n-i 대소문자 무시, -n 줄 번호' }
+      output = pages[args[0]] || `man: ${args[0] || '명령'}: 이 가상 셸에는 간단한 도움말만 있습니다.`
     } else output = `${command}: command not found\nhelp로 지원 명령을 확인하세요.`
+    observedCommands.add(command)
+    const newlyRevealedFlags = { ...revealedFlags }
+    tasks.forEach((task) => { if (output.includes(task.flag)) newlyRevealedFlags[task.id] = true })
     const newlySolved = { ...solved }
-    linuxTasks.forEach((task) => { if (output.includes(task.flag)) newlySolved[task.id] = true })
-    setCwd(nextCwd); setHistory((current) => [...current, { command: `bandit0@sectrack:${cwd}$ ${trimmed}`, output }]); setInput('')
-    if (JSON.stringify(newlySolved) !== JSON.stringify(solved)) { updateLab({ solved: newlySolved }); if (Object.keys(newlySolved).length === 3) onPass({ flags: 3 }) }
+    tasks.forEach((task) => {
+      const commandsReady = !task.requiredCommands || task.requiredCommands.every((required) => observedCommands.has(required))
+      if (newlyRevealedFlags[task.id] && commandsReady) newlySolved[task.id] = true
+    })
+    setCwd(nextCwd); setHistory((current) => [...current, { command: `${user}@sectrack:${cwd}$ ${trimmed}`, output }]); setInput('')
+    const nextObservedCommands = [...observedCommands]
+    if (JSON.stringify(newlySolved) !== JSON.stringify(solved) || JSON.stringify(newlyRevealedFlags) !== JSON.stringify(revealedFlags) || JSON.stringify(nextObservedCommands) !== JSON.stringify(state.observedCommands || [])) {
+      updateLab({ solved: newlySolved, revealedFlags: newlyRevealedFlags, observedCommands: nextObservedCommands })
+      if (Object.keys(newlySolved).length === tasks.length) onPass({ flags: tasks.length })
+    }
   }
-  return <section className="linux-shell-lab"><header><div><span>SIMULATED SHELL</span><h2>bandit0@sectrack</h2><p>실제 운영체제가 아닌 읽기 전용 파일 시스템입니다.</p></div><code>Tab 자동완성 · ↑ 기록은 history</code></header><div className="linux-task-strip">{linuxTasks.map((task) => <article className={solved[task.id] ? 'solved' : ''} key={task.id}><span>{task.number}</span><div><strong>{task.title}</strong><p>{task.body}</p></div>{solved[task.id] ? <CheckCircle2 size={18} /> : <Circle size={18} />}</article>)}</div><div className="terminal-window" onClick={() => inputRef.current?.focus()}><div className="terminal-title"><i /><i /><i /><span>sectrack — bash</span></div><div className="terminal-body">{history.map((item, index) => <div key={`${item.command || 'intro'}-${index}`}>{item.command && <strong>{item.command}</strong>}{item.output && <pre>{item.output}</pre>}</div>)}<form onSubmit={(event) => { event.preventDefault(); execute(input) }}><label htmlFor="linux-command">bandit0@sectrack:{cwd}$</label><input ref={inputRef} id="linux-command" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Tab') { event.preventDefault(); completeInput() } }} autoComplete="off" spellCheck="false" /></form></div></div></section>
+  return <section className="linux-shell-lab"><header><div><span>SIMULATED SHELL</span><h2>{scenario.title}</h2><p>실제 운영체제가 아닌 읽기 전용 파일 시스템입니다.</p></div><code>Tab 자동완성 · help로 명령 확인</code></header><div className="linux-task-strip">{tasks.map((task) => <article className={solved[task.id] ? 'solved' : ''} key={task.id}><span>{task.number}</span><div><strong>{task.title}</strong><p>{task.body}</p></div>{solved[task.id] ? <CheckCircle2 size={18} /> : <Circle size={18} />}</article>)}</div><div className="terminal-window" onClick={() => inputRef.current?.focus()}><div className="terminal-title"><i /><i /><i /><span>sectrack — bash</span></div><div className="terminal-body">{history.map((item, index) => <div key={`${item.command || 'intro'}-${index}`}>{item.command && <strong>{item.command}</strong>}{item.output && <pre>{item.output}</pre>}</div>)}<form onSubmit={(event) => { event.preventDefault(); execute(input) }}><label htmlFor="linux-command">{user}@sectrack:{cwd}$</label><input ref={inputRef} id="linux-command" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Tab') { event.preventDefault(); completeInput() } }} autoComplete="off" spellCheck="false" /></form></div></div></section>
 }
 
 const pathQuestions = [
@@ -704,6 +753,44 @@ function GuidedObservationLab({ lab, state, updateLab, onPass }) {
     {scenario.reflection && <section className="guided-observation-reflection"><h3>연결 근거</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="연결 근거" rows="5" value={reflection} onChange={(event) => updateLab({ guidedObservationReflection: event.target.value, guidedObservationChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로 합성 자료 안의 근거만 연결해 적으세요.`} /></label><small>{reflection.length} / {scenario.reflection.minimumLength}자</small></section>}
     <section aria-live="polite"><h3>결과 판정</h3>{checked ? <p>{exactMatch && reflectionReady ? '선택한 증거와 연결 근거가 관찰 시나리오와 일치합니다.' : !exactMatch ? '선택한 증거 집합이 일치하지 않습니다. 읽기 순서와 증거의 직접성을 다시 확인하세요.' : `연결 근거를 ${scenario.reflection.minimumLength}자 이상으로 보완하세요.`}</p> : <p>증거를 선택한 뒤 결과를 판정하세요.</p>}<button className="button primary" type="button" onClick={verify}>결과 판정<CheckCircle2 size={16} /></button></section>
     <section><h3>방어·재시험 결론</h3><p>{conclusion}</p></section>
+  </section>
+}
+
+function ReportEvidenceLab({ lab, state, updateLab, onPass }) {
+  const scenario = lab.scenario
+  const categories = Array.isArray(scenario?.categories) ? scenario.categories : []
+  const statements = Array.isArray(scenario?.statements) ? scenario.statements : []
+  if (!categories.length || !statements.length || !scenario?.reflection) return <section className="generic-lab" role="alert"><AlertTriangle size={24} /><h2>보고서 활동 구성을 확인할 수 없습니다.</h2><p>문장 분류 데이터가 없어서 결과를 판정할 수 없습니다.</p></section>
+
+  const assignments = state.reportEvidenceAssignments || {}
+  const reflection = String(state.reportEvidenceReflection || '')
+  const allAssigned = statements.every((statement) => assignments[statement.id])
+  const exactMatch = allAssigned && statements.every((statement) => assignments[statement.id] === statement.id)
+  const reflectionReady = reflection.trim().length >= scenario.reflection.minimumLength
+  const checked = Boolean(state.reportEvidenceChecked)
+  const updateAssignment = (statementId, categoryId) => updateLab({
+    reportEvidenceAssignments: { ...assignments, [statementId]: categoryId },
+    reportEvidenceChecked: false,
+    validationPassed: false,
+    validation: null,
+    validatedAt: null,
+  })
+  const verify = () => {
+    const passed = exactMatch && reflectionReady
+    updateLab({ reportEvidenceChecked: true, reportEvidenceOutcome: passed ? 'passed' : 'retry', reportEvidenceCheckedAt: new Date().toISOString() })
+    if (passed) onPass({ assignments, reflection: reflection.trim() })
+  }
+
+  return <section className="report-evidence-lab">
+    <header><ClipboardCheck size={24} /><div><span>REPORT EVIDENCE WORKSHOP</span><h2>Finding 문장을 근거에 맞게 분리하기</h2><p>모든 문장은 이 실습을 위해 만든 합성 사례입니다. 직접 확인한 사실, 그 사실에서 이어지는 영향 판단, 원인과 수정·재시험 계획을 한 칸에 섞지 않습니다.</p></div></header>
+    <section className="report-evidence-rubric"><h3>분류 기준</h3><dl>{categories.map((category) => <div key={category.id}><dt>{category.label}</dt><dd>{category.id === 'fact' ? '직접 관찰한 변화' : category.id === 'impact' ? '조건이 붙은 영향 해석' : category.id === 'condition' ? '영향 판단을 위해 확인할 전제' : category.id === 'root-cause' ? '문제가 생긴 코드·경로' : category.id === 'control' ? '수정할 통제' : '수정 뒤 비교할 항목'}</dd></div>)}</dl></section>
+    <fieldset className="report-evidence-statements">
+      <legend>문장 분류</legend>
+      <p>문장을 읽고 가장 알맞은 보고서 항목을 고르세요. 각 항목은 한 번씩 사용합니다.</p>
+      {statements.map((statement, index) => <label key={statement.id}><span>{String(index + 1).padStart(2, '0')}</span><strong>{statement.label}</strong><select aria-label={`${index + 1}번 문장 분류`} value={assignments[statement.id] || ''} onChange={(event) => updateAssignment(statement.id, event.target.value)}><option value="">항목 선택</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}</select><ChevronDown size={14} /></label>)}
+    </fieldset>
+    <section className="report-evidence-reflection"><h3>근거 설명</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="분류 근거" rows="5" value={reflection} onChange={(event) => updateLab({ reportEvidenceReflection: event.target.value, reportEvidenceChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로, 합성 사례 안에서 확인한 근거를 적으세요.`} /></label><small>{reflection.trim().length} / {scenario.reflection.minimumLength}자</small></section>
+    <section className="report-evidence-result" aria-live="polite"><h3>결과 판정</h3><p>{checked ? exactMatch && reflectionReady ? '문장 구분과 근거 설명이 모두 맞습니다. 이 구조를 Finding 초안에도 유지하세요.' : !allAssigned ? '모든 문장에 항목을 선택하세요.' : !exactMatch ? '사실·영향·조건·원인·수정·재시험의 경계를 다시 확인하세요.' : `근거 설명을 ${scenario.reflection.minimumLength}자 이상으로 보완하세요.` : '문장을 분류하고 근거 설명을 적은 뒤 결과를 판정하세요.'}</p><button className="button primary" type="button" onClick={verify}>결과 판정<CheckCircle2 size={16} /></button></section>
   </section>
 }
 

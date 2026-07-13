@@ -52,7 +52,10 @@ test('the merged Linux week and Week 2 web modules use the complete ordered less
     const blocks = getLessonBlocks(module)
     const types = blocks.map((block) => block.type)
     assert.deepEqual(validateLessonModule(module), [], module.id)
-    for (const type of requiredTypes) assert.ok(types.includes(type), `${module.id} is missing ${type}`)
+    for (const type of requiredTypes) {
+      if (type === 'comparison') assert.ok(types.includes('comparison') || types.includes('command-guide'), `${module.id} is missing comparison or command guide`)
+      else assert.ok(types.includes(type), `${module.id} is missing ${type}`)
+    }
     assert.ok(types.includes('terminal') || types.includes('code') || types.includes('http-message'), `${module.id} needs a transcript`)
     assert.ok(blocks.filter((block) => block.type === 'checkpoint').length >= 2, `${module.id} needs two checkpoints`)
   }
@@ -61,4 +64,30 @@ test('the merged Linux week and Week 2 web modules use the complete ordered less
 test('Week 0 keeps only its new glossary, domain, career, evidence, and personal-map IDs active', () => {
   assert.deepEqual(weekContent[0].modules.map((module) => module.id), ['w0-language', 'w0-domains', 'w0-careers', 'w0-evidence'])
   assert.deepEqual(weekContent[0].labs.map((lab) => lab.id), ['w0-map'])
+})
+
+test('display Week 03 XSS guide uses the v2 deep-guide contract without changing legacy learning IDs', () => {
+  const week = weekContent[3]
+  const expectedModuleIds = ['w4-nature', 'w4-types', 'w4-taint', 'w4-context', 'w4-validation', 'w4-impact', 'w4-defense']
+
+  assert.equal(week.displayWeek, 3)
+  assert.equal(week.curriculumId, 'week-4')
+  assert.equal(week.legacyPrefix, 'w4')
+  assert.equal(week.route, '/learn/week/3')
+  assert.deepEqual(week.modules.map((module) => module.id), expectedModuleIds)
+  assert.equal(week.modules.some((module) => module.id === 'w4-bypass'), false)
+  assert.ok(week.modules.every((module) => module.contentLevel === 'deep-guide-v2'))
+  assert.ok(week.modules.every((module) => validateLessonModule(module).length === 0), 'every Week 03 module must satisfy the deep-guide schema')
+
+  const archetypes = new Set(week.modules.map((module) => module.archetype))
+  assert.ok(archetypes.size >= 3)
+  const blockTypes = week.modules.flatMap((module) => getLessonBlocks(module).map((block) => block.type))
+  assert.ok(blockTypes.filter((type) => type === 'code').length >= 3)
+  assert.ok(blockTypes.filter((type) => type === 'evidence-board').length >= 3)
+  assert.ok(blockTypes.filter((type) => type === 'retest').length >= 3)
+
+  const reportActivity = week.labs.find((lab) => lab.id === 'w4-report-evidence')
+  assert.equal(reportActivity?.kind, 'report-evidence')
+  assert.equal(reportActivity?.scenario.statements.length, 6)
+  assert.deepEqual(reportActivity?.scenario.categories.map((category) => category.id), ['fact', 'impact', 'condition', 'root-cause', 'control', 'retest'])
 })

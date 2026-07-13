@@ -70,6 +70,7 @@ export const initialProgress = {
 }
 
 const LINUX_WEEK_MERGE_VERSION = 1
+const WEEK_ONE_CONTENT_CONSOLIDATION_VERSION = 1
 
 function remapWeekIndex(value) {
   const index = Number(value)
@@ -227,8 +228,68 @@ function migrateMergedLinuxWeek(value) {
   }
 }
 
+function migrateConsolidatedWeekOne(value) {
+  const source = value && typeof value === 'object' ? value : {}
+  if (source.weekOneContentVersion === WEEK_ONE_CONTENT_CONSOLIDATION_VERSION) return source
+
+  const moduleAliases = {
+    'w2-permissions': 'w1-permission',
+    'w2-text': 'w1-navigation',
+    'w2-binary': 'w1-navigation',
+  }
+  const retiredModuleIds = ['w2-permissions', 'w2-text', 'w2-binary', 'w2-http-tools']
+  const retiredLabIds = ['w1-path', 'w1-ssh-flow', 'w2-permission-lab', 'w2-log-lab', 'w2-http-lab', 'w2-bandit']
+  const mapAliases = (record = {}) => {
+    const next = { ...record }
+    Object.entries(moduleAliases).forEach(([legacyId, activeId]) => {
+      if (record[legacyId] !== undefined && next[activeId] === undefined) next[activeId] = record[legacyId]
+    })
+    return next
+  }
+  const retiredRecords = Object.fromEntries(retiredModuleIds.map((id) => {
+    const record = {
+      ...(source.modulesRead?.[id] !== undefined ? { read: source.modulesRead[id] } : {}),
+      ...(source.moduleNotes?.[id] !== undefined ? { notes: source.moduleNotes[id] } : {}),
+      ...(source.moduleChecks?.[id] !== undefined ? { checks: source.moduleChecks[id] } : {}),
+      ...(source.mastery?.[id] !== undefined ? { mastery: source.mastery[id] } : {}),
+      ...(source.conceptMastery?.[id] !== undefined ? { conceptMastery: source.conceptMastery[id] } : {}),
+      ...(source.conceptEvidence?.[id] !== undefined ? { conceptEvidence: source.conceptEvidence[id] } : {}),
+    }
+    return Object.keys(record).length ? [id, record] : null
+  }).filter(Boolean))
+  const retiredLabs = Object.fromEntries(retiredLabIds.map((id) => {
+    const record = {
+      ...(source.labs?.[id] !== undefined ? { lab: source.labs[id] } : {}),
+      ...(source.activityRecords?.[id] !== undefined ? { activityRecord: source.activityRecords[id] } : {}),
+      ...(source.evidence?.[id] !== undefined ? { evidence: source.evidence[id] } : {}),
+    }
+    return Object.keys(record).length ? [id, record] : null
+  }).filter(Boolean))
+
+  return {
+    ...source,
+    weekOneContentVersion: WEEK_ONE_CONTENT_CONSOLIDATION_VERSION,
+    modulesRead: mapAliases(source.modulesRead),
+    moduleNotes: mapAliases(source.moduleNotes),
+    moduleChecks: mapAliases(source.moduleChecks),
+    mastery: mapAliases(source.mastery),
+    conceptMastery: mapAliases(source.conceptMastery),
+    conceptEvidence: mapAliases(source.conceptEvidence),
+    ...(Object.keys(retiredRecords).length || Object.keys(retiredLabs).length ? {
+      learningPlanMigration: {
+        ...(source.learningPlanMigration || {}),
+        weekOneContentConsolidation: {
+          version: WEEK_ONE_CONTENT_CONSOLIDATION_VERSION,
+          retiredModules: retiredRecords,
+          retiredLabs,
+        },
+      },
+    } : {}),
+  }
+}
+
 export function mergeProgress(value) {
-  const source = migrateMergedLinuxWeek(value)
+  const source = migrateConsolidatedWeekOne(migrateMergedLinuxWeek(value))
   return {
     ...initialProgress,
     ...source,

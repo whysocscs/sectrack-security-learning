@@ -122,3 +122,24 @@ test('legacy Week 1 and 2 progress merges into the new Week 1 without losing rec
   })
   assert.equal(progress.conceptEvidence['w3-http'].latestQuizResult.weekIndex, 2)
 })
+
+test('retired Week 1 Linux modules and labs remain preserved while overlapping concepts map to the consolidated reader', () => {
+  const progress = mergeProgress({
+    learningPlanVersion: 1,
+    modulesRead: { 'w2-permissions': true, 'w2-text': true },
+    moduleNotes: { 'w2-permissions': { text: '640은 그룹 읽기' } },
+    moduleChecks: { 'w2-binary': { answer: 'Base64는 인코딩' } },
+    conceptEvidence: { 'w2-text': { selfExplanation: { text: 'find 뒤 grep' } } },
+    labs: { 'w1-path': { status: 'completed' }, 'w2-bandit': { status: 'attempted' } },
+    activityRecords: { 'w1-path': { procedure: 'pwd' } },
+  })
+
+  assert.equal(progress.modulesRead['w1-permission'], true)
+  assert.equal(progress.modulesRead['w1-navigation'], true)
+  assert.deepEqual(progress.moduleNotes['w1-permission'], { text: '640은 그룹 읽기' })
+  assert.deepEqual(progress.moduleChecks['w1-navigation'], { answer: 'Base64는 인코딩' })
+  assert.equal(progress.conceptEvidence['w1-navigation'].selfExplanation.text, 'find 뒤 grep')
+  assert.equal(progress.labs['w1-path'].status, 'completed')
+  assert.equal(progress.learningPlanMigration.weekOneContentConsolidation.retiredLabs['w2-bandit'].lab.status, 'attempted')
+  assert.equal(progress.learningPlanMigration.weekOneContentConsolidation.retiredModules['w2-permissions'].read, true)
+})

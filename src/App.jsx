@@ -50,6 +50,7 @@ import {
 } from './storage'
 import { LabCatalog, LabPage } from './components/Labs'
 import LessonRenderer from './components/LessonRenderer'
+import { getConcepts } from './content/conceptRegistry'
 import { ReportEditor, ReportsPage } from './components/Reports'
 import WeekZeroWorkspace, { WeekZeroExplorerPage } from './components/week0/WeekZeroWorkspace'
 import { getLessonBlocks } from './content/lessonSchema'
@@ -591,6 +592,8 @@ function ConceptReader({ week, selectedId, progress, updateProgress, openModule,
   const done = Boolean(progress.modulesRead[selected.id])
   const check = progress.moduleChecks[selected.id] || {}
   const sections = getLessonBlocks(selected).filter((block) => block.title || block.type === 'checkpoint')
+  const isDeepGuide = selected.contentLevel === 'deep-guide-v2'
+  const prerequisiteConcepts = getConcepts(selected.prerequisiteConceptIds || [])
   const toggleDone = () => updateProgress((current) => ({ ...current, modulesRead: { ...current.modulesRead, [selected.id]: !done } }))
   const updateCheckpoint = (checkpointId, result) => updateProgress((current) => ({
     ...current,
@@ -610,9 +613,9 @@ function ConceptReader({ week, selectedId, progress, updateProgress, openModule,
   const scrollToSection = (block, index) => document.getElementById(`${selected.id}-${block.id || `${block.type}-${index + 1}`}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
     <div className="reader-layout">
-      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{module.title}</strong></button>)}{sections.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sections.map((block, index) => <button type="button" key={`${block.id || block.type}-${index}`} onClick={() => scrollToSection(block, index)}>{block.title || '중간 확인'}</button>)}</nav>}</aside>
+      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{module.title}</strong></button>)}{sections.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sections.map((block, index) => <button type="button" key={`${block.id || block.type}-${index}`} onClick={() => scrollToSection(block, index)}>{block.title || (week.index === 1 && block.type === 'checkpoint' ? `Question ${sections.slice(0, index + 1).filter((item) => item.type === 'checkpoint').length}.` : '중간 확인')}</button>)}</nav>}</aside>
       <article className="reader-document">
-        <header><span>MODULE {String(week.modules.indexOf(selected) + 1).padStart(2, '0')}</span><h2>{selected.title}</h2><p>{selected.summary}</p></header>
+        <header><span>MODULE {String(week.modules.indexOf(selected) + 1).padStart(2, '0')}</span><h2>{selected.title}</h2><p>{selected.summary}</p>{isDeepGuide && <dl className="reader-learning-meta"><div><dt>읽기 시간</dt><dd>{selected.estimatedMinutes}분</dd></div><div><dt>선수 개념</dt><dd>{prerequisiteConcepts.length ? prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>) : '없음'}</dd></div><div><dt>이 모듈의 질문</dt><dd>{selected.learningQuestion}</dd></div></dl>}</header>
         <LessonRenderer module={selected} checkpointResults={check.checkpoints || {}} onCheckpoint={updateCheckpoint} onOpenLab={openLab} />
         <footer className="reader-footer"><button className={`button ${done ? 'secondary' : 'primary'}`} type="button" onClick={toggleDone}>{done ? <><Check size={16} />읽음 취소</> : <><CheckCircle2 size={16} />읽음으로 표시</>}</button><small>읽음 표시는 새로고침 후에도 유지됩니다.</small></footer>
       </article>

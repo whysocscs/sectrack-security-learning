@@ -1,12 +1,11 @@
 export const WEEK_0_TO_3_ID_SNAPSHOT = Object.freeze({
   modules: Object.freeze([
     'w1-shell', 'w1-filesystem', 'w1-navigation', 'w1-fileops', 'w1-permission', 'w1-ssh',
-    'w2-permissions', 'w2-streams', 'w2-text', 'w2-binary', 'w2-curl', 'w2-process', 'w2-git', 'w2-http-tools',
+    'w2-streams', 'w2-curl', 'w2-process', 'w2-git',
     'w3-flow', 'w3-url-dns', 'w3-encoding-body', 'w3-http', 'w3-headers', 'w3-session', 'w3-auth-origin', 'w3-browser-runtime', 'w3-dom',
   ]),
   labs: Object.freeze([
-    'w1-treasure', 'w1-path', 'w1-ssh-flow', 'w1-bandit',
-    'w2-permission-lab', 'w2-log-lab', 'w2-http-lab', 'w2-bandit',
+    'w1-treasure', 'w1-command-ctf', 'w1-bandit',
     'w3-http-message', 'w3-timeline', 'w3-cookie', 'w3-source-sink', 'w3-threat-model',
   ]),
 })

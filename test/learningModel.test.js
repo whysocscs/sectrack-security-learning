@@ -81,12 +81,12 @@ test('malformed or missing quiz definitions are reported without breaking progre
 })
 
 test('progress is explainable and remains separate from mastery', () => {
-  const base = { modulesRead: { 'w1-shell': true }, labs: { 'w1-path': { status: 'attempted' } }, mastery: { 'w1-shell': 'mastered' } }
+  const base = { modulesRead: { 'w1-shell': true }, labs: { 'w1-treasure': { status: 'attempted' } }, mastery: { 'w1-shell': 'mastered' } }
   const changedMastery = { ...base, mastery: { 'w1-shell': 'not_started' } }
   const first = calculateProgressBreakdown(weekContent[1], base)
   const second = calculateProgressBreakdown(weekContent[1], changedMastery)
   assert.deepEqual(first, second)
-  assert.deepEqual(first.reading, { completed: 1, total: 11 })
+  assert.deepEqual(first.reading, { completed: 1, total: 8 })
   assert.equal(first.activityAttempts.completed, 1)
   assert.equal(first.activityCompletions.completed, 0)
 })
@@ -101,13 +101,13 @@ test('hint usage never changes mastery', () => {
 test('quiz attempts retain per-concept evidence and retry count', () => {
   const answers = Object.fromEntries(quizzes[1].map((question) => [question.id, question.answer]))
   answers.w2q1 = 1
-  const first = recordQuizAttempt({ mastery: { 'w2-permissions': 'familiar' } }, { weekIndex: 1, answers, attemptedAt: '2026-07-11T00:00:00.000Z' })
+  const first = recordQuizAttempt({ mastery: { 'w1-permission': 'familiar' } }, { weekIndex: 1, answers, attemptedAt: '2026-07-11T00:00:00.000Z' })
   const second = recordQuizAttempt(first, { weekIndex: 1, answers: Object.fromEntries(quizzes[1].map((question) => [question.id, question.answer])), attemptedAt: '2026-07-11T00:05:00.000Z' })
-  assert.equal(getConceptResultEvidence(second, 'w2-permissions')[0].correct, false)
-  assert.equal(getConceptResultEvidence(second, 'w2-permissions').at(-1).correct, true)
+  assert.equal(getConceptResultEvidence(second, 'w1-permission').find((result) => result.questionId === 'w2q1').correct, false)
+  assert.equal(getConceptResultEvidence(second, 'w1-permission').filter((result) => result.questionId === 'w2q1').at(-1).correct, true)
   assert.equal(getQuizRetryCount(second, 1), 1)
   assert.deepEqual(second.mastery, first.mastery)
-  assert.equal(getConceptTitle('w2-permissions'), '소유권과 권한')
+  assert.equal(getConceptTitle('w1-permission'), '사용자·그룹·소유권과 권한')
 })
 
 test('self explanation, mastery, confidence, and review state stay separate', () => {

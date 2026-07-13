@@ -1,3 +1,5 @@
+import { hasConcept } from './conceptRegistry.js'
+
 export const LESSON_BLOCK_TYPES = Object.freeze([
   'question',
   'prerequisite-check',
@@ -7,6 +9,7 @@ export const LESSON_BLOCK_TYPES = Object.freeze([
   'http-message',
   'code',
   'comparison',
+  'command-guide',
   'timeline',
   'case',
   'misconception',
@@ -16,9 +19,26 @@ export const LESSON_BLOCK_TYPES = Object.freeze([
   'practice-link',
   'sources',
   'summary',
+  'concept-ref',
+  'evidence-board',
+  'retest',
 ])
 
 const blockTypeSet = new Set(LESSON_BLOCK_TYPES)
+const deepGuideArchetypes = new Set(['원리 해설형', '흐름 추적형', '사례 판정형', '도구 관찰형', '방어·재시험형'])
+const deepGuideFields = [
+  'archetype',
+  'learningQuestion',
+  'observableOutcome',
+  'prerequisiteConceptIds',
+  'newConceptIds',
+  'evidenceObjects',
+  'failurePoint',
+  'impactConditions',
+  'controls',
+  'retestMatrix',
+  'transferGate',
+]
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -71,7 +91,40 @@ export function validateLessonModule(module) {
       errors.push(`${index + 1}번째 checkpoint에는 ID와 질문이 필요합니다.`)
     }
     if (block.type === 'sources' && !Array.isArray(block.items)) errors.push(`${index + 1}번째 sources에는 items 배열이 필요합니다.`)
+    if (block.type === 'command-guide' && !Array.isArray(block.commands)) errors.push(`${index + 1}번째 command-guide에는 commands 배열이 필요합니다.`)
+    if (block.type === 'concept-ref') {
+      if (!Array.isArray(block.conceptIds) || !block.conceptIds.length) errors.push(`${index + 1}번째 concept-ref에는 conceptIds 배열이 필요합니다.`)
+      else block.conceptIds.forEach((conceptId) => {
+        if (!hasConcept(conceptId)) errors.push(`${index + 1}번째 concept-ref의 개념 ID가 등록되어 있지 않습니다: ${conceptId}`)
+      })
+    }
+    if (block.type === 'evidence-board') {
+      if (!Array.isArray(block.sections) || !block.sections.length || block.sections.some((section) => !hasText(section?.label) || !Array.isArray(section?.items) || !section.items.length)) {
+        errors.push(`${index + 1}번째 evidence-board에는 이름과 항목을 가진 sections가 필요합니다.`)
+      }
+    }
+    if (block.type === 'retest') {
+      if (!Array.isArray(block.rows) || !block.rows.length || block.rows.some((row) => !hasText(row?.label) || !hasText(row?.check) || !hasText(row?.expected))) {
+        errors.push(`${index + 1}번째 retest에는 label, check, expected를 가진 rows가 필요합니다.`)
+      }
+    }
   })
+
+  if (module.contentLevel === 'deep-guide-v2') {
+    deepGuideFields.forEach((field) => {
+      const value = module[field]
+      const allowsEmptyArray = field === 'prerequisiteConceptIds'
+      if (Array.isArray(value) ? (!allowsEmptyArray && value.length === 0) : !hasText(value)) errors.push(`deep-guide-v2 모듈에는 ${field}이 필요합니다.`)
+    })
+    if (!deepGuideArchetypes.has(module.archetype)) errors.push('deep-guide-v2 모듈의 archetype이 허용된 유형이 아닙니다.')
+    ;['prerequisiteConceptIds', 'newConceptIds'].forEach((field) => (module[field] || []).forEach((conceptId) => {
+      if (!hasConcept(conceptId)) errors.push(`deep-guide-v2 모듈의 ${field}에 등록되지 않은 개념이 있습니다: ${conceptId}`)
+    }))
+    const headings = blocks.map((block) => block.title).filter(hasText)
+    if (new Set(headings).size !== headings.length) errors.push('deep-guide-v2 모듈의 블록 제목은 반복되지 않아야 합니다.')
+    if (!blocks.some((block) => block.type === 'concept-ref')) errors.push('deep-guide-v2 모듈에는 concept-ref 블록이 필요합니다.')
+    if (!blocks.some((block) => block.type === 'sources')) errors.push('deep-guide-v2 모듈에는 sources 블록이 필요합니다.')
+  }
 
   return errors
 }
