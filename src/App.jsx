@@ -16,7 +16,7 @@ import {
   Gauge,
   GraduationCap,
   Library,
-  Map,
+  Map as MapIcon,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -68,7 +68,7 @@ const regularWeekCount = Object.values(weekContent).filter((week) => week.index 
 const navItems = [
   { page: 'home', label: '홈', icon: BookOpen },
   { page: 'learn', label: `${regularWeekCount}주 로드맵`, icon: GraduationCap },
-  { page: 'mindmap', label: '직무 지도', icon: Map },
+  { page: 'mindmap', label: '직무 지도', icon: MapIcon },
   { page: 'labs', label: '실습실', icon: Terminal },
   { page: 'reports', label: '보고서', icon: FileCheck2 },
   { page: 'resources', label: '리소스', icon: Library },

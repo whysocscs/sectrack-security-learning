@@ -6,6 +6,12 @@ async function open(page, hash) {
   await expect(page.locator('#main-content')).toBeVisible()
 }
 
+test('learning roadmap renders from its direct hash route', async ({ page }) => {
+  await open(page, '#/learn')
+  await expect(page.getByRole('heading', { name: '학습 로드맵' })).toBeVisible()
+  await expect(page.locator('.roadmap-item').filter({ hasText: '보안 기초·Linux·도구' })).toBeVisible()
+})
+
 test('Week 0 to 2 learning routes load their intended reader or workspace', async ({ page }) => {
   await open(page, '#/learn/week/0/glossary')
   await expect(page.getByRole('heading', { name: '보안 용어는 정의와 함께, 헷갈리는 경계까지 읽습니다.' })).toBeVisible()
