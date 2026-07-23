@@ -1,3 +1,15 @@
+export const reportWorkspace = Object.freeze({
+  displayWeek: 3,
+  weekLabel: 'WEEK 03',
+  draftReportId: 'local-xss-draft',
+  findingId: 'W03-XSS-001',
+})
+
+export function normalizeReportFindingId(value, fallback = reportWorkspace.findingId) {
+  const findingId = String(value || fallback)
+  return findingId.replace(/^W0?4-XSS-/i, 'W03-XSS-')
+}
+
 export const reportSections = [
   { id: 'scope', label: '01. 대상과 범위', fields: ['findingId', 'title', 'status', 'profile', 'vulnerabilityType', 'asset', 'endpoint', 'method', 'parameter', 'authPrerequisites', 'environment'] },
   { id: 'flow', label: '02. 데이터 흐름', fields: ['source', 'transforms', 'sink', 'context', 'executionLocation', 'summary'] },
@@ -7,8 +19,8 @@ export const reportSections = [
 ]
 
 export const emptyReport = {
-  id: 'local-xss-draft',
-  findingId: 'W4-XSS-001',
+  id: reportWorkspace.draftReportId,
+  findingId: reportWorkspace.findingId,
   profile: 'xss',
   title: '',
   status: 'draft',
@@ -51,12 +63,14 @@ export const emptyReport = {
   retestProcedure: '',
   retestResult: '',
   references: 'OWASP XSS Prevention Cheat Sheet\nOWASP WSTG Testing for Reflected XSS',
+  reviewedBy: '',
+  reviewedAt: '',
   updatedAt: '',
 }
 
 export const completedExampleReport = {
   ...emptyReport,
-  id: 'sample-w4-xss-001',
+  id: 'sample-w03-xss-001',
   title: '검색 결과의 q 파라미터가 HTML 본문에 인코딩 없이 반사되어 Reflected XSS 발생',
   asset: 'SecTrack Local Training App',
   endpoint: '/labs/xss/reflected-search',
@@ -96,7 +110,9 @@ export const completedExampleReport = {
   retestProcedure: '동일한 마커와 실습용 PoC를 입력해 응답 소스와 DOM에서 인코딩된 텍스트로만 표시되는지 확인한다. 인접 검색 필터와 오류 메시지도 회귀 확인한다.',
   retestResult: '수정 버전에서 입력값이 텍스트로 표시되고 실행 표시가 발생하지 않음.',
   references: 'OWASP WSTG-INPV-01\nOWASP Cross Site Scripting Prevention Cheat Sheet\nCWE-79',
-  status: 'reviewed',
+  status: 'review-approved',
+  reviewedBy: 'SecTrack 교육 콘텐츠 검토자',
+  reviewedAt: '2026-07-11T09:00:00.000Z',
   updatedAt: '2026-07-11T09:00:00.000Z',
 }
 
@@ -202,7 +218,7 @@ export const publicReportResources = [
 ]
 
 export const reportFieldMeta = {
-  findingId: ['Finding ID', '예: W4-XSS-001'], title: ['제목', '취약 위치 + 유형 + 핵심 영향'], status: ['상태', ''], profile: ['Finding Profile', ''], severity: ['심각도', ''],
+  findingId: ['Finding ID', `예: ${reportWorkspace.findingId}`], title: ['제목', '취약 위치 + 유형 + 핵심 영향'], status: ['상태', ''], profile: ['Finding Profile', ''], severity: ['심각도', ''],
   cvssVersion: ['CVSS Version', '3.1 또는 4.0'], cvssVector: ['CVSS Vector', '예: CVSS:3.1/AV:N/...'], cvssScore: ['CVSS Score', '0.0-10.0'], cwe: ['CWE', '예: CWE-79'], owaspMapping: ['WSTG 또는 OWASP Mapping', '예: WSTG-INPV-01'],
   asset: ['영향받는 자산', '예: Local Training App'], endpoint: ['Endpoint·Route', '/labs/...'], method: ['HTTP Method', 'GET'], parameter: ['Parameter·Header·DOM Source', 'q'],
   authPrerequisites: ['인증·권한 전제', '누가 이 기능에 접근할 수 있는가'], environment: ['테스트 환경', '브라우저·도구·버전'], vulnerabilityType: ['취약점 유형', 'Reflected XSS'],

@@ -7,6 +7,8 @@ import { weekZeroDefinition } from './data/week0/weekDefinition.js'
 import { weekZeroQuizQuestions, weekZeroQuizRule } from './data/week0/quiz.js'
 import { week5to10Content, week5to10Quizzes } from './data/curriculum/week5to10.js'
 import { week11to16Content, week11to16Quizzes } from './data/curriculum/week11to16.js'
+import { objectiveModuleAlignment } from './objectiveAlignment.js'
+import { applyBaseModuleArchitecture, getSupplementalLabs } from './content/curriculumArchitecture.js'
 
 export const masteryLabels = {
   unknown: '아직 모름',
@@ -80,15 +82,17 @@ function normalizeWeek(week) {
     ...(week1LessonBlocks[module.id] ? { blocks: week1LessonBlocks[module.id] } : {}),
     ...(week2LessonBlocks[module.id] ? { blocks: week2LessonBlocks[module.id] } : {}),
     ...(week3LessonBlocks[module.id] ? { blocks: week3LessonBlocks[module.id] } : {}),
-    ...(week4LessonMeta[module.id] ? { ...week4LessonMeta[module.id], contentLevel: 'deep-guide-v2', blocks: week4LessonBlocks[module.id] } : {}),
+    ...(week4LessonMeta[module.id] ? { ...week4LessonMeta[module.id], contentLevel: 'deep-guide-v3', blocks: week4LessonBlocks[module.id] } : {}),
     activityType: module.activityType || 'lesson',
     path: module.path || 'required',
     estimatedMinutes: module.estimatedMinutes ?? module.duration,
   }))
-  const modules = week.curriculumId === 'week-4'
+  const orderedModules = week.curriculumId === 'week-4'
     ? [...normalizedModules].sort((left, right) => week4CveFirstModuleOrder.indexOf(left.id) - week4CveFirstModuleOrder.indexOf(right.id))
     : normalizedModules
-  const labs = week.labs.filter((lab) => !week.retiredActivityIds?.includes(lab.id)).map((lab) => ({
+  const modules = applyBaseModuleArchitecture(week.index, orderedModules)
+  const supplementalLabs = getSupplementalLabs(week.index)
+  const labs = [...week.labs, ...supplementalLabs].filter((lab) => !week.retiredActivityIds?.includes(lab.id)).map((lab) => ({
     ...lab,
     activityType: lab.activityType || labActivityTypes[lab.kind] || 'practice',
     path: lab.path || (lab.kind === 'external' ? 'extension' : 'required'),
@@ -198,14 +202,14 @@ const baseWeekContent = {
   1: {
     id: 'week-1', index: 1, title: '보안 기초·Linux 1',
     summary: '명령어 이름보다 현재 위치, 대상 경로, 권한, 실제 출력을 읽는 순서를 익힙니다.',
-    objectives: ['터미널·셸·운영체제의 관계를 설명한다.', '절대 경로와 상대 경로를 구분한다.', '파일 유형과 메타데이터를 확인한다.', 'SSH 접속 흐름과 호스트 키의 목적을 설명한다.'],
+    objectives: ['터미널·셸·운영체제·프로세스의 관계를 설명한다.', '절대 경로와 상대 경로를 구분한다.', '파일 유형·메타데이터와 안전한 파일 변경·버전 기록을 확인한다.', 'SSH 접속 흐름과 호스트 키의 목적을 설명한다.'],
     prerequisites: ['Week 0 윤리·스코프 확인', '키보드로 명령을 입력할 수 있음'], estimatedMinutes: 360, quizMinutes: 15, recordMinutes: 25,
     modules: [
       { id: 'w1-shell', title: '운영체제·터미널·셸', duration: 35, summary: '터미널은 입출력 창이고 셸은 명령을 해석하며 운영체제 커널은 실제 자원 작업을 수행합니다.', points: ['명령은 보통 명령어, 옵션, 인자로 나뉜다.', '프롬프트에는 사용자·호스트·현재 경로 정보가 나타날 수 있다.', '종료 코드 0은 일반적으로 성공, 0이 아닌 값은 오류나 다른 상태를 뜻한다.', '같은 명령도 현재 디렉터리와 사용자 권한에 따라 결과가 달라진다.'] },
       { id: 'w1-filesystem', title: 'Linux 파일 시스템과 경로', duration: 50, summary: '루트에서 시작하는 하나의 디렉터리 트리와 경로 표기법을 읽습니다.', points: ['`/`는 파일 시스템의 시작점, `/home`은 일반 사용자 홈, `/etc`는 시스템 설정, `/var`는 변하는 데이터, `/tmp`는 임시 파일에 주로 쓰인다.', '`~`는 홈, `.`은 현재 디렉터리, `..`은 상위 디렉터리를 뜻한다.', '`/home/student/report.txt`는 절대 경로이고 `notes/report.txt`는 현재 위치를 기준으로 한 상대 경로다.', '점으로 시작하는 이름은 일반 `ls` 출력에서 숨겨지지만 접근 통제가 적용된 것은 아니다.', '확장자는 이름의 일부일 뿐 실제 파일 형식을 보장하지 않는다.'] },
       { id: 'w1-navigation', title: '탐색·검색·읽기·도움말 명령', duration: 80, summary: '`pwd`, `ls`, `cd`, `find`, `grep`, `file`, `cat`, `less`, `head`, `tail`, `stat`, `man`을 실습 전에 예시로 익힙니다.', points: ['먼저 `pwd`와 `ls -la`로 맥락을 확인한다.', '`find . -type f -name "*.log"`처럼 시작 경로와 조건을 지정해 파일을 찾는다.', '`grep -n "ERROR" logs/error.log`처럼 파일 안에서 조건에 맞는 줄과 줄 번호를 찾는다.', '`find`는 파일 시스템 항목을, `grep`은 텍스트 줄을 검색하며 후보 경로를 찾은 뒤 내용을 검색하는 순서로 조합할 수 있다.', '파일을 읽기 전에 `file`과 `stat`으로 형식·크기·권한을 본다.', '짧은 텍스트는 `cat`, 긴 파일은 `less`, 앞뒤 일부는 `head`·`tail`을 사용한다.', '모르는 옵션은 `man` 또는 `--help`의 SYNOPSIS와 OPTIONS에서 확인한다.', '오류 메시지는 실행한 명령, 대상 경로, 권한, 파일 존재 여부 순서로 읽는다.'] },
       { id: 'w1-fileops', title: '파일 조작과 셸 표현', duration: 55, summary: '파일 변경 명령과 따옴표·이스케이프·글로빙을 안전하게 다룹니다.', points: ['`touch`, `mkdir -p`, `cp`, `mv`, `rm`, `rmdir`의 대상과 영향 범위를 실행 전에 확인한다.', '재귀 삭제 옵션은 하위 경로 전체에 영향을 주므로 실습 경계 밖에서 사용하지 않는다.', '공백이 있는 파일명은 작은따옴표·큰따옴표 또는 역슬래시로 한 인자임을 표시한다.', '`*`와 `?`는 셸이 명령 실행 전에 파일명 목록으로 확장할 수 있다.', '하이픈으로 시작하는 파일명 앞에는 `--`를 사용해 옵션 해석을 끝낼 수 있다.'] },
-      { id: 'w1-permission', title: '사용자·그룹·권한 미리보기', duration: 35, summary: '소유자·그룹·기타와 r·w·x를 파일과 디렉터리에서 구분합니다.', points: ['파일 r은 내용 읽기, w는 내용 변경, x는 프로그램 실행과 관련된다.', '디렉터리 r은 이름 목록, w는 항목 생성·삭제, x는 경로 진입·탐색과 관련된다.', '디렉터리 x가 없으면 이름을 알아도 하위 파일에 접근하기 어렵다.', '상세 계산과 chmod는 Week 2에서 다룬다.'] },
+      { id: 'w1-permission', title: '사용자·그룹·권한 미리보기', duration: 35, summary: '소유자·그룹·기타와 r·w·x를 파일과 디렉터리에서 구분합니다.', points: ['파일 r은 내용 읽기, w는 내용 변경, x는 프로그램 실행과 관련된다.', '디렉터리 r은 이름 목록, w는 항목 생성·삭제, x는 경로 진입·탐색과 관련된다.', '디렉터리 x가 없으면 이름을 알아도 하위 파일에 접근하기 어렵다.', '상세 계산과 chmod는 이 주차의 권한 학습에서 이어서 다룬다.'] },
       { id: 'w1-ssh', title: 'SSH 입문', duration: 35, summary: '로컬 터미널에서 암호화된 원격 셸로 연결되는 단계를 이해합니다.', points: ['접속 정보는 사용자명, 호스트, 포트로 구성된다.', '서버 호스트 키는 지금 연결한 서버의 신원을 확인하는 기준이다.', '최초 접속 경고는 호스트 키 지문을 공식 채널의 값과 비교한 뒤 승인한다.', '비밀번호 인증과 키 기반 인증은 사용자 인증 방식이 다르다.', '`exit` 또는 Ctrl+D로 원격 셸을 종료하고 로컬 셸로 돌아온다.'] },
     ],
     labs: [
@@ -247,7 +251,7 @@ const baseWeekContent = {
     id: 'week-3', index: 3, title: '웹 구조·HTTP·브라우저 보안 기초',
     summary: 'URL 입력부터 렌더링까지의 흐름을 따라가며 HTTP 메시지, 인증 상태, 브라우저 데이터 흐름을 읽습니다.',
     objectives: ['URL·DNS·TCP/TLS·HTTP 요청 흐름을 설명한다.', '요청과 응답의 각 부분을 구분한다.', 'Cookie·Session·Token과 인증·인가를 구분한다.', 'DOM에서 Source·Sink와 렌더링 컨텍스트를 찾는다.'],
-    prerequisites: ['Week 2 curl과 HTTP 기준선', '허가된 HTTP 실습 범위'], estimatedMinutes: 360, quizMinutes: 15, recordMinutes: 25,
+    prerequisites: ['Week 1 curl과 HTTP 기준선', '허가된 HTTP 실습 범위'], estimatedMinutes: 360, quizMinutes: 15, recordMinutes: 25,
     modules: [
       { id: 'w3-flow', title: 'URL에서 화면까지', duration: 45, summary: '브라우저가 주소를 해석하고 서버 응답을 화면으로 만드는 전체 경로입니다.', points: ['URL 파싱 → DNS 질의 → IP 결정 → TCP 연결 → HTTPS의 TLS 핸드셰이크 → HTTP 요청 순서로 진행된다.', '요청은 Reverse Proxy·Web Server·Application Server를 거쳐 DB나 외부 서비스에 연결될 수 있다.', '응답 뒤 브라우저는 HTML을 파싱해 DOM을 만들고 CSS와 JavaScript를 적용한다.', 'CDN과 캐시는 응답 경로와 재사용에 관여하지만 원본 애플리케이션의 권한 검증을 대신하지 않는다.'] },
       { id: 'w3-url-dns', title: 'URL과 DNS', duration: 40, summary: '주소의 구성 요소와 Origin을 정확히 구분합니다.', points: ['URL은 scheme, host, port, path, query, fragment로 나뉜다.', 'Origin은 scheme + host + port 조합이다.', 'fragment는 기본 HTTP 요청에 포함되지 않고 브라우저 안에서 사용된다.', 'DNS는 도메인을 IP 등 레코드에 연결하지만 통신 내용의 암호화와 서버 인증을 자동 보장하지 않는다.', 'A·AAAA는 주소, CNAME은 별칭, TXT는 텍스트 데이터를 제공한다.'] },
@@ -263,19 +267,19 @@ const baseWeekContent = {
       { ...commonLabFields, id: 'w3-http-message', week: 3, title: 'HTTP 메시지 해부', kind: 'http-label', estimatedMinutes: 35, objective: '실제 형식의 요청·응답에서 요청선·헤더·본문·상태선을 표시합니다.', prerequisites: ['HTTP 메시지 구조'], requiredTools: ['내장 HTTP 분석기'], safeScope: '정적 교육용 메시지만 분석합니다.', successCriteria: ['요청·응답 요소 8개 이상 식별', '401·403 차이 설명'], hints: ['첫 줄을 먼저 요청선 또는 상태선으로 구분하세요.', '빈 줄 위는 헤더, 아래는 본문입니다.', '방향에 따라 Cookie와 Set-Cookie를 구분하세요.'], relatedConceptIds: ['w3-http', 'w3-headers'], nextRecommendations: ['요청 타임라인'] },
       { ...commonLabFields, id: 'w3-timeline', week: 3, title: '요청 타임라인', kind: 'timeline', estimatedMinutes: 25, objective: 'URL 입력부터 렌더링까지 단계를 순서대로 배치합니다.', prerequisites: ['URL에서 화면까지'], requiredTools: ['브라우저'], safeScope: '단계 카드만 이동합니다.', successCriteria: ['8단계 순서 완성', '공격·방어 지점 연결'], hints: ['도메인을 IP로 바꿔야 연결할 수 있습니다.', 'HTTPS에서는 HTTP보다 TLS가 먼저입니다.', '응답을 받은 뒤 브라우저가 파싱하고 렌더링합니다.'], relatedConceptIds: ['w3-flow'], nextRecommendations: ['Cookie 속성 실험'] },
       { ...commonLabFields, id: 'w3-cookie', week: 3, title: 'Cookie 속성 실험', kind: 'cookie', estimatedMinutes: 35, objective: 'Secure·HttpOnly·SameSite 조합에 따른 브라우저 동작 차이를 비교합니다.', prerequisites: ['Cookie와 Session'], requiredTools: ['내장 쿠키 시뮬레이터'], safeScope: '실제 인증 쿠키가 아닌 `TRAINING_SESSION`만 사용합니다.', successCriteria: ['세 속성 조합 비교', '각 속성이 막지 못하는 영향 설명'], hints: ['전송 조건과 JavaScript 접근 조건을 나눠 보세요.', 'HttpOnly는 네트워크 전송을 끄는 속성이 아닙니다.', 'SameSite는 same-origin이 아닌 site 기준을 사용합니다.'], relatedConceptIds: ['w3-session'], nextRecommendations: ['Source → Sink 추적'] },
-      { ...commonLabFields, id: 'w3-source-sink', week: 3, title: 'Source → Sink 추적', kind: 'source-sink', estimatedMinutes: 45, objective: 'JavaScript 예시에서 Source와 Sink를 고르고 안전한 대안으로 바꿉니다.', prerequisites: ['DOM과 JavaScript 데이터 흐름'], requiredTools: ['내장 코드 분석기'], safeScope: '정적 코드 예시만 분석하며 실행하지 않습니다.', successCriteria: ['5개 흐름 분류', '위험한 Sink 수정', '컨텍스트 표시'], hints: ['외부에서 들어오는 값을 먼저 표시하세요.', '그 값이 마지막에 전달되는 DOM API를 찾으세요.', 'HTML이 필요 없다면 텍스트 전용 API를 고르세요.'], relatedConceptIds: ['w3-dom'], nextRecommendations: ['Week 4 XSS'] },
-      { ...commonLabFields, id: 'w3-tool-triangle', week: 3, title: 'HTTP Tool Triangle', kind: 'tool-triangle', estimatedMinutes: 45, objective: '같은 고정 training 요청을 curl·DevTools·Burp 관점에서 비교하고, 각 도구가 답하는 질문과 공통 HTTP 필드를 기록합니다.', prerequisites: ['Week 2 HTTP 정상 요청 기준선', 'HTTP 메시지 구조'], requiredTools: ['내장 Tool Triangle 비교기'], safeScope: '고정된 로컬 training 메시지만 비교합니다. 외부 요청·실제 Cookie·값 변조는 수행하지 않습니다.', successCriteria: ['세 도구의 관찰 지점 구분', 'URL·Method·Headers·Body·Status 대조', '마스킹 항목 표시', 'Week 4에 연결할 Source·Sink 질문 작성'], hints: ['세 도구 모두 같은 요청을 보지만 화면과 목적이 다릅니다.', 'Request URL, method, status, response body는 공통 필드입니다.', 'Cookie·Authorization 값은 “보였는가”가 아니라 “마스킹했는가”를 기록하세요.'], relatedConceptIds: ['w3-http', 'w3-headers', 'w3-browser-runtime'], nextRecommendations: ['Week 4 XSS 선수 체크'] },
-      { ...commonLabFields, id: 'w3-threat-model', week: 3, title: '로컬 검색 페이지 미니 위협 모델', kind: 'threat-model', path: 'extension', estimatedMinutes: 35, objective: '자산·입력 지점·신뢰 경계·공격 표면·통제를 한 장에 정리합니다.', prerequisites: ['핵심 보안 언어', '웹 요청 흐름'], requiredTools: ['내장 양식'], safeScope: '가상의 로컬 검색 페이지를 대상으로 합니다.', successCriteria: ['다섯 필드 작성', '통제와 공격 표면 연결'], hints: ['먼저 보호할 데이터와 사용자 행동을 적으세요.', '브라우저와 서버 사이를 신뢰 경계로 표시하세요.', '각 입력 지점이 어느 컨텍스트에 출력되는지 확인하세요.'], relatedConceptIds: ['w3-flow', 'w3-dom'], nextRecommendations: ['Week 4 XSS 선수 체크'] },
+      { ...commonLabFields, id: 'w3-source-sink', week: 3, title: 'Source → Sink 추적', kind: 'source-sink', estimatedMinutes: 45, objective: 'JavaScript 예시에서 Source와 Sink를 고르고 안전한 대안으로 바꿉니다.', prerequisites: ['DOM과 JavaScript 데이터 흐름'], requiredTools: ['내장 코드 분석기'], safeScope: '정적 코드 예시만 분석하며 실행하지 않습니다.', successCriteria: ['5개 흐름 분류', '위험한 Sink 수정', '컨텍스트 표시'], hints: ['외부에서 들어오는 값을 먼저 표시하세요.', '그 값이 마지막에 전달되는 DOM API를 찾으세요.', 'HTML이 필요 없다면 텍스트 전용 API를 고르세요.'], relatedConceptIds: ['w3-dom'], nextRecommendations: ['Week 3 XSS'] },
+      { ...commonLabFields, id: 'w3-tool-triangle', week: 3, title: 'HTTP Tool Triangle', kind: 'tool-triangle', estimatedMinutes: 45, objective: '같은 고정 training 요청을 curl·DevTools·Burp 관점에서 비교하고, 각 도구가 답하는 질문과 공통 HTTP 필드를 기록합니다.', prerequisites: ['Week 1 HTTP 정상 요청 기준선', 'HTTP 메시지 구조'], requiredTools: ['내장 Tool Triangle 비교기'], safeScope: '고정된 로컬 training 메시지만 비교합니다. 외부 요청·실제 Cookie·값 변조는 수행하지 않습니다.', successCriteria: ['세 도구의 관찰 지점 구분', 'URL·Method·Headers·Body·Status 대조', '마스킹 항목 표시', 'Week 3에 연결할 Source·Sink 질문 작성'], hints: ['세 도구 모두 같은 요청을 보지만 화면과 목적이 다릅니다.', 'Request URL, method, status, response body는 공통 필드입니다.', 'Cookie·Authorization 값은 “보였는가”가 아니라 “마스킹했는가”를 기록하세요.'], relatedConceptIds: ['w3-http', 'w3-headers', 'w3-browser-runtime'], nextRecommendations: ['Week 3 XSS 선수 체크'] },
+      { ...commonLabFields, id: 'w3-threat-model', week: 3, title: '로컬 검색 페이지 미니 위협 모델', kind: 'threat-model', path: 'extension', estimatedMinutes: 35, objective: '자산·입력 지점·신뢰 경계·공격 표면·통제를 한 장에 정리합니다.', prerequisites: ['핵심 보안 언어', '웹 요청 흐름'], requiredTools: ['내장 양식'], safeScope: '가상의 로컬 검색 페이지를 대상으로 합니다.', successCriteria: ['다섯 필드 작성', '통제와 공격 표면 연결'], hints: ['먼저 보호할 데이터와 사용자 행동을 적으세요.', '브라우저와 서버 사이를 신뢰 경계로 표시하세요.', '각 입력 지점이 어느 컨텍스트에 출력되는지 확인하세요.'], relatedConceptIds: ['w3-flow', 'w3-dom'], nextRecommendations: ['Week 3 XSS 선수 체크'] },
     ],
     deliverables: ['Web Request Flow Report', 'HTTP 메시지 분석', '요청 흐름 다이어그램', 'Cookie·Session 관찰표', 'curl·DevTools·Burp Tool Triangle 비교', 'Source·Transform·Sink·Context 메모'],
-    recordBlueprint: { title: 'Web Request Flow Report', description: '한 정상 training 요청을 URL, HTTP, Cookie·Session, 브라우저 DOM, 도구별 관찰, Week 4 질문까지 연결합니다.', sections: ['URL·Origin·대상과 허가 범위', '정상 요청·응답 기준선', 'Cookie·Session·객체 인가 질문', 'curl·DevTools·Burp 비교', 'Source·Transform·Sink·Context와 Week 4 handoff'] },
+    recordBlueprint: { title: 'Web Request Flow Report', description: '한 정상 training 요청을 URL, HTTP, Cookie·Session, 브라우저 DOM, 도구별 관찰, Week 3 질문까지 연결합니다.', sections: ['URL·Origin·대상과 허가 범위', '정상 요청·응답 기준선', 'Cookie·Session·객체 인가 질문', 'curl·DevTools·Burp 비교', 'Source·Transform·Sink·Context와 Week 3 handoff'] },
     reportConnection: '자산, Endpoint, Method, Parameter, 인증, Source, Sink, 컨텍스트, 기대·실제 동작, 요청·응답 증거 필드를 연습합니다.', next: 'Week 4 · Cross-Site Scripting',
   },
   4: {
     id: 'week-4', index: 4, title: 'Cross-Site Scripting(XSS)·CVE 사례와 방어',
     summary: 'XSS를 페이로드 모음이 아니라 실제 CVE의 원인·조건·패치와 브라우저 데이터 흐름으로 분석합니다.',
     objectives: ['Reflected·Stored·DOM XSS를 실제 CVE와 데이터 흐름으로 구분한다.', 'Source·Transform·Sink·Context·실행 위치를 추적한다.', '공식 패치와 root defense를 구분하고 안전한 로컬 sandbox로만 확인한다.', '검증되지 않은 우회 관계는 미채택으로 기록하고 재시험 범위를 정한다.'],
-    prerequisites: ['Week 3 HTTP·Cookie·DOM', 'HTML 요소·속성·JavaScript 문자열 기초', '안전한 실습 범위'], estimatedMinutes: 480, quizMinutes: 15, recordMinutes: 25,
+    prerequisites: ['Week 2 HTTP·Cookie·DOM', 'HTML 요소·속성·JavaScript 문자열 기초', '안전한 실습 범위'], estimatedMinutes: 480, quizMinutes: 15, recordMinutes: 25,
     contextCoverage: [
       { id: 'html-body', title: 'HTML body', required: true, moduleIds: ['w4-context'], labIds: ['w4-reflected'] },
       { id: 'html-attribute', title: 'HTML attribute', required: true, moduleIds: ['w4-context'], labIds: ['w4-stored'] },
@@ -299,7 +303,7 @@ const baseWeekContent = {
       { ...commonLabFields, id: 'w4-stored', week: 4, title: 'Stored XSS · 게시글', kind: 'xss-stored', contextIds: ['html-attribute', 'javascript-data'], estimatedMinutes: 55, objective: '작성 → 저장 → 재조회 → 다른 사용자 렌더링의 시간 차이를 설명합니다.', prerequisites: ['Stored XSS', '저장과 렌더링'], requiredTools: ['내장 격리 게시판'], safeScope: '브라우저의 training 전용 데이터만 사용하며 실제 계정·서버와 분리됩니다.', successCriteria: ['입력·저장·조회·실행 흐름 표시', '작성 시점과 실행 시점 구분', 'auto-escape 재시험'], hints: ['작성 직후가 아니라 목록을 보는 사용자를 기준으로 보세요.', 'DB 값 자체보다 템플릿 출력 방식을 확인하세요.', '제목과 본문이 서로 다른 컨텍스트인지 비교하세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context'], nextRecommendations: ['DOM-based XSS'] },
       { ...commonLabFields, id: 'w4-dom', week: 4, title: 'DOM-based XSS · fragment와 innerHTML', kind: 'xss-dom', contextIds: ['url-scheme', 'dom-flow'], estimatedMinutes: 45, objective: 'location.hash에서 innerHTML로 이어지는 클라이언트 데이터 흐름을 찾습니다.', prerequisites: ['URL fragment', 'DOM Source·Sink'], requiredTools: ['내장 DOM 비교기'], safeScope: '고정된 fragment와 격리된 미리보기만 사용합니다.', successCriteria: ['서버 원문·실행 후 DOM 비교', 'Source·Sink 코드 줄 표시', 'textContent 수정 재시험'], hints: ['fragment가 HTTP 요청에 포함되는지 먼저 확인하세요.', '서버 응답 원문과 DevTools Elements의 DOM을 비교하세요.', 'HTML이 필요한지 묻고 필요 없다면 textContent를 사용하세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context'], nextRecommendations: ['필터링 원리'] },
       { ...commonLabFields, id: 'w4-filtering', week: 4, title: '잘못된 필터링 원리', kind: 'xss-filtering', contextIds: ['sanitizer-comparison', 'csp-vs-root-cause'], estimatedMinutes: 40, objective: '문자열 블랙리스트와 클라이언트 전용 검증이 구조적으로 실패하는 이유를 설명합니다.', prerequisites: ['브라우저 컨텍스트', '서버·클라이언트 신뢰 경계'], requiredTools: ['내장 필터 비교기'], safeScope: '우회 페이로드 목록을 제공하지 않고 고정된 교육 예시만 비교합니다.', successCriteria: ['두 필터의 검사 위치 표시', '근본 원인 작성', '올바른 방어 선택'], hints: ['검사가 어느 파서보다 먼저 일어나는지 보세요.', '클라이언트 코드는 사용자가 바꿀 수 있습니다.', '차단 문자열을 늘리는 대신 데이터를 코드와 분리하세요.'], relatedConceptIds: ['w4-defense'], nextRecommendations: ['XSS Finding 완성', '외부 공식 Lab'] },
-      { ...commonLabFields, id: 'w4-official-xss', week: 4, title: '공식 XSS Lab 연결', kind: 'external', estimatedMinutes: 120, objective: '내부 실습에서 익힌 Source·Sink·Context 추적표를 공식 교육 플랫폼의 XSS Lab에 적용합니다.', prerequisites: ['내부 XSS Lab 3개 이상', '안전한 검증 절차'], requiredTools: ['PortSwigger Web Security Academy 또는 Dreamhack 계정', '브라우저'], safeScope: '각 교육 플랫폼이 제공한 Lab 인스턴스와 계정 범위에서만 수행합니다.', successCriteria: ['공식 Lab 최소 2개 완료', 'Lab별 Source·Sink·Context 제출', '자격 증명·Cookie 마스킹'], hints: ['유형 이름보다 입력이 어디에서 들어오는지 먼저 표시하세요.', '응답 원문과 실행 후 DOM 중 어느 쪽에 값이 있는지 비교하세요.', '플랫폼의 성공 표시와 별도로 취약 원인·수정 방향을 한 문장씩 적으세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context', 'w4-defense'], nextRecommendations: ['XSS Finding 완성', 'Week 5 SQL Injection'], provider: 'PortSwigger · Dreamhack', externalLinks: [{ label: 'PortSwigger XSS Academy', url: 'https://portswigger.net/web-security/cross-site-scripting' }, { label: 'Dreamhack XSS 강의·Lab', url: 'https://dreamhack.io/lecture/units/webhacking-xss' }] },
+      { ...commonLabFields, id: 'w4-official-xss', week: 4, title: '공식 XSS Lab 연결', kind: 'external', estimatedMinutes: 120, objective: '내부 실습에서 익힌 Source·Sink·Context 추적표를 공식 교육 플랫폼의 XSS Lab에 적용합니다.', prerequisites: ['내부 XSS Lab 3개 이상', '안전한 검증 절차'], requiredTools: ['PortSwigger Web Security Academy 또는 Dreamhack 계정', '브라우저'], safeScope: '각 교육 플랫폼이 제공한 Lab 인스턴스와 계정 범위에서만 수행합니다.', successCriteria: ['공식 Lab 최소 2개 완료', 'Lab별 Source·Sink·Context 제출', '자격 증명·Cookie 마스킹'], hints: ['유형 이름보다 입력이 어디에서 들어오는지 먼저 표시하세요.', '응답 원문과 실행 후 DOM 중 어느 쪽에 값이 있는지 비교하세요.', '플랫폼의 성공 표시와 별도로 취약 원인·수정 방향을 한 문장씩 적으세요.'], relatedConceptIds: ['w4-types', 'w4-taint', 'w4-context', 'w4-defense'], nextRecommendations: ['XSS Finding 완성', 'Week 4 SQL Injection'], provider: 'PortSwigger · Dreamhack', externalLinks: [{ label: 'PortSwigger XSS Academy', url: 'https://portswigger.net/web-security/cross-site-scripting' }, { label: 'Dreamhack XSS 강의·Lab', url: 'https://dreamhack.io/lecture/units/webhacking-xss' }] },
     ],
     retiredActivityIds: ['w4-report-evidence', 'w4-filtering'],
     retiredActivities: [
@@ -322,7 +326,12 @@ function mergeLinuxWeeks(weekOne, weekTwo) {
     ...weekOne,
     title: '보안 기초·Linux·도구',
     summary: '경로·파일·권한·텍스트·HTTP 관찰을 하나의 Linux 학습 흐름으로 익히고 Bandit 0~10에 적용합니다.',
-    objectives: [...weekOne.objectives, ...weekTwo.objectives],
+    objectives: [
+      ...weekOne.objectives,
+      ...weekTwo.objectives.slice(0, 2),
+      'Base64 인코딩과 파일 표현 관찰을 암호화와 구분한다.',
+      'curl로 정상 HTTP 요청과 응답 기준선을 관찰한다.',
+    ],
     prerequisites: weekOne.prerequisites,
     quizMinutes: 25,
     recordMinutes: 35,
@@ -470,13 +479,59 @@ const baseQuizzes = {
   ...week11to16Quizzes,
 }
 
+function enrichQuizQuestion(question) {
+  const optionIds = question.options.map((_, index) => `${question.id}-option-${index + 1}`)
+  return {
+    ...question,
+    optionIds,
+    answerId: optionIds[question.answer],
+    optionRationales: question.options.map((option, index) => index === question.answer
+      ? `정답 근거: ${question.explanation}`
+      : `“${option}” 선택지는 이 문항의 조건과 맞지 않습니다. ${question.explanation}`),
+  }
+}
+
 export const quizzes = Object.fromEntries([
   [0, baseQuizzes[0]],
   [1, [...baseQuizzes[1], ...baseQuizzes[2]]],
   ...Object.entries(baseQuizzes)
     .filter(([index]) => Number(index) >= 3)
     .map(([index, questions]) => [Number(index) - 1, questions]),
-])
+].map(([weekIndex, questions]) => [weekIndex, questions.map(enrichQuizQuestion)]))
+
+function unique(values) {
+  return [...new Set(values)]
+}
+
+export const objectiveEvidence = Object.freeze(Object.fromEntries(Object.values(weekContent).map((week) => {
+  const mappings = objectiveModuleAlignment[week.index] || []
+  const entries = week.objectives.map((objective, index) => {
+    const explanationModuleIds = [...new Set([
+      ...(mappings[index] || []),
+      ...week.modules.filter((module) => module.objectiveIndexes?.includes(index)).map((module) => module.id),
+    ])]
+    const moduleSet = new Set(explanationModuleIds)
+    const checkpointIds = week.modules
+      .filter((module) => moduleSet.has(module.id))
+      .flatMap((module) => (module.blocks || []).filter((block) => block.type === 'checkpoint').map((block) => block.id))
+      .filter(Boolean)
+    const labIds = week.labs
+      .filter((lab) => (lab.relatedConceptIds || []).some((moduleId) => moduleSet.has(moduleId)))
+      .map((lab) => lab.id)
+    const assessmentQuestionIds = (quizzes[week.index] || [])
+      .filter((question) => (question.conceptIds || []).some((moduleId) => moduleSet.has(moduleId)))
+      .map((question) => question.id)
+
+    return Object.freeze({
+      id: `w${week.index}-objective-${index + 1}`,
+      objective,
+      explanationModuleIds: Object.freeze([...explanationModuleIds]),
+      practiceEvidenceIds: Object.freeze(unique([...labIds, ...checkpointIds])),
+      assessmentQuestionIds: Object.freeze(assessmentQuestionIds),
+    })
+  })
+  return [week.index, Object.freeze(entries)]
+})))
 
 const baseCoreQuizQuestionIds = {
   0: ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'],

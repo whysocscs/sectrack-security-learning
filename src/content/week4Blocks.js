@@ -148,7 +148,7 @@ export const week4LessonMeta = Object.freeze({
   },
 })
 
-export const week4LessonBlocks = Object.freeze({
+const baseWeek4LessonBlocks = {
   'w4-nature': [
     { type: 'question', variant: 'lead', title: '검색어는 글자인데, 왜 페이지 구조가 될 수 있을까?', body: '검색 화면에 일반 문장을 넣었을 때 글자가 그대로 보이지 않고 일부가 사라진다면, 입력값이 이상한지부터 단정하지 마세요. 먼저 브라우저가 그 값을 글자로 보았는지, HTML 구조로 읽었는지를 구분해야 합니다.' },
     { type: 'concept-ref', variant: 'prerequisite', title: '시작 전 5분 복습', intro: '아래 다섯 개는 외부 문서를 열지 않고 이 페이지에서 바로 확인할 수 있는 선수 개념입니다.', conceptIds: ['html-tag', 'html-attribute', 'text-node', 'dom-node', 'origin'] },
@@ -217,7 +217,7 @@ export const week4LessonBlocks = Object.freeze({
       ['URL 값', '이동할 주소와 protocol', 'URL 파싱 뒤 허용 scheme·목적지 검증'],
       ['JavaScript 데이터', '문자열 또는 코드 문법', 'inline 조합을 피하고 구조화된 데이터 전달'],
     ] },
-    { type: 'code', variant: 'before-after', language: 'JavaScript', title: '링크 목적지는 HTML body와 다른 판단이 필요하다', description: '두 코드는 모두 링크를 다룹니다. 하지만 URL 값은 텍스트 출력과 달리 이동할 목적지와 protocol을 먼저 검토해야 합니다.', code: 'const next = readTrainingValue()\n\n// 값이 곧바로 링크 목적지가 된다.\nnextLink.href = next\n\n// URL을 해석한 뒤 교육용 허용 범위만 선택한다.\nconst url = new URL(next, location.origin)\nif ([\'http:\', \'https:\'].includes(url.protocol)) {\n  nextLink.href = url.href\n}', annotations: ['문자열을 HTML 본문에 넣는 문제와 URL 목적지를 허용하는 문제는 같지 않습니다.', '실제 서비스에서는 허용 origin, 상대 경로, redirect 정책 같은 추가 요구를 기능에 맞게 정해야 합니다.', '이 교육 예시는 외부 링크를 열지 않고 판단 결과만 설명합니다.'] },
+    { type: 'code', sourceType: 'educational-reconstruction', variant: 'before-after', language: 'JavaScript', title: '링크 목적지는 HTML body와 다른 판단이 필요하다', description: '두 코드는 모두 링크를 다룹니다. 하지만 URL 값은 텍스트 출력과 달리 이동할 목적지와 protocol을 먼저 검토해야 합니다.', code: 'const next = readTrainingValue()\n\n// 값이 곧바로 링크 목적지가 된다.\nnextLink.href = next\n\n// URL을 해석한 뒤 교육용 허용 범위만 선택한다.\nconst url = new URL(next, location.origin)\nif ([\'http:\', \'https:\'].includes(url.protocol)) {\n  nextLink.href = url.href\n}', annotations: ['문자열을 HTML 본문에 넣는 문제와 URL 목적지를 허용하는 문제는 같지 않습니다.', '실제 서비스에서는 허용 origin, 상대 경로, redirect 정책 같은 추가 요구를 기능에 맞게 정해야 합니다.', '이 교육 예시는 외부 링크를 열지 않고 판단 결과만 설명합니다.'] },
     { type: 'misconception', variant: 'contrast', title: '같은 단어로 부르면 놓치는 차이', items: ['`escaping`, `encoding`, `sanitization`, `validation`은 모두 입력 필터다 → 출력 인코딩은 문맥에서 데이터를 표시하는 방식이고, 정화는 제한된 HTML 정책이며, validation은 허용할 데이터 형태를 정하는 별도 통제다.', 'HTML escape를 한 번 적용하면 URL과 JavaScript에도 안전하다 → 파서와 문법 위치가 다르므로 값이 들어갈 자리를 먼저 구분해야 한다.'] },
     { type: 'checkpoint', variant: 'decision', id: 'w4-context-check-01', title: '수정 방향 고르기', prompt: '사용자가 입력한 "다음 페이지" 값을 링크의 목적지에 넣는 기능을 검토할 때, HTML body 인코딩만으로 충분하지 않은 가장 직접적인 이유는?', options: ['링크는 화면에 보이지 않기 때문', 'URL 값에는 허용할 protocol과 목적지를 따로 판단해야 하기 때문', '모든 링크는 무조건 제거해야 하기 때문'], answer: 1, explanation: 'URL은 브라우저가 이동할 목적지를 해석하는 문맥입니다. 값이 HTML 속성 안에 들어간다는 사실만으로 허용할 protocol·origin·redirect 정책이 정해지지는 않습니다.' },
     { type: 'retest', variant: 'context-matrix', title: '컨텍스트별 수정 뒤 비교할 항목', intro: '재시험은 한 개의 눈에 띄는 문자열만 넣어 보는 일이 아닙니다. 각 출력 위치에서 정상 기능과 문법 경계를 함께 확인합니다.', rows: [
@@ -295,6 +295,8 @@ export const week4LessonBlocks = Object.freeze({
     { type: 'sources', title: '공식 근거와 다음 학습', items: [sources.resteasyCve, sources.gitlabCve, sources.jqueryCve, sources.wstg, sources.xss] },
     { type: 'summary', title: 'Week 03을 마치기 전 확인할 것', bullets: ['반사형·저장형·DOM 기반 CVE의 원인·조건·패치를 각각 공식 근거로 확인했다.', '근본 수정과 CSP 같은 보완 통제를 구분했다.', '네 가지 허용 활동만 열고 외부 대상·자격 증명·실제 CVE 코드는 사용하지 않았다.', '검증되지 않은 패치 우회 관계는 미채택으로 기록했다.'] },
   ],
-})
+}
+
+export const week4LessonBlocks = Object.freeze(baseWeek4LessonBlocks)
 
 export const week4ReportEvidenceScenario = reportEvidenceScenario

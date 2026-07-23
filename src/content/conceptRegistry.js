@@ -7,7 +7,7 @@ const conceptEntries = [
     detail: '태그는 제목, 문단, 링크처럼 문서의 구조를 표현합니다. 일반 텍스트를 표시하는 기능에서 사용자 입력이 태그로 바뀌면, 화면에 글자를 보이는 일을 넘어 문서 구조를 바꾸게 됩니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['html-attribute', 'html-parser', 'text-node'],
-    coreAnchor: '#/learn/week/3/module/w4-nature',
+    coreAnchor: '#/learn/week/3/concepts/w4-nature',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -18,7 +18,7 @@ const conceptEntries = [
     detail: '속성은 링크의 목적지나 이미지의 설명처럼 태그에 추가 정보를 붙입니다. 속성 값은 HTML 본문과 다른 문법 위치이므로, 같은 문자열이라도 필요한 처리와 허용 범위가 달라집니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['output-context', 'html-parser'],
-    coreAnchor: '#/learn/week/3/module/w4-context',
+    coreAnchor: '#/learn/week/3/concepts/w4-context',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -29,7 +29,7 @@ const conceptEntries = [
     detail: '검색어와 댓글처럼 일반 글자를 보여 줄 때는 값이 텍스트 노드로 남아야 합니다. `textContent` 같은 API는 이 목적에 맞고, 값을 HTML 조각으로 다시 해석하지 않습니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['dom-node', 'safe-sink'],
-    coreAnchor: '#/learn/week/3/module/w4-taint',
+    coreAnchor: '#/learn/week/3/concepts/w4-taint',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -40,7 +40,7 @@ const conceptEntries = [
     detail: '브라우저는 응답 본문이나 해석형 DOM API가 받은 문자열을 HTML 문법으로 읽을 수 있습니다. XSS에서는 입력 자체보다 그 입력이 이 파서에게 전달되는 순간이 핵심 실패 지점이 됩니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['dom-node', 'interpreting-sink', 'output-context'],
-    coreAnchor: '#/learn/week/3/module/w4-nature',
+    coreAnchor: '#/learn/week/3/concepts/w4-nature',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -51,7 +51,7 @@ const conceptEntries = [
     detail: '페이지 소스는 서버가 보낸 원문이고, live DOM은 파싱과 JavaScript 변경이 반영된 현재 문서입니다. 둘이 다를 수 있으므로 DOM 기반 흐름을 볼 때는 응답 원문과 실행 후 DOM을 나눠 기록해야 합니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['server-response', 'live-dom', 'html-parser'],
-    coreAnchor: '#/learn/week/3/module/w4-types',
+    coreAnchor: '#/learn/week/3/concepts/w4-types',
     sourceRefs: ['owasp-dom-xss'],
   },
   {
@@ -62,7 +62,7 @@ const conceptEntries = [
     detail: '브라우저는 다른 출처의 문서를 함부로 읽지 않도록 제한합니다. XSS는 이 경계를 없애는 것이 아니라, 취약한 페이지 안에서 해석된 코드가 그 페이지의 권한과 DOM을 다루게 만들 수 있다는 점이 문제입니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['same-origin-policy', 'impact-conditions'],
-    coreAnchor: '#/learn/week/3/module/w4-impact',
+    coreAnchor: '#/learn/week/3/concepts/w4-impact',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -73,7 +73,7 @@ const conceptEntries = [
     detail: 'SOP는 모든 데이터 유출을 자동으로 막는 도구가 아닙니다. 취약한 페이지에서 실행되는 코드가 그 페이지의 문맥에 있으면, 해당 페이지가 원래 할 수 있는 동작과 읽을 수 있는 DOM 범위를 먼저 검토해야 합니다.',
     firstIntroducedIn: 'w4-nature',
     relatedIds: ['origin', 'impact-conditions'],
-    coreAnchor: '#/learn/week/3/module/w4-impact',
+    coreAnchor: '#/learn/week/3/concepts/w4-impact',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -84,7 +84,7 @@ const conceptEntries = [
     detail: '서버 응답에 입력이 포함됐는지 확인하면 반사형·저장형 경로를 찾는 근거가 됩니다. 그러나 응답 원문에 값이 없다고 해서 문제가 없다는 뜻은 아니며, 클라이언트 코드가 나중에 DOM을 만들 수 있습니다.',
     firstIntroducedIn: 'w4-types',
     relatedIds: ['live-dom', 'xss-source'],
-    coreAnchor: '#/learn/week/3/module/w4-types',
+    coreAnchor: '#/learn/week/3/concepts/w4-types',
     sourceRefs: ['owasp-dom-xss'],
   },
   {
@@ -95,7 +95,7 @@ const conceptEntries = [
     detail: '실행 후 DOM에는 JavaScript가 만든 요소와 값이 포함될 수 있습니다. DOM 기반 XSS를 조사할 때는 페이지 소스만 보지 않고, 값이 어디에서 왔고 어떤 API를 거쳐 DOM에 들어갔는지 함께 확인합니다.',
     firstIntroducedIn: 'w4-types',
     relatedIds: ['dom-node', 'server-response', 'interpreting-sink'],
-    coreAnchor: '#/learn/week/3/module/w4-types',
+    coreAnchor: '#/learn/week/3/concepts/w4-types',
     sourceRefs: ['owasp-dom-xss'],
   },
   {
@@ -106,7 +106,7 @@ const conceptEntries = [
     detail: 'source라는 말은 값이 악의적이라는 뜻이 아니라, 애플리케이션 밖이나 다른 신뢰 경계에서 들어와 검증·처리 정책이 필요한 값이라는 뜻입니다. 같은 값도 source와 최종 sink를 함께 봐야 위험을 판단할 수 있습니다.',
     firstIntroducedIn: 'w4-taint',
     relatedIds: ['data-transform', 'interpreting-sink'],
-    coreAnchor: '#/learn/week/3/module/w4-taint',
+    coreAnchor: '#/learn/week/3/concepts/w4-taint',
     sourceRefs: ['owasp-dom-xss'],
   },
   {
@@ -117,7 +117,7 @@ const conceptEntries = [
     detail: '변환 단계에는 정상 기능을 위한 처리도 포함됩니다. 문제는 변환이 존재한다는 사실이 아니라, 어느 단계에서 값의 문법과 신뢰 수준이 바뀌었는지 기록하지 않고 해석형 출력에 넘기는 데 있습니다.',
     firstIntroducedIn: 'w4-taint',
     relatedIds: ['xss-source', 'interpreting-sink', 'output-context'],
-    coreAnchor: '#/learn/week/3/module/w4-taint',
+    coreAnchor: '#/learn/week/3/concepts/w4-taint',
     sourceRefs: ['owasp-dom-xss'],
   },
   {
@@ -128,7 +128,7 @@ const conceptEntries = [
     detail: 'XSS 조사에서 sink는 데이터를 화면에 내보내는 모든 위치가 아니라, 값이 코드나 마크업으로 해석될 수 있는 위치를 말합니다. HTML이 필요 없는 곳이라면 해석형 sink를 텍스트 전용 API로 바꾸는 것이 가장 직접적인 수정입니다.',
     firstIntroducedIn: 'w4-taint',
     relatedIds: ['safe-sink', 'output-context', 'html-parser'],
-    coreAnchor: '#/learn/week/3/module/w4-taint',
+    coreAnchor: '#/learn/week/3/concepts/w4-taint',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -139,7 +139,7 @@ const conceptEntries = [
     detail: 'HTML 본문, 따옴표로 감싼 속성 값, URL, JavaScript 문자열은 서로 다른 파서 규칙을 사용합니다. 따라서 인코딩 하나를 모든 위치에 적용하거나, 값을 위험한 위치에 넣는 방식으로는 안전을 보장할 수 없습니다.',
     firstIntroducedIn: 'w4-context',
     relatedIds: ['contextual-output-encoding', 'safe-sink', 'html-sanitization-policy'],
-    coreAnchor: '#/learn/week/3/module/w4-context',
+    coreAnchor: '#/learn/week/3/concepts/w4-context',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -150,7 +150,7 @@ const conceptEntries = [
     detail: '출력 인코딩은 사용자가 입력한 일반 텍스트를 그대로 보여 주면서, 브라우저가 그 일부를 코드나 구조로 해석하지 않도록 합니다. URL 값을 속성에 넣는 경우처럼 여러 문맥이 겹치면 순서와 대상도 함께 검토해야 합니다.',
     firstIntroducedIn: 'w4-context',
     relatedIds: ['output-context', 'safe-sink'],
-    coreAnchor: '#/learn/week/3/module/w4-context',
+    coreAnchor: '#/learn/week/3/concepts/w4-context',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -161,7 +161,7 @@ const conceptEntries = [
     detail: '`textContent`, `createTextNode`, 제한된 안전 속성에 대한 `setAttribute`는 일반 텍스트를 표시할 때 후보가 됩니다. API 이름만 외우기보다 이 화면이 HTML 구조를 받아야 하는지부터 묻는 습관이 먼저입니다.',
     firstIntroducedIn: 'w4-taint',
     relatedIds: ['interpreting-sink', 'contextual-output-encoding'],
-    coreAnchor: '#/learn/week/3/module/w4-defense',
+    coreAnchor: '#/learn/week/3/concepts/w4-defense',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -172,7 +172,7 @@ const conceptEntries = [
     detail: '정화는 일반 텍스트 출력의 대체물이 아닙니다. 사용자가 실제로 서식 HTML을 작성해야 할 때만 검증된 라이브러리와 명시적인 allowlist를 사용하고, 정화 후 값이 다시 변형되지 않는지도 검토합니다.',
     firstIntroducedIn: 'w4-defense',
     relatedIds: ['safe-sink', 'output-context', 'csp'],
-    coreAnchor: '#/learn/week/3/module/w4-defense',
+    coreAnchor: '#/learn/week/3/concepts/w4-defense',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -183,7 +183,7 @@ const conceptEntries = [
     detail: 'CSP는 이미 존재하는 취약한 출력 경로의 영향을 줄이는 데 도움을 줄 수 있습니다. 그러나 모든 브라우저·기존 코드·정책 구성이 같은 보호를 제공하는 것은 아니므로, 해석형 sink를 남겨 둔 채 CSP만 적용했다고 원인이 사라진 것은 아닙니다.',
     firstIntroducedIn: 'w4-defense',
     relatedIds: ['html-sanitization-policy', 'interpreting-sink', 'retest-and-regression'],
-    coreAnchor: '#/learn/week/3/module/w4-defense',
+    coreAnchor: '#/learn/week/3/concepts/w4-defense',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -194,7 +194,7 @@ const conceptEntries = [
     detail: '예를 들어 DOM에 고정 마커가 생긴 것은 관찰이고, 특정 사용자에게 어떤 영향이 가능한지는 권한·기능·보호 장치를 더 확인한 뒤의 판단입니다. 보고서는 둘을 한 문장에 섞지 않아야 수정 우선순위와 재시험 범위가 분명해집니다.',
     firstIntroducedIn: 'w4-impact',
     relatedIds: ['impact-conditions', 'retest-and-regression'],
-    coreAnchor: '#/learn/week/3/module/w4-validation',
+    coreAnchor: '#/learn/week/3/concepts/w4-validation',
     sourceRefs: ['owasp-wstg'],
   },
   {
@@ -205,7 +205,7 @@ const conceptEntries = [
     detail: 'XSS는 실행 여부만으로 영향 범위가 정해지지 않습니다. 누가 페이지를 보아야 하는지, 그 사용자가 어떤 기능을 쓸 수 있는지, 민감 데이터가 DOM에 있는지, HttpOnly와 CSP가 무엇을 줄이는지를 따로 적어야 합니다.',
     firstIntroducedIn: 'w4-impact',
     relatedIds: ['origin', 'same-origin-policy', 'observation-inference'],
-    coreAnchor: '#/learn/week/3/module/w4-impact',
+    coreAnchor: '#/learn/week/3/concepts/w4-impact',
     sourceRefs: ['owasp-xss-prevention'],
   },
   {
@@ -216,7 +216,7 @@ const conceptEntries = [
     detail: '재시험은 이전의 무해한 증거가 더 이상 해석되지 않는지 확인하는 작업입니다. 회귀 확인은 빈 값, 일반 텍스트, 다른 렌더링 경로처럼 정상 기능까지 함께 점검하는 작업이며, 둘 다 있어야 수정 결과를 신뢰할 수 있습니다.',
     firstIntroducedIn: 'w4-validation',
     relatedIds: ['observation-inference', 'safe-sink', 'csp'],
-    coreAnchor: '#/learn/week/3/module/w4-validation',
+    coreAnchor: '#/learn/week/3/concepts/w4-validation',
     sourceRefs: ['owasp-wstg'],
   },
 ]

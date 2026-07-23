@@ -5,6 +5,7 @@ import {
   quizRules,
   weekContent,
 } from './courseData.js'
+import { validateStructuredReflection } from './validation.js'
 
 export const progressWeights = Object.freeze({
   exploration: 1,
@@ -72,6 +73,17 @@ function quizState(week, progress) {
   }
 }
 
+export function isActivityRecorded(state) {
+  return ['activity-recorded', 'completed'].includes(state?.status)
+}
+
+export function getWeeklyRecordState(progress = {}, weekIndex) {
+  const submission = progress.submissions?.[`week-${weekIndex}`]
+  if (!submission) return 'not-started'
+  if (submission === true) return 'activity-recorded'
+  return submission.status || 'activity-recorded'
+}
+
 export function calculateProgressBreakdown(week, progress = {}, options = {}) {
   const path = options.path || 'required'
   const modules = week.hideModuleProgress ? [] : (week.modules || []).filter((item) => path === 'all' || item.path === path)
@@ -79,7 +91,8 @@ export function calculateProgressBreakdown(week, progress = {}, options = {}) {
   const quiz = quizState(week, progress)
   const recordKey = `week-${week.index}`
   const recordDrafted = Boolean(progress.evidence?.[recordKey])
-  const recordCompleted = Boolean(progress.submissions?.[recordKey])
+  const recordState = getWeeklyRecordState(progress, week.index)
+  const recordCompleted = recordState === 'evidence-ready'
   const items = [
     ...modules.map((item) => ({
       id: item.id,
@@ -95,7 +108,7 @@ export function calculateProgressBreakdown(week, progress = {}, options = {}) {
         id: item.id,
         activityType: item.activityType,
         status,
-        earned: status === 'completed' ? weight : status === 'not_started' ? 0 : weight / 2,
+        earned: isActivityRecorded({ status }) ? weight : 0,
         available: weight,
       }
     }),
@@ -116,9 +129,9 @@ export function calculateProgressBreakdown(week, progress = {}, options = {}) {
     available,
     reading: { completed: modules.filter((item) => progress.modulesRead?.[item.id]).length, total: modules.length },
     activityAttempts: { completed: labs.filter((item) => progress.labs?.[item.id]).length, total: labs.length },
-    activityCompletions: { completed: labs.filter((item) => progress.labs?.[item.id]?.status === 'completed').length, total: labs.length },
+    activityCompletions: { completed: labs.filter((item) => isActivityRecorded(progress.labs?.[item.id])).length, total: labs.length },
     understandingCheck: quiz,
-    weeklyRecord: { drafted: recordDrafted, completed: recordCompleted },
+    weeklyRecord: { drafted: recordDrafted, completed: recordCompleted, state: recordState },
     items,
   }
 }
@@ -128,6 +141,49 @@ function answerFor(answers, question, index) {
   return answers?.[question?.id] ?? answers?.[index]
 }
 
+function stableHash(value) {
+  let hash = 2166136261
+  for (const character of String(value)) {
+    hash ^= character.codePointAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function seededShuffle(values, seed) {
+  const result = [...values]
+  let state = stableHash(seed) || 1
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+    const target = state % (index + 1)
+    ;[result[index], result[target]] = [result[target], result[index]]
+  }
+  return result
+}
+
+export function getQuizPresentation(weekIndex, questions = quizzes[weekIndex], seed = 'sectrack-course-v1') {
+  const pool = Array.isArray(questions) ? questions : []
+  // Rotate the remainder by week as well as shuffling it, so small weekly pools do
+  // not accumulate a course-wide A/B bias while each learner keeps stable choices.
+  const positions = seededShuffle(pool.map((_, index) => (index + Number(weekIndex || 0)) % 3), `${seed}:${weekIndex}:positions`)
+  return pool.map((question, questionIndex) => {
+    const options = question.options.map((label, optionIndex) => ({
+      id: question.optionIds?.[optionIndex] || `${question.id}-option-${optionIndex + 1}`,
+      label: typeof label === 'string' ? label : label.label,
+      rationale: question.optionRationales?.[optionIndex]
+        || (optionIndex === question.answer ? `정답 근거: ${question.explanation}` : `“${typeof label === 'string' ? label : label.label}”은 이 문항의 조건과 맞지 않습니다. ${question.explanation}`),
+      originalIndex: optionIndex,
+    }))
+    const answerId = question.answerId || options[question.answer]?.id
+    const correctOption = options.find((option) => option.id === answerId)
+    const distractors = seededShuffle(options.filter((option) => option.id !== answerId), `${seed}:${question.id}:distractors`)
+    const target = Math.min(positions[questionIndex] ?? 0, options.length - 1)
+    const ordered = [...distractors]
+    ordered.splice(target, 0, correctOption)
+    return { ...question, options: ordered, answerId, answer: target }
+  })
+}
+
 export function evaluateQuizAttempt(weekIndex, answers, questions = quizzes[weekIndex]) {
   const rule = quizRules[weekIndex]
   const questionPool = Array.isArray(questions) ? questions : []
@@ -135,13 +191,17 @@ export function evaluateQuizAttempt(weekIndex, answers, questions = quizzes[week
     const conceptIds = Array.isArray(question?.conceptIds) ? question.conceptIds : []
     const remediationModuleIds = Array.isArray(question?.remediationModuleIds) ? question.remediationModuleIds : []
     const selectedAnswer = answerFor(answers, question, index)
+    const selectedId = typeof selectedAnswer === 'number'
+      ? question.optionIds?.[selectedAnswer] ?? question.options?.[selectedAnswer]?.id ?? selectedAnswer
+      : selectedAnswer
+    const answerId = question.answerId ?? question.optionIds?.[question.answer] ?? question.options?.[question.answer]?.id ?? question.answer
     return {
       questionId: question?.id,
       conceptIds: [...conceptIds],
       difficulty: question?.difficulty,
       remediationModuleIds: [...remediationModuleIds],
-      selectedAnswer,
-      correct: selectedAnswer === question?.answer,
+      selectedAnswer: selectedId,
+      correct: selectedId === answerId,
     }
   })
   const score = questionResults.filter((result) => result.correct).length
@@ -154,6 +214,10 @@ export function evaluateQuizAttempt(weekIndex, answers, questions = quizzes[week
     passed: hasValidRule && score >= rule.minimumCorrect && allCoreCorrect,
     questionResults,
   }
+}
+
+export function evaluateWeeklyEvidence(evidence = {}) {
+  return validateStructuredReflection(evidence.reflection || evidence)
 }
 
 export function recordQuizAttempt(progress = {}, input, suppliedAnswers) {

@@ -24,6 +24,10 @@ import {
 import { weekContent } from '../courseData'
 import { buildXssTrace, findSensitiveData } from '../platformLogic'
 import { recordHintUsage } from '../learningModel'
+import { isActivityRecorded } from '../learningModel'
+import { getLearningTextLength, normalizeLearningText, validateLearningText } from '../validation'
+import { evaluateActivityRecord, recordFields } from '../activityRecordModel'
+import { loadDeepGuideModules } from '../content/deepGuideLoader'
 import MindmapStudio from './MindmapStudio'
 
 const allLabs = Object.values(weekContent).flatMap((week) => week.labs.map((lab) => ({ ...lab, weekTitle: week.title })))
@@ -32,6 +36,7 @@ const supportedLabKinds = new Set([
   'request-editor', 'http-baseline', 'tool-triangle', 'http-label', 'timeline', 'cookie',
   'source-sink', 'threat-model', 'xss-reflected', 'xss-stored', 'xss-dom', 'xss-filtering',
   'report-evidence', 'external', 'guided-observation',
+  'patch-review',
 ])
 
 function findLab(id) { return allLabs.find((lab) => lab.id === id) }
@@ -39,7 +44,7 @@ function isSupportedLabKind(kind) { return supportedLabKinds.has(kind) }
 
 function LabKindIcon({ kind }) {
   if (kind === 'external') return <ExternalLink size={18} />
-  if (kind === 'guided-observation' || kind === 'report-evidence') return <Eye size={18} />
+  if (kind === 'guided-observation' || kind === 'report-evidence' || kind === 'patch-review') return <Eye size={18} />
   if (String(kind).startsWith('xss')) return <Braces size={18} />
   return <Terminal size={18} />
 }
@@ -62,23 +67,53 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   const lab = findLab(labId)
   const state = progress.labs[labId] || {}
   const record = progress.activityRecords[labId] || legacyActivityRecord(progress.evidence[labId])
+  const [completionErrors, setCompletionErrors] = useState({})
+  const errorSummaryRef = useRef(null)
+  const labPageRef = useRef(null)
 
   useEffect(() => {
     if (!lab || state.status) return
-    updateProgress((current) => ({ ...current, labs: { ...current.labs, [labId]: { status: 'attempted', startedAt: new Date().toISOString(), hintLevel: 0 } } }))
+    updateProgress((current) => ({ ...current, labs: { ...current.labs, [labId]: { openedAt: new Date().toISOString(), hintLevel: 0 } } }))
   }, [labId])
+
+  useEffect(() => {
+    const root = labPageRef.current
+    if (!root) return undefined
+    const sync = () => root.querySelectorAll('pre').forEach((element, index) => {
+      const overflowing = element.scrollWidth > element.clientWidth + 1
+      if (overflowing) {
+        element.tabIndex = 0
+        element.setAttribute('role', 'region')
+        if (!element.getAttribute('aria-label')) element.setAttribute('aria-label', `${lab?.title || '실습'} 코드 영역 ${index + 1}`)
+      } else if (element.dataset.alwaysFocusable !== 'true') {
+        element.removeAttribute('tabindex')
+        element.removeAttribute('role')
+        element.removeAttribute('aria-label')
+      }
+    })
+    sync()
+    window.addEventListener('resize', sync)
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null
+    if (observer) observer.observe(root)
+    return () => { window.removeEventListener('resize', sync); observer?.disconnect() }
+  })
 
   if (!lab) return <div className="page-width"><div className="empty-state"><Terminal size={24} /><strong>실습을 찾을 수 없습니다.</strong><button className="button secondary" type="button" onClick={() => navigate({ page: 'labs' })}>실습실로</button></div></div>
 
   const updateLab = (patch) => updateProgress((current) => ({ ...current, labs: { ...current.labs, [lab.id]: { ...(current.labs[lab.id] || {}), ...patch } } }))
-  const updateRecord = (patch) => updateProgress((current) => ({ ...current, activityRecords: { ...current.activityRecords, [lab.id]: { ...(current.activityRecords[lab.id] || legacyActivityRecord(current.evidence[lab.id])), activityType: lab.activityType, ...patch, updatedAt: new Date().toISOString() } } }))
+  const updateRecord = (patch) => updateProgress((current) => ({
+    ...current,
+    activityRecords: { ...current.activityRecords, [lab.id]: { ...(current.activityRecords[lab.id] || legacyActivityRecord(current.evidence[lab.id])), activityType: lab.activityType, ...patch, updatedAt: new Date().toISOString() } },
+    labs: isActivityRecorded(current.labs[lab.id]) ? { ...current.labs, [lab.id]: { ...current.labs[lab.id], status: 'attempted', recordChangedAt: new Date().toISOString() } } : current.labs,
+  }))
   const derivedPassed = lab.id === 'w0-map'
     ? Object.keys(progress.mindmap.statuses).length >= 10 && Object.values(progress.mindmap.notes).filter((item) => String(item).length >= 5).length >= 3 && progress.mindmap.interests.length >= 2
     : lab.id === 'w0-baseline' ? Object.keys(progress.baseline).length >= 6
       : lab.id === 'w0-roe' ? Object.keys(progress.roeAnswers).length >= roeCases.length : false
   const supportedKind = isSupportedLabKind(lab.kind)
   const validationPassed = supportedKind && Boolean(state.validationPassed || derivedPassed)
-  const recordReady = isActivityRecordReady(lab.activityType, record)
+  const recordCheck = evaluateActivityRecord(lab, record)
+  const recordReady = recordCheck.valid
   const tone = state.tone || 'teal'
 
   const complete = () => {
@@ -87,19 +122,26 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
       return
     }
     if (!validationPassed || !recordReady) {
+      const errors = { ...recordCheck.fieldErrors, ...(!validationPassed ? { activity: lab.activityType === 'external' ? '외부 활동 자기 확인 체크리스트를 먼저 완료하세요.' : '실습 작업 영역에서 결과 확인 조건을 먼저 충족하세요.' } : {}) }
+      setCompletionErrors(errors)
       notify(lab.activityType === 'assessment' ? '이해 확인을 먼저 완료하세요.' : '결과 확인과 필수 실습 기록을 먼저 채워주세요.')
+      window.requestAnimationFrame(() => {
+        const firstInvalidField = labPageRef.current?.querySelector('[aria-invalid="true"]')
+        ;(firstInvalidField || errorSummaryRef.current)?.focus()
+      })
       return
     }
-    updateLab({ status: 'completed', completedAt: new Date().toISOString() })
-    notify('실습을 완료했습니다. 힌트 사용과 실습 완료는 숙련도와 별도로 기록됩니다.')
+    setCompletionErrors({})
+    updateLab({ status: 'activity-recorded', recordedAt: new Date().toISOString() })
+    notify('활동 기록을 저장했습니다. 이 자동 상태는 숙련 또는 사람의 검토 승인을 뜻하지 않습니다.')
   }
 
   return (
-    <div className={`page-width lab-page lab-tone-${tone}`}>
+    <div ref={labPageRef} className={`page-width lab-page lab-tone-${tone}`}>
       <button className="back-link" type="button" onClick={() => navigate({ page: 'labs' })}><ArrowLeft size={16} />실습실</button>
       <header className="lab-header">
         <div><span>WEEK {String(lab.week).padStart(2, '0')} · {activityTypeLabels[lab.activityType]?.kicker || 'LEARNING ACTIVITY'}</span><h2>{lab.title}</h2><p>{lab.objective}</p></div>
-        <div><Status state={state.status || 'attempted'} /><span>{lab.path === 'extension' ? '심화' : lab.kind === 'external' ? '외부 실습' : '필수 핵심'}</span><div className="lab-tone-picker" role="radiogroup" aria-label="실습 화면 색상">{[['teal', '청록'], ['blue', '청색'], ['amber', '호박색'], ['rose', '적색']].map(([value, label]) => <button type="button" role="radio" aria-checked={tone === value} className={tone === value ? 'active' : ''} key={value} onClick={() => updateLab({ tone: value })} title={`${label} 색상`} aria-label={`${label} 색상 선택`}><i /></button>)}</div></div>
+        <div><Status state={isActivityRecorded(state) ? 'activity-recorded' : state.openedAt ? 'in-progress' : 'not_started'} /><span>{lab.path === 'extension' ? '심화' : lab.kind === 'external' ? '외부 실습' : '필수 핵심'}</span><fieldset className="lab-tone-picker"><legend className="sr-only">실습 화면 색상</legend>{[['teal', '청록'], ['blue', '청색'], ['amber', '호박색'], ['rose', '적색']].map(([value, label]) => <label className={tone === value ? 'active' : ''} key={value} title={`${label} 색상`}><input type="radio" name={`lab-tone-${lab.id}`} value={value} checked={tone === value} onChange={() => updateLab({ tone: value })} /><i /><span className="sr-only">{label} 색상</span></label>)}</fieldset></div>
       </header>
       <div className="lab-scope"><ShieldCheck size={18} /><div><strong>안전한 실습 범위</strong><p>{lab.safeScope}</p></div></div>
 
@@ -112,8 +154,9 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
         <aside className="lab-coach-column">{['practice', 'investigation'].includes(lab.activityType) && lab.hints?.length > 0 && <HintCoach lab={lab} state={state} updateLab={updateLab} updateProgress={updateProgress} />}<ResultCheck activityType={lab.activityType} passed={validationPassed} criteria={lab.successCriteria} /></aside>
       </div>
 
-      {lab.activityType !== 'assessment' && <ActivityRecordPanel lab={lab} record={record} updateRecord={updateRecord} hintLevel={state.hintLevel || 0} />}
-      <footer className="lab-complete-footer"><div><strong>{!supportedKind ? '실습 유형 미지원' : state.status === 'completed' ? '활동 완료' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{!supportedKind ? '검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.' : lab.activityType === 'assessment' ? '응답 결과와 완료 상태는 별도로 저장됩니다.' : '완료 후에도 실습 기록을 수정할 수 있습니다.'}</p></div><button className="button primary" type="button" disabled={state.status === 'completed' || !supportedKind} onClick={complete}>{state.status === 'completed' ? <><Check size={16} />완료됨</> : <>활동 완료 표시<ArrowRight size={16} /></>}</button></footer>
+      {Object.keys(completionErrors).length > 0 && <section ref={errorSummaryRef} tabIndex="-1" role="alert" className="form-error-summary"><strong>활동 기록 전 확인할 항목이 있습니다.</strong><ul>{Object.values(completionErrors).map((error) => <li key={error}>{error}</li>)}</ul></section>}
+      {lab.activityType !== 'assessment' && <ActivityRecordPanel lab={lab} record={record} updateRecord={updateRecord} hintLevel={state.hintLevel || 0} errors={completionErrors} />}
+      <footer className="lab-complete-footer"><div><strong>{!supportedKind ? '실습 유형 미지원' : isActivityRecorded(state) ? 'activity-recorded' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{!supportedKind ? '검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.' : lab.activityType === 'assessment' ? '응답 결과와 완료 상태는 별도로 저장됩니다.' : '자동 검사는 구조와 명백한 무내용만 확인하며 사람의 숙련 검토를 대신하지 않습니다.'}</p></div><button className="button primary" type="button" disabled={isActivityRecorded(state) || !supportedKind} onClick={complete}>{isActivityRecorded(state) ? <><Check size={16} />활동 기록됨</> : <>활동 기록 검증<ArrowRight size={16} /></>}</button></footer>
     </div>
   )
 }
@@ -144,6 +187,7 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
     case 'report-evidence': return <ReportEvidenceLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'external': return <ExternalLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'guided-observation': return <GuidedObservationLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
+    case 'patch-review': return <PatchReviewLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     default: return <UnsupportedLab />
   }
 }
@@ -171,10 +215,15 @@ function ResultCheck({ activityType, passed, criteria }) {
   return <section className={`validation-box ${passed ? 'passed' : ''}`}><header>{passed ? <CheckCircle2 size={18} /> : <Circle size={18} />}<strong>{passed ? `${label} 완료` : `${label} 전`}</strong></header><ul>{criteria.map((item) => <li key={item}>{item}</li>)}</ul>{activityType === 'external' && <p>체크 항목은 학습자 자기 확인이며 이 사이트가 외부 플랫폼 결과를 판정하지 않습니다.</p>}</section>
 }
 
-function ActivityRecordPanel({ lab, record, updateRecord, hintLevel }) {
+function ActivityRecordPanel({ lab, record, updateRecord, hintLevel, errors = {} }) {
   const fields = recordFields[lab.activityType] || recordFields.practice
   const warnings = findSensitiveData(fields.map((field) => record[field.id] || '').join('\n'))
-  return <section className="evidence-panel activity-record-panel"><header><div><span>LEARNING RECORD</span><h2>실습 기록</h2><p>{activityTypeLabels[lab.activityType]?.recordDescription}</p></div><span className="autosave"><Save size={14} />입력 시 자동 저장</span></header>{warnings.length > 0 && <div className="redaction-warning"><AlertTriangle size={17} /><span><strong>마스킹이 필요한 값이 보입니다.</strong><small>{warnings.map((item) => item.label).join(', ')}</small></span></div>}<div className="activity-record-fields">{fields.map((field) => <label key={field.id}><span>{field.label}{field.required && <em>필수</em>}</span><textarea rows={field.rows || 4} value={record[field.id] || ''} onChange={(event) => updateRecord({ [field.id]: event.target.value })} placeholder={field.placeholder} /></label>)}</div>{hintLevel > 0 && <p className="hint-usage-note"><Lightbulb size={15} />이 활동에서 {hintLevel}단계 힌트를 열었습니다. 힌트 사용은 감점이 아니며 복습 위치로만 기록됩니다.</p>}<div className="record-confirmations">{lab.activityType === 'external' && <label><input type="checkbox" checked={Boolean(record.scopeConfirmed)} onChange={(event) => updateRecord({ scopeConfirmed: event.target.checked })} /><span>공식 제공기관이 지정한 대상·계정·기법 범위만 사용했습니다.</span></label>}{lab.activityType === 'simulation' && <label><input type="checkbox" checked={Boolean(record.resetConfirmed)} onChange={(event) => updateRecord({ resetConfirmed: event.target.checked })} /><span>실험 상태를 초기화하고 기준선으로 돌아왔습니다.</span></label>}<label><input type="checkbox" checked={Boolean(record.masked)} onChange={(event) => updateRecord({ masked: event.target.checked })} /><span>비밀번호, Cookie, Authorization, API Key와 개인정보를 `[REDACTED]`로 처리했습니다.</span></label></div></section>
+  const rubric = Array.isArray(lab.rubric) ? lab.rubric : []
+  const criteria = Array.isArray(lab.successCriteria) ? lab.successCriteria : []
+  const rubricConfirmed = Array.isArray(record.rubricConfirmed) ? record.rubricConfirmed : []
+  const criteriaConfirmed = Array.isArray(record.criteriaConfirmed) ? record.criteriaConfirmed : []
+  const toggle = (field, values, index, checked) => updateRecord({ [field]: checked ? [...new Set([...values, index])] : values.filter((value) => value !== index) })
+  return <section className="evidence-panel activity-record-panel"><header><div><span>LEARNING RECORD</span><h2>실습 기록</h2><p>{activityTypeLabels[lab.activityType]?.recordDescription}</p></div><span className="autosave"><Save size={14} />입력 시 자동 저장</span></header><section className="lab-record-contract"><div><h3>제출 구조</h3><ul>{(lab.submissionSchema || fields.map((field) => field.label)).map((item) => <li key={typeof item === 'string' ? item : item.id}>{typeof item === 'string' ? item : item.label}</li>)}</ul></div><div><h3>판정 범위</h3><p>{lab.activityType === 'external' ? '외부 결과는 추적하지 않습니다. 아래 항목은 학습자의 자기 보고이며 사람의 검토 전에는 승인 상태가 아닙니다.' : '작업 영역 결과는 기계 확인하고, 서술과 rubric은 구조·자기 확인만 합니다. 의미의 정확성은 사람이 검토합니다.'}</p></div></section>{warnings.length > 0 && <div className="redaction-warning"><AlertTriangle size={17} /><span><strong>마스킹이 필요한 값이 보입니다.</strong><small>{warnings.map((item) => item.label).join(', ')}</small></span></div>}<div className="activity-record-fields">{fields.map((field) => { const errorId = `${lab.id}-${field.id}-error`; const minimum = field.minLength || (field.id === 'blocked' ? 3 : 12); return <label key={field.id}><span>{field.label}{field.required && <em>필수 · 공백 제외 {minimum}자 이상</em>}</span><textarea required={field.required} minLength={field.required ? minimum : undefined} aria-invalid={Boolean(errors[field.id])} aria-describedby={errors[field.id] ? errorId : undefined} rows={field.rows || 4} value={record[field.id] || ''} onChange={(event) => updateRecord({ [field.id]: event.target.value })} placeholder={field.placeholder} />{errors[field.id] && <small className="field-error" id={errorId}>{errors[field.id]}</small>}{field.required && <small>{getLearningTextLength(record[field.id])} / {minimum}자</small>}</label> })}</div>{hintLevel > 0 && <p className="hint-usage-note"><Lightbulb size={15} />이 활동에서 {hintLevel}단계 힌트를 열었습니다. 힌트 사용은 감점이 아니며 복습 위치로만 기록됩니다.</p>}<fieldset className="record-rubric"><legend>성공 조건 자기 확인</legend>{criteria.map((item, index) => <label key={item}><input type="checkbox" checked={criteriaConfirmed.includes(index)} onChange={(event) => toggle('criteriaConfirmed', criteriaConfirmed, index, event.target.checked)} /><span>{item}<small>{lab.activityType === 'external' ? '학습자 자기 보고' : '작업 결과와 기록을 대조하는 자기 확인'}</small></span></label>)}{errors.criteriaConfirmed && <p className="field-error">{errors.criteriaConfirmed}</p>}</fieldset><fieldset className="record-rubric"><legend>Rubric 구조 검토</legend>{rubric.map((item, index) => <label key={item}><input type="checkbox" checked={rubricConfirmed.includes(index)} onChange={(event) => toggle('rubricConfirmed', rubricConfirmed, index, event.target.checked)} /><span>{item}<small>자동 의미 채점 아님 · 사람 검토 전 structure-ready</small></span></label>)}{errors.rubricConfirmed && <p className="field-error">{errors.rubricConfirmed}</p>}</fieldset><div className="record-confirmations">{lab.activityType === 'external' && <label><input type="checkbox" checked={Boolean(record.scopeConfirmed)} onChange={(event) => updateRecord({ scopeConfirmed: event.target.checked })} /><span>공식 제공기관이 지정한 대상·계정·기법 범위만 사용했습니다.</span></label>}{lab.activityType === 'simulation' && <label><input type="checkbox" checked={Boolean(record.resetConfirmed)} onChange={(event) => updateRecord({ resetConfirmed: event.target.checked })} /><span>실험 상태를 초기화하고 기준선으로 돌아왔습니다.</span></label>}<label><input type="checkbox" checked={Boolean(record.masked)} onChange={(event) => updateRecord({ masked: event.target.checked })} /><span>비밀번호, Cookie, Authorization, API Key와 개인정보를 `[REDACTED]`로 처리했습니다.</span></label>{errors.confirmations && <p className="field-error">{errors.confirmations}</p>}</div></section>
 }
 
 const activityTypeLabels = {
@@ -183,40 +232,6 @@ const activityTypeLabels = {
   simulation: { kicker: 'SIMULATION', recordDescription: '예상, 바꾼 상태, 실제 변화와 초기화 여부를 기록합니다.' },
   external: { kicker: 'OFFICIAL EXTERNAL ACTIVITY', recordDescription: '외부 플랫폼의 범위, 목표, 사용 도구, 원리와 결과를 본인이 확인해 기록합니다.' },
   assessment: { kicker: 'ASSESSMENT', recordDescription: '' },
-}
-
-const recordFields = {
-  practice: [
-    { id: 'procedure', label: '수행 순서', required: true, placeholder: '실행한 명령이나 선택을 순서대로 적으세요.' },
-    { id: 'observation', label: '관찰한 결과', required: true, placeholder: '화면이나 출력에서 직접 확인한 사실을 적으세요.' },
-    { id: 'explanation', label: '왜 그런 결과가 나왔는지', required: true, placeholder: '경로, 권한, 입력과 처리 흐름을 연결해 설명하세요.' },
-    { id: 'blocked', label: '막힌 지점', required: true, placeholder: '없었다면 없었음과 그 이유를 적으세요.', rows: 3 },
-    { id: 'hintReflection', label: '사용한 힌트 뒤 바뀐 판단', placeholder: '힌트를 열었다면 무엇을 새로 확인했는지 적으세요.', rows: 3 },
-    { id: 'nextCheck', label: '다시 할 때 확인할 것', required: true, placeholder: '재시도할 때 먼저 볼 조건을 적으세요.', rows: 3 },
-  ],
-  investigation: [
-    { id: 'hypothesis', label: '처음 가설', required: true, placeholder: '어떤 입력이 어디까지 도달할 것으로 예상했는지 적으세요.' },
-    { id: 'procedure', label: '수행 절차', required: true, placeholder: '기준선, 변경한 값 하나, 재시험 순서로 적으세요.' },
-    { id: 'observation', label: '관찰 결과', required: true, placeholder: '응답, DOM, 저장 상태 또는 코드에서 직접 본 사실을 적으세요.' },
-    { id: 'conclusion', label: '결론', required: true, placeholder: '관찰로 확인할 수 있는 범위만 결론으로 적으세요.' },
-    { id: 'comparison', label: '가설과 결과의 차이', required: true, placeholder: '예상과 달랐던 점 또는 일치한 근거를 적으세요.', rows: 3 },
-    { id: 'blocked', label: '막힌 지점과 힌트 사용', required: true, placeholder: '막힌 단계와 다음에 확인한 위치를 적으세요.', rows: 3 },
-    { id: 'nextCheck', label: '다시 할 때 확인할 것', required: true, placeholder: '같은 조건의 재시험에서 확인할 항목을 적으세요.', rows: 3 },
-  ],
-  simulation: [
-    { id: 'prediction', label: '예상한 변화', required: true, placeholder: '상태를 바꾸기 전에 예상한 결과를 적으세요.' },
-    { id: 'changes', label: '바꾼 상태', required: true, placeholder: '기준선에서 변경한 값을 적으세요.' },
-    { id: 'actual', label: '실제 변화', required: true, placeholder: '화면과 출력에서 관찰한 변화를 적으세요.' },
-    { id: 'comparison', label: '예상과 실제 비교', required: true, placeholder: '일치 여부와 그 이유를 적으세요.' },
-    { id: 'nextCheck', label: '다음 실험에서 확인할 것', required: true, placeholder: '한 번에 바꿀 변수와 확인할 출력을 적으세요.', rows: 3 },
-  ],
-  external: [
-    { id: 'goal', label: '수행 목표', required: true, placeholder: '공식 플랫폼에서 해결한 범위를 적으세요.' },
-    { id: 'tools', label: '사용한 도구·명령', required: true, placeholder: '자격 증명과 정답은 마스킹하고 도구만 적으세요.' },
-    { id: 'principle', label: '핵심 원리', required: true, placeholder: '문제를 해결하는 데 사용한 개념을 설명하세요.' },
-    { id: 'blocked', label: '막힌 지점', required: true, placeholder: '없었다면 없었음이라고 적으세요.' },
-    { id: 'result', label: '결과와 다음 단계', required: true, placeholder: '완료 여부와 이어서 할 항목을 적으세요.' },
-  ],
 }
 
 function legacyActivityRecord(evidence = {}) {
@@ -229,16 +244,6 @@ function legacyActivityRecord(evidence = {}) {
     masked: Boolean(evidence.masked),
     migratedFromEvidence: Boolean(evidence.commands || evidence.observation || evidence.explanation),
   }
-}
-
-function isActivityRecordReady(activityType, record = {}) {
-  if (activityType === 'assessment' || activityType === 'exploration') return true
-  const required = recordFields[activityType] || recordFields.practice
-  const fieldsReady = required.filter((field) => field.required).every((field) => String(record[field.id] || '').trim().length >= 5)
-  if (!fieldsReady || !record.masked) return false
-  if (activityType === 'external' && !record.scopeConfirmed) return false
-  if (activityType === 'simulation' && !record.resetConfirmed) return false
-  return true
 }
 
 function resultLabel(activityType) {
@@ -710,6 +715,16 @@ function hasExactEvidenceSelection(selectedEvidenceIds, correctEvidenceIds) {
   return selected.length === correctEvidenceIds.length && selected.every((id) => correctEvidenceIds.includes(id))
 }
 
+function avoidLeadingAnswerPattern(options, correctIds) {
+  const ordered = [...options]
+  const count = correctIds.length
+  const leadingOnly = count > 0 && ordered.slice(0, count).every((option) => correctIds.includes(option.id))
+  if (!leadingOnly) return ordered
+  const distractorIndex = ordered.findIndex((option) => !correctIds.includes(option.id))
+  if (distractorIndex > 0) ordered.unshift(...ordered.splice(distractorIndex, 1))
+  return ordered
+}
+
 function GuidedObservationLab({ lab, state, updateLab, onPass }) {
   const scenario = normalizeGuidedObservationScenario(lab.scenario)
   if (!scenario) return <section className="generic-lab" role="alert"><AlertTriangle size={24} /><h2>관찰 시나리오를 확인할 수 없습니다.</h2><p>필수 단계나 증거 데이터가 올바르지 않아 이 실습은 완료 처리할 수 없습니다.</p></section>
@@ -718,8 +733,9 @@ function GuidedObservationLab({ lab, state, updateLab, onPass }) {
   const selectedEvidenceIds = [...new Set(Array.isArray(state.selectedEvidenceIds) ? state.selectedEvidenceIds.filter((id) => typeof id === 'string' && optionIds.has(id)) : [])]
   const checked = Boolean(state.guidedObservationChecked)
   const exactMatch = hasExactEvidenceSelection(selectedEvidenceIds, scenario.correctEvidenceIds)
-  const reflection = String(state.guidedObservationReflection || '').trim()
-  const reflectionReady = !scenario.reflection || reflection.length >= scenario.reflection.minimumLength
+  const displayedEvidenceOptions = avoidLeadingAnswerPattern(scenario.evidenceOptions, scenario.correctEvidenceIds)
+  const reflection = normalizeLearningText(state.guidedObservationReflection || '')
+  const reflectionReady = !scenario.reflection || !validateLearningText(reflection, { minLength: scenario.reflection.minimumLength, label: '연결 근거' })
   const conclusion = scenario.conclusion || '선택한 관찰 근거를 기준으로 방어 조치를 적용한 뒤, 같은 합성 조건에서 재시험해 예상한 변화가 재현되는지 확인합니다.'
   const toggleEvidence = (id, selected) => {
     const next = selected ? [...selectedEvidenceIds, id] : selectedEvidenceIds.filter((selectedId) => selectedId !== id)
@@ -748,11 +764,73 @@ function GuidedObservationLab({ lab, state, updateLab, onPass }) {
     <fieldset>
       <legend>관찰한 증거 선택</legend>
       <p>읽기 순서에서 직접 확인한 사실만 고르세요. 추측이나 결론 자체는 증거로 선택하지 않습니다.</p>
-      {scenario.evidenceOptions.map((option) => <label key={option.id}><input type="checkbox" checked={selectedEvidenceIds.includes(option.id)} onChange={(event) => toggleEvidence(option.id, event.target.checked)} /><span><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</span></label>)}
+      {displayedEvidenceOptions.map((option) => <label key={option.id}><input type="checkbox" checked={selectedEvidenceIds.includes(option.id)} onChange={(event) => toggleEvidence(option.id, event.target.checked)} /><span><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</span></label>)}
     </fieldset>
-    {scenario.reflection && <section className="guided-observation-reflection"><h3>연결 근거</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="연결 근거" rows="5" value={reflection} onChange={(event) => updateLab({ guidedObservationReflection: event.target.value, guidedObservationChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로 합성 자료 안의 근거만 연결해 적으세요.`} /></label><small>{reflection.length} / {scenario.reflection.minimumLength}자</small></section>}
+    {scenario.reflection && <section className="guided-observation-reflection"><h3>연결 근거</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="연결 근거" rows="5" value={reflection} onChange={(event) => updateLab({ guidedObservationReflection: event.target.value, guidedObservationChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로 합성 자료 안의 근거만 연결해 적으세요.`} /></label><small>{getLearningTextLength(reflection)} / {scenario.reflection.minimumLength}자</small></section>}
     <section aria-live="polite"><h3>결과 판정</h3>{checked ? <p>{exactMatch && reflectionReady ? '선택한 증거와 연결 근거가 관찰 시나리오와 일치합니다.' : !exactMatch ? '선택한 증거 집합이 일치하지 않습니다. 읽기 순서와 증거의 직접성을 다시 확인하세요.' : `연결 근거를 ${scenario.reflection.minimumLength}자 이상으로 보완하세요.`}</p> : <p>증거를 선택한 뒤 결과를 판정하세요.</p>}<button className="button primary" type="button" onClick={verify}>결과 판정<CheckCircle2 size={16} /></button></section>
     <section><h3>방어·재시험 결론</h3><p>{conclusion}</p></section>
+  </section>
+}
+
+function PatchReviewLab({ lab, state, updateLab, onPass }) {
+  const [loadState, setLoadState] = useState({ status: 'loading', patch: null, lineage: null })
+  useEffect(() => {
+    let active = true
+    const week = weekContent[lab.week]
+    if (!week) {
+      setLoadState({ status: 'error', patch: null, lineage: null })
+      return () => { active = false }
+    }
+    loadDeepGuideModules(week.index, week.modules).then((modules) => {
+      if (!active) return
+      const module = modules.find((item) => item.id === lab.patchReview?.sourceModuleId)
+      const patch = module?.blocks?.find((block) => block.type === 'patch-analysis') || null
+      const lineage = module?.blocks?.find((block) => block.type === 'patch-lineage' && block.cve === lab.patchReview?.cve) || null
+      setLoadState(patch && lineage ? { status: 'ready', patch, lineage } : { status: 'error', patch: null, lineage: null })
+    }).catch(() => {
+      if (active) setLoadState({ status: 'error', patch: null, lineage: null })
+    })
+    return () => { active = false }
+  }, [lab.week, lab.patchReview?.cve, lab.patchReview?.sourceModuleId])
+
+  if (loadState.status === 'loading') return <section className="generic-lab" role="status"><Eye size={24} /><h2>공식 패치 발췌를 불러오는 중입니다.</h2><p>이 주차의 실제 source와 patch 계보를 같은 콘텐츠 계약에서 읽고 있습니다.</p></section>
+  if (loadState.status === 'error') return <section className="generic-lab" role="alert"><AlertTriangle size={24} /><h2>패치 판독 자료를 확인할 수 없습니다.</h2><p>학습 모듈의 patch-analysis와 patch-lineage가 모두 준비돼야 이 실습을 완료할 수 있습니다.</p></section>
+
+  const { patch, lineage } = loadState
+  const choice = state.patchInvariantChoice || ''
+  const rationale = normalizeLearningText(state.patchRationale || '')
+  const rationaleReady = !validateLearningText(rationale, { minLength: 40, label: '패치 판독 근거' })
+  const checked = Boolean(state.patchReviewChecked)
+  const correct = choice === 'restored-invariant'
+  const evidenceLabel = patch.evidenceKind === 'official-patch'
+    ? '공식 upstream patch의 실제 코드 발췌'
+    : patch.evidenceKind === 'official-remediation'
+      ? '공식 공급자 remediation 기록 · source diff 비공개'
+      : '교육용 구조 모델 · 실제 제품 source 아님'
+  const choices = [
+    { id: 'log-only', label: '경고 로그가 추가되면 원인이 남아 있어도 패치가 끝난다.' },
+    { id: 'restored-invariant', label: lineage.invariant.after },
+    { id: 'version-only', label: 'version 문자열만 바뀌면 실제 artifact와 정상 기능은 확인하지 않아도 된다.' },
+  ]
+  const openComparison = () => updateLab({ patchComparisonViewed: true, patchReviewChecked: false, validationPassed: false, validation: null, validatedAt: null })
+  const updateChoice = (value) => updateLab({ patchInvariantChoice: value, patchReviewChecked: false, validationPassed: false, validation: null, validatedAt: null })
+  const updateRationale = (value) => updateLab({ patchRationale: value, patchReviewChecked: false, validationPassed: false, validation: null, validatedAt: null })
+  const verify = () => {
+    const passed = Boolean(state.patchComparisonViewed) && correct && rationaleReady
+    updateLab({ patchReviewChecked: true, patchReviewOutcome: passed ? 'passed' : 'retry', patchReviewCheckedAt: new Date().toISOString() })
+    if (passed) onPass({ cve: lineage.cve, invariant: lineage.invariant.after, rationale, evidenceKind: patch.evidenceKind })
+  }
+
+  return <section className="patch-review-lab">
+    <header><Eye size={24} /><div><span>PATCH DIFF WORKSHOP</span><h2>{lineage.cve} 실제 수정 근거 읽기</h2><p>코드를 실행하지 않고 공개 source 발췌, 공급자 remediation, patch 계보를 읽어 보안 결정이 어떻게 달라졌는지 설명합니다.</p></div></header>
+    <div className={`patch-review-provenance evidence-${patch.evidenceKind}`}><strong>{evidenceLabel}</strong><a href={patch.source?.url} target="_blank" rel="noreferrer">공식 근거 열기<ExternalLink size={14} /></a><p>{patch.limitation}</p></div>
+    <button className="button secondary" type="button" onClick={openComparison}>{state.patchComparisonViewed ? <><Check size={16} />수정 전·후 비교를 읽음</> : <>수정 전·후 비교 열기<Eye size={16} /></>}</button>
+    {state.patchComparisonViewed && <div className="patch-review-code-grid"><section><h3>{patch.before.label}</h3><pre data-always-focusable="true" tabIndex="0" role="region" aria-label={`${patch.before.label} 코드`}><code>{patch.before.code}</code></pre></section><section><h3>{patch.after.label}</h3><pre data-always-focusable="true" tabIndex="0" role="region" aria-label={`${patch.after.label} 코드`}><code>{patch.after.code}</code></pre></section></div>}
+    <section className="patch-review-changes"><h3>실제 변경이 맡은 역할</h3><ol>{patch.changes.map((change) => <li key={change}>{change}</li>)}</ol></section>
+    <fieldset className="patch-review-invariant"><legend>수정 뒤 지켜야 할 불변조건</legend><p>위 코드와 계보가 직접 지지하는 문장을 하나 고르세요.</p>{choices.map((item) => <label key={item.id}><input type="radio" name={`${lab.id}-invariant`} checked={choice === item.id} onChange={() => updateChoice(item.id)} /><span>{item.label}</span></label>)}</fieldset>
+    <section className="patch-review-regression"><h3>공개 근거와 회귀 시험 연결</h3><div role="table" aria-label={`${lineage.cve} 회귀 시험`}><div role="row"><span role="columnheader">시험</span><span role="columnheader">기대 결과</span><span role="columnheader">이유</span></div>{patch.regressionTests.map((test) => <div role="row" key={test.case}><strong role="cell">{test.case}</strong><span role="cell">{test.expected}</span><span role="cell">{test.reason}</span></div>)}</div></section>
+    <section className="patch-review-rationale"><h3>줄 변화와 시험을 연결하기</h3><label><span>실제 수정 줄 하나와 회귀 시험 하나를 골라, 왜 같은 불변조건을 확인하는지 40자 이상으로 설명하세요.</span><textarea rows="5" value={state.patchRationale || ''} onChange={(event) => updateRationale(event.target.value)} aria-invalid={checked && !rationaleReady ? 'true' : undefined} /></label><small>{getLearningTextLength(rationale)} / 40자</small></section>
+    <section className="patch-review-result" aria-live="polite"><h3>판정</h3><p>{checked ? !state.patchComparisonViewed ? '수정 전·후 비교를 먼저 여세요.' : !correct ? '선택한 문장은 실제 patch가 복원한 불변조건과 맞지 않습니다.' : !rationaleReady ? '줄 변화와 회귀 시험의 관계를 40자 이상으로 적으세요.' : '공식 근거, 불변조건, 회귀 시험을 올바르게 연결했습니다.' : '비교를 읽고 불변조건과 근거를 작성한 뒤 판정하세요.'}</p><button className="button primary" type="button" onClick={verify}>패치 판독 결과 확인<CheckCircle2 size={16} /></button></section>
   </section>
 }
 
@@ -766,7 +844,7 @@ function ReportEvidenceLab({ lab, state, updateLab, onPass }) {
   const reflection = String(state.reportEvidenceReflection || '')
   const allAssigned = statements.every((statement) => assignments[statement.id])
   const exactMatch = allAssigned && statements.every((statement) => assignments[statement.id] === statement.id)
-  const reflectionReady = reflection.trim().length >= scenario.reflection.minimumLength
+  const reflectionReady = !validateLearningText(reflection, { minLength: scenario.reflection.minimumLength, label: '분류 근거' })
   const checked = Boolean(state.reportEvidenceChecked)
   const updateAssignment = (statementId, categoryId) => updateLab({
     reportEvidenceAssignments: { ...assignments, [statementId]: categoryId },
@@ -789,7 +867,7 @@ function ReportEvidenceLab({ lab, state, updateLab, onPass }) {
       <p>문장을 읽고 가장 알맞은 보고서 항목을 고르세요. 각 항목은 한 번씩 사용합니다.</p>
       {statements.map((statement, index) => <label key={statement.id}><span>{String(index + 1).padStart(2, '0')}</span><strong>{statement.label}</strong><select aria-label={`${index + 1}번 문장 분류`} value={assignments[statement.id] || ''} onChange={(event) => updateAssignment(statement.id, event.target.value)}><option value="">항목 선택</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}</select><ChevronDown size={14} /></label>)}
     </fieldset>
-    <section className="report-evidence-reflection"><h3>근거 설명</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="분류 근거" rows="5" value={reflection} onChange={(event) => updateLab({ reportEvidenceReflection: event.target.value, reportEvidenceChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로, 합성 사례 안에서 확인한 근거를 적으세요.`} /></label><small>{reflection.trim().length} / {scenario.reflection.minimumLength}자</small></section>
+    <section className="report-evidence-reflection"><h3>근거 설명</h3><label><span>{scenario.reflection.prompt}</span><textarea aria-label="분류 근거" rows="5" value={reflection} onChange={(event) => updateLab({ reportEvidenceReflection: event.target.value, reportEvidenceChecked: false, validationPassed: false, validation: null, validatedAt: null })} placeholder={`최소 ${scenario.reflection.minimumLength}자 이상으로, 합성 사례 안에서 확인한 근거를 적으세요.`} /></label><small>{getLearningTextLength(reflection)} / {scenario.reflection.minimumLength}자</small></section>
     <section className="report-evidence-result" aria-live="polite"><h3>결과 판정</h3><p>{checked ? exactMatch && reflectionReady ? '문장 구분과 근거 설명이 모두 맞습니다. 이 구조를 Finding 초안에도 유지하세요.' : !allAssigned ? '모든 문장에 항목을 선택하세요.' : !exactMatch ? '사실·영향·조건·원인·수정·재시험의 경계를 다시 확인하세요.' : `근거 설명을 ${scenario.reflection.minimumLength}자 이상으로 보완하세요.` : '문장을 분류하고 근거 설명을 적은 뒤 결과를 판정하세요.'}</p><button className="button primary" type="button" onClick={verify}>결과 판정<CheckCircle2 size={16} /></button></section>
   </section>
 }
@@ -805,7 +883,7 @@ function ExternalLab({ lab, state, updateLab, onPass }) {
 function UnsupportedLab() { return <section className="generic-lab" role="status"><AlertTriangle size={24} /><h2>이 실습 유형은 아직 지원되지 않습니다.</h2><p>검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.</p></section> }
 
 function Status({ state, text }) {
-  const labels = { not_started: '미시작', attempted: '시도함', completed: '완료' }
+  const labels = { not_started: '미시작', attempted: '시도함', 'in-progress': '진행 중', completed: '활동 기록됨', 'activity-recorded': '활동 기록됨' }
   return <span className={`lab-status lab-status-${state}`}><i />{text || labels[state] || state}</span>
 }
 

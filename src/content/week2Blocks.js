@@ -11,7 +11,7 @@ const sources = {
 const blockSet = ({ id, question, explanation, terminal, comparison, caseBody, facts, misconception, checks, work, labs, sourceItems, summary, warning }) => [
   { type: 'question', title: '이 모듈이 답할 질문', body: question },
   { type: 'explanation', title: '핵심 원리', paragraphs: explanation },
-  { type: 'terminal', title: terminal.title, command: terminal.command, output: terminal.output, annotations: terminal.annotations },
+  { type: 'terminal', sourceType: 'educational-reconstruction', title: terminal.title, command: terminal.command, output: terminal.output, annotations: terminal.annotations },
   { type: 'comparison', title: comparison.title, columns: comparison.columns, rows: comparison.rows },
   { type: 'case', title: '사례', body: caseBody, facts },
   { type: 'misconception', title: '자주 하는 혼동', items: misconception },
@@ -65,12 +65,12 @@ export const week2LessonBlocks = Object.freeze({
     caseBody: 'CodeCureLAB 업로드 검증은 파일 확장자만 보고 처리하지 않습니다. 허용 형식, 크기, 저장 위치, 검사 결과를 서버에서 확인하고 원본 이름을 신뢰 경계로 사용하지 않습니다. 이 모듈은 안전한 관찰 도구의 목적을 이해하는 단계입니다.', facts: ['파일명과 확장자는 사람이 만든 이름일 뿐이다.', '문자열·hex 출력은 단서이지 악성 여부의 결론이 아니다.', '실행 파일·의심 샘플은 격리된 허가 환경과 절차가 필요하다.'],
     misconception: ['Base64면 암호화된 비밀이다 → Base64는 인코딩이며 키 없이도 디코딩할 수 있다.', '`strings`에 비밀이 안 보이면 안전하다 → 문자열 관찰은 제한된 단서이며 압축·인코딩·바이너리 구조를 모두 판정하지 못한다.'],
     checks: [{ title: '구분하기', prompt: '원래 입력을 되돌리는 기능을 전제로 하지 않는 것은?', options: ['해시', 'Base64 디코딩', '압축 해제'], answer: 0, explanation: '해시는 일반적으로 입력 복원을 목적으로 하지 않는 고정 길이 요약입니다.' }, { title: '파일 관찰 계획', prompt: '처음 보는 `report.pdf`를 받았을 때 확장자 외에 형식·크기·출처·처리 경로 관점에서 무엇을 확인할지 적어 보세요.' }],
-    warning: { title: '분석 범위', body: '실제 악성코드나 출처 불명 파일을 개인 PC에서 열거나 실행하지 마세요. 이 과정에서는 고정된 교육용 출력만 다루며, 악성코드 분석은 Week 11~12의 격리된 교육 범위에서 다룹니다.' },
+    warning: { title: '분석 범위', body: '실제 악성코드나 출처 불명 파일을 개인 PC에서 열거나 실행하지 마세요. 이 과정에서는 고정된 교육용 출력만 다루며, 관련 공급망·포렌식 분석은 Week 10~11의 격리된 교육 범위에서 다룹니다.' },
     work: '포렌식, 악성코드 분석, 업로드 보안, 데이터 보호 업무는 파일의 이름과 실제 바이트·처리 경로를 구분합니다. 관찰 도구의 한계를 기록해야 다른 사람이 결과를 과장하지 않습니다.', labs: ['w2-bandit'], sourceItems: [sources.coreutils], summary: ['인코딩·암호화·해시·압축·아카이브는 목적이 다르다.', '파일 확장자와 문자열 출력은 단서이지 완전한 판정이 아니다.', '의심 파일은 격리된 허가 환경에서만 다룬다.'],
   }),
   'w2-curl': blockSet({
     id: 'w2-curl', question: '웹 요청을 바꾸기 전에 왜 먼저 정상 요청의 URL·Method·Headers·Body·Status를 기준선으로 남겨야 할까?',
-    explanation: ['`curl`은 URL을 대상으로 HTTP 요청을 보내고 응답을 관찰할 수 있는 명령줄 도구입니다. Week 2의 목적은 공격이 아니라 정상 요청 기준선을 만드는 것입니다. `curl -i`는 상태선·응답 헤더·본문을 함께 보여 주고, `-v`는 연결과 요청·응답 방향을 더 자세히 보지만 기록 전 민감한 헤더를 마스킹해야 합니다.', '관찰을 비교할 때 한 번에 한 요소만 바꿉니다. URL, method, request header, body, status code 중 무엇이 달라졌는지 명확해야 서버가 어떤 값을 검증하는지 설명할 수 있습니다. 실제 외부 서비스에는 요청하지 않고 로컬 또는 명시적으로 허가된 교육 대상만 사용합니다.'],
+    explanation: ['`curl`은 URL을 대상으로 HTTP 요청을 보내고 응답을 관찰할 수 있는 명령줄 도구입니다. 이 모듈의 목적은 공격이 아니라 정상 요청 기준선을 만드는 것입니다. `curl -i`는 상태선·응답 헤더·본문을 함께 보여 주고, `-v`는 연결과 요청·응답 방향을 더 자세히 보지만 기록 전 민감한 헤더를 마스킹해야 합니다.', '관찰을 비교할 때 한 번에 한 요소만 바꿉니다. URL, method, request header, body, status code 중 무엇이 달라졌는지 명확해야 서버가 어떤 값을 검증하는지 설명할 수 있습니다. 실제 외부 서비스에는 요청하지 않고 로컬 또는 명시적으로 허가된 교육 대상만 사용합니다.'],
     terminal: { title: '정상 요청 기준선 저장', command: '$ curl -i https://training.local/api/catalog\nHTTP/1.1 200 OK\nContent-Type: application/json\nCache-Control: no-store\n\n{"items":[{"id":"SEC-BOOK","available":true}]}', output: '$ curl -i -H "Accept: application/json" https://training.local/api/catalog\nHTTP/1.1 200 OK\nContent-Type: application/json\n\n{"items":[{"id":"SEC-BOOK","available":true}]}', annotations: ['예시는 로컬 training 대상의 고정 응답 형식입니다.', '두 요청의 차이는 Accept 헤더 하나이므로 응답이 같아도 비교 근거를 기록할 수 있습니다.', 'Cookie·Authorization·실제 URL의 민감한 부분은 항상 `[REDACTED]` 처리합니다.'] },
     comparison: { title: 'curl 관찰 옵션', columns: ['옵션', '보는 것', '기록 주의점'], rows: [['`-i`', '응답 상태선·헤더·본문', 'Set-Cookie 등 민감 값 마스킹'], ['`-I`', '응답 헤더만(HEAD 요청)', 'GET과 의미가 같은지 서버마다 다를 수 있음'], ['`-v`', '연결과 요청·응답 방향의 상세 로그', '인증 헤더·프록시 정보 노출 여부 확인'], ['`-X METHOD`', '요청 method 명시', '서버가 허용한 정상 method만 교육 범위에서 비교'], ['`-H "Name: value"`', '요청 헤더 하나 추가·변경', '한 번에 하나만 바꾸고 원본도 남긴다.']] },
     caseBody: '교육용 카탈로그 API의 정상 GET 응답을 먼저 기록하면, 다음 웹 기초에서 브라우저 DevTools와 Burp가 같은 요청을 어떻게 보이는지 비교할 수 있습니다. 기준선은 “정상 동작” 관찰이지 서버 검증이 불필요하다는 뜻이 아닙니다.', facts: ['기준선에는 URL·method·헤더·본문·status·관찰 시각을 남긴다.', '변경은 한 요소만 하고 원본·변경 요청과 응답을 나란히 비교한다.', '클라이언트 값은 서버가 인증·인가·입력 규칙으로 다시 검증해야 한다.'],

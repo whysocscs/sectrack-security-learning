@@ -22,9 +22,11 @@ import {
 import {
   completedExampleReport,
   emptyReport,
+  normalizeReportFindingId,
   publicReportResources,
   reportFieldMeta,
   reportSections,
+  reportWorkspace,
   studentReportCases,
 } from '../reportData'
 import {
@@ -32,26 +34,31 @@ import {
   findSensitiveData,
   findingProfiles,
   findingStatuses,
+  getFindingStatusLabel,
+  normalizeFindingStatus,
   redactFinding,
-  reportQualityScore,
+  reportStructureScore,
   reportToMarkdown,
+  transitionFindingStatus,
   validateFinding,
 } from '../reportSchema'
 
 export function ReportsPage({ progress, navigate }) {
-  const draft = progress.reports['local-xss-draft'] || emptyReport
-  const draftScore = reportQualityScore(draft)
+  const storedDraft = progress.reports[reportWorkspace.draftReportId] || emptyReport
+  const draft = { ...emptyReport, ...storedDraft, findingId: normalizeReportFindingId(storedDraft.findingId) }
+  const draftScore = reportStructureScore(draft)
+  const draftStatus = getFindingStatusLabel(draft.status)
   const [openCase, setOpenCase] = useState(studentReportCases[0].id)
   return (
     <div className="page-width reports-page">
       <section className="report-index-head">
-        <div><span>WEEK 04 · FINDING WORKSPACE</span><h2>취약점은 발견보다 설명에서 완성됩니다</h2><p>입력 지점과 실행 위치, 실제 영향, 근본 수정, 재시험을 한 사람이 그대로 따라 할 수 있는 문서로 연결합니다.</p></div>
-        <button className="button primary" type="button" onClick={() => navigate({ page: 'report-editor', reportId: 'local-xss-draft' })}><PencilLine size={16} />XSS Finding 작성</button>
+        <div><span>{reportWorkspace.weekLabel} · FINDING WORKSPACE</span><h2>취약점은 발견보다 설명에서 완성됩니다</h2><p>입력 지점과 실행 위치, 실제 영향, 근본 수정, 재시험을 한 사람이 그대로 따라 할 수 있는 문서로 연결합니다.</p></div>
+        <button className="button primary" type="button" onClick={() => navigate({ page: 'report-editor', reportId: reportWorkspace.draftReportId })}><PencilLine size={16} />XSS Finding 작성</button>
       </section>
 
       <div className="report-file-list">
-        <button type="button" onClick={() => navigate({ page: 'report-editor', reportId: 'local-xss-draft' })}><span className="file-icon"><FileText size={20} /></span><span><small>DRAFT · W4-XSS-001</small><strong>{draft.title || '제목을 작성하지 않은 XSS Finding'}</strong><p>최근 저장 {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString('ko-KR') : '아직 저장하지 않음'}</p></span><span className="report-score"><small>품질 점검</small><strong>{draftScore}%</strong></span><ChevronRight size={18} /></button>
-        <button type="button" onClick={() => navigate({ page: 'report-editor', reportId: completedExampleReport.id })}><span className="file-icon sample"><FileCheck2 size={20} /></span><span><small>SAMPLE · W4-XSS-001</small><strong>{completedExampleReport.title}</strong><p>로컬 교육용 Route를 사용한 완성 예시</p></span><span className="report-score"><small>상태</small><strong>읽기 전용</strong></span><ChevronRight size={18} /></button>
+        <button type="button" onClick={() => navigate({ page: 'report-editor', reportId: reportWorkspace.draftReportId })}><span className="file-icon"><FileText size={20} /></span><span><small>{draftStatus} · {draft.findingId}</small><strong>{draft.title || '제목을 작성하지 않은 XSS Finding'}</strong><p>최근 저장 {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString('ko-KR') : '아직 저장하지 않음'}</p></span><span className="report-score"><small>자동 구조 점검</small><strong>{draftScore}%</strong></span><ChevronRight size={18} /></button>
+        <button type="button" onClick={() => navigate({ page: 'report-editor', reportId: completedExampleReport.id })}><span className="file-icon sample"><FileCheck2 size={20} /></span><span><small>SAMPLE · {completedExampleReport.findingId}</small><strong>{completedExampleReport.title}</strong><p>사람 검토 provenance가 기록된 읽기 전용 교육 예시</p></span><span className="report-score"><small>상태</small><strong>{getFindingStatusLabel(completedExampleReport.status)}</strong></span><ChevronRight size={18} /></button>
       </div>
 
       <section className="student-case-library">
@@ -68,11 +75,13 @@ function FlowBox({ label, value }) { return <div><small>{label}</small><strong>{
 
 export function ReportEditor({ reportId, progress, updateProgress, navigate, notify }) {
   const isSample = reportId === completedExampleReport.id
-  const report = isSample ? completedExampleReport : { ...emptyReport, ...(progress.reports[reportId] || {}) }
+  const storedReport = progress.reports[reportId] || {}
+  const report = isSample ? completedExampleReport : { ...emptyReport, ...storedReport, findingId: normalizeReportFindingId(storedReport.findingId) }
   const [sectionId, setSectionId] = useState('scope')
   const [preview, setPreview] = useState(false)
   const checks = useMemo(() => validateFinding(report), [report])
-  const score = reportQualityScore(report)
+  const structureScore = reportStructureScore(report)
+  const reportStatus = normalizeFindingStatus(report.status)
   const currentSection = reportSections.find((item) => item.id === sectionId) || reportSections[0]
   const sensitive = findSensitiveData(Object.values(report).filter((value) => typeof value === 'string').join('\n'))
   const passedCount = checks.filter((item) => item.pass).length
@@ -83,7 +92,14 @@ export function ReportEditor({ reportId, progress, updateProgress, navigate, not
       ...current,
       reports: {
         ...current.reports,
-        [reportId]: { ...emptyReport, ...(current.reports[reportId] || {}), [field]: value, updatedAt: new Date().toISOString() },
+        [reportId]: {
+          ...emptyReport,
+          ...(current.reports[reportId] || {}),
+          findingId: normalizeReportFindingId(current.reports[reportId]?.findingId),
+          [field]: value,
+          ...(field === 'status' ? {} : { status: 'draft', reviewedBy: '', reviewedAt: '' }),
+          updatedAt: new Date().toISOString(),
+        },
       },
     }))
   }
@@ -98,6 +114,10 @@ export function ReportEditor({ reportId, progress, updateProgress, navigate, not
           ...emptyReport,
           ...(current.reports[reportId] || {}),
           ...redacted,
+          findingId: normalizeReportFindingId(redacted.findingId),
+          status: 'draft',
+          reviewedBy: '',
+          reviewedAt: '',
           updatedAt: new Date().toISOString(),
         },
       },
@@ -107,9 +127,9 @@ export function ReportEditor({ reportId, progress, updateProgress, navigate, not
 
   const copySample = () => {
     const next = createDraftFromSample(completedExampleReport, emptyReport)
-    updateProgress((current) => ({ ...current, reports: { ...current.reports, 'local-xss-draft': next } }))
+    updateProgress((current) => ({ ...current, reports: { ...current.reports, [reportWorkspace.draftReportId]: next } }))
     notify('섹션 구조와 분류만 새 초안으로 만들었습니다. 예시의 대상·재현·영향·수정 답안은 복사하지 않았습니다.')
-    navigate({ page: 'report-editor', reportId: 'local-xss-draft' })
+    navigate({ page: 'report-editor', reportId: reportWorkspace.draftReportId })
   }
 
   const exportMarkdown = () => {
@@ -125,28 +145,35 @@ export function ReportEditor({ reportId, progress, updateProgress, navigate, not
 
   const submit = () => {
     if (!findingProfiles[report.profile || 'xss']?.implemented) {
-      notify('이 Finding 유형은 공통 필드 저장만 지원하며 전용 품질 검사는 아직 제공하지 않습니다.')
+      notify('이 Finding 유형은 공통 필드 저장만 지원하며 전용 구조 검사는 아직 제공하지 않습니다.')
       return
     }
-    if (score < 70 || sensitive.length) {
-      notify('품질 70% 이상과 민감정보 마스킹을 먼저 확인하세요.')
+    const transition = transitionFindingStatus(report, 'structure-ready', { actor: 'automatic' })
+    if (!transition.ok || sensitive.length) {
+      notify('자동 구조 점검에서 보완할 항목이 남아 있습니다. 민감정보 마스킹과 실패 항목을 확인하세요.')
       return
     }
-    updateField('status', 'completed')
-    notify('Finding을 작성 완료로 표시했습니다.')
+    updateProgress((current) => ({
+      ...current,
+      reports: {
+        ...current.reports,
+        [reportId]: { ...transition.report, updatedAt: new Date().toISOString() },
+      },
+    }))
+    notify('자동 구조 점검 항목을 모두 충족해 structure-ready로 표시했습니다. 이는 품질 또는 사람 검토 승인이 아닙니다.')
   }
 
   return (
     <div className="report-editor-page">
-      <div className="editor-topbar page-width"><button className="back-link" type="button" onClick={() => navigate({ page: 'reports' })}><ArrowLeft size={16} />보고서 목록</button><div className="editor-file-state"><span>{isSample ? '완성 예시 · 읽기 전용' : '이 브라우저에 자동 저장'}</span>{!isSample && <Save size={14} />}</div><div className="editor-actions"><button type="button" onClick={() => setPreview((value) => !value)}>{preview ? '편집 보기' : '전체 미리보기'}</button><button type="button" onClick={exportMarkdown}><Download size={15} />Markdown</button><button type="button" onClick={() => window.print()}><Printer size={15} />인쇄</button>{isSample ? <button className="button primary" type="button" onClick={copySample}><ClipboardCopy size={15} />내 초안으로 복사</button> : <button className="button primary" type="button" onClick={submit}>작성 완료<ArrowRight size={15} /></button>}</div></div>
+      <div className="editor-topbar page-width"><button className="back-link" type="button" onClick={() => navigate({ page: 'reports' })}><ArrowLeft size={16} />보고서 목록</button><div className="editor-file-state"><span>{isSample ? '사람 검토 승인 예시 · 읽기 전용' : '이 브라우저에 자동 저장'}</span>{!isSample && <Save size={14} />}</div><div className="editor-actions"><button type="button" onClick={() => setPreview((value) => !value)}>{preview ? '편집 보기' : '전체 미리보기'}</button><button type="button" onClick={exportMarkdown}><Download size={15} />Markdown</button><button type="button" onClick={() => window.print()}><Printer size={15} />인쇄</button>{isSample ? <button className="button primary" type="button" onClick={copySample}><ClipboardCopy size={15} />내 초안으로 복사</button> : <button className="button primary" type="button" onClick={submit}>{reportStatus === 'structure-ready' ? '구조 다시 점검' : '자동 구조 점검'}<ArrowRight size={15} /></button>}</div></div>
       {!isSample && sensitive.length > 0 && <div className="editor-redaction-alert page-width"><AlertTriangle size={18} /><div><strong>민감정보 마스킹 필요</strong><p>{sensitive.map((item) => item.label).join(', ')} 패턴이 증거에 남아 있습니다.</p></div><button type="button" onClick={maskEvidence}>자동 마스킹</button></div>}
 
       {preview ? <ReportPreview report={report} checks={checks} /> : <div className="report-editor-layout">
-        <aside className="report-outline"><header><span>{report.findingId}</span><h2>{report.title || '제목 미작성'}</h2><small>{isSample ? 'READ ONLY' : 'DRAFT'}</small></header><nav>{reportSections.map((section, index) => { const sectionChecks = checksForSection(section.id, checks); const complete = sectionChecks.length && sectionChecks.every((item) => item.pass); return <button type="button" key={section.id} className={sectionId === section.id ? 'active' : ''} onClick={() => setSectionId(section.id)}><span>{complete ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{section.label.split('. ')[1]}</strong><ChevronRight size={14} /></button> })}</nav><div className="outline-score"><div><span>품질 점검</span><strong>{score}%</strong></div><i><b style={{ width: `${score}%` }} /></i><small>{passedCount} / {checks.length}개 통과</small></div></aside>
+        <aside className="report-outline"><header><span>{report.findingId}</span><h2>{report.title || '제목 미작성'}</h2><small>{isSample ? `${getFindingStatusLabel(report.status)} · READ ONLY` : getFindingStatusLabel(report.status)}</small></header><nav>{reportSections.map((section, index) => { const sectionChecks = checksForSection(section.id, checks); const complete = sectionChecks.length && sectionChecks.every((item) => item.pass); return <button type="button" key={section.id} className={sectionId === section.id ? 'active' : ''} onClick={() => setSectionId(section.id)}><span>{complete ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{section.label.split('. ')[1]}</strong><ChevronRight size={14} /></button> })}</nav><div className="outline-score"><div><span>구조 항목 충족률</span><strong>{structureScore}%</strong></div><i><b style={{ width: `${structureScore}%` }} /></i><small>{passedCount} / {checks.length}개 통과</small></div></aside>
 
-        <main className="report-form"><header><span>{currentSection.label}</span><h2>{sectionTitle(currentSection.id)}</h2><p>{sectionDescription(currentSection.id)}</p></header><div className="report-fields">{currentSection.fields.map((field) => <ReportField key={field} field={field} value={report[field] ?? ''} update={updateField} readOnly={isSample} />)}</div>{currentSection.id === 'fix' && <div className="retest-note"><RefreshIcon /><div><strong>수정 완료와 재시험 완료는 다릅니다.</strong><p>개발자가 수정했다고 알려온 상태는 `Retest Required`입니다. 같은 입력·컨텍스트·역할에서 실행되지 않는 증거를 확인한 뒤 `Fixed`로 바꿉니다.</p></div></div>}</main>
+        <section className="report-form" aria-labelledby="report-form-title"><header><span>{currentSection.label}</span><h2 id="report-form-title">{sectionTitle(currentSection.id)}</h2><p>{sectionDescription(currentSection.id)}</p></header><div className="report-fields">{currentSection.fields.map((field) => <ReportField key={field} field={field} value={report[field] ?? ''} update={updateField} readOnly={isSample} />)}</div>{currentSection.id === 'fix' && <div className="retest-note"><RefreshIcon /><div><strong>수정 기록과 사람의 재시험 승인은 다릅니다.</strong><p>자동 구조 점검은 재시험 절차가 작성됐는지만 확인합니다. 같은 입력·컨텍스트·역할에서 수정 결과를 검토한 사람이 별도로 승인해야 합니다.</p></div></div>}</section>
 
-        <aside className="quality-panel"><header><div><span>AUTO CHECK</span><h2>품질 체크리스트</h2></div><strong>{score}%</strong></header><div className="quality-checks">{checks.map((item) => <div className={item.pass ? 'pass' : 'fail'} key={item.id}>{item.pass ? <CheckCircle2 size={16} /> : <XCircle size={16} />}<span><strong>{item.label}</strong>{item.detail && !item.pass && <small>{item.detail}</small>}</span></div>)}</div><section><ShieldCheck size={18} /><div><strong>심각도는 초안</strong><p>자동 추천 숫자가 아니라 사용자 역할, 필요한 상호작용, CSP·Cookie 속성, 실제 기능 권한을 근거로 검토합니다.</p></div></section></aside>
+        <aside className="quality-panel"><header><div><span>AUTOMATED STRUCTURE</span><h2>자동 구조 점검</h2></div><strong>{structureScore}%</strong></header><div className="quality-checks">{checks.map((item) => <div className={item.pass ? 'pass' : 'fail'} key={item.id}>{item.pass ? <CheckCircle2 size={16} /> : <XCircle size={16} />}<span><strong>{item.label}</strong>{item.detail && !item.pass && <small>{item.detail}</small>}</span></div>)}</div><section><ShieldCheck size={18} /><div><strong>자동 점검의 한계</strong><p>항목의 존재와 형식만 검사합니다. 사실관계·심각도·재현 결과·수정 효과의 품질이나 사람 검토 승인을 판정하지 않습니다.</p></div></section></aside>
       </div>}
     </div>
   )
@@ -155,8 +182,8 @@ export function ReportEditor({ reportId, progress, updateProgress, navigate, not
 function ReportField({ field, value, update, readOnly }) {
   const [label, placeholder] = reportFieldMeta[field] || [field, '']
   const shortFields = ['findingId', 'title', 'asset', 'endpoint', 'parameter', 'authPrerequisites', 'environment', 'vulnerabilityType', 'source', 'sink', 'context', 'executionLocation', 'cvssVector', 'cwe', 'owaspMapping']
-  if (field === 'status') return <label className="report-field"><span>{label}</span><div className="select-wrap"><select value={value} disabled={readOnly} onChange={(event) => update(field, event.target.value)}>{findingStatuses.map(([id, text]) => <option value={id} key={id}>{text}</option>)}{readOnly && value === 'reviewed' && <option value="reviewed">완성 예시</option>}</select><ChevronDown size={14} /></div></label>
-  if (field === 'profile') return <label className="report-field"><span>{label}<small>XSS 전용 검증만 구현됨</small></span><div className="select-wrap"><select value={value || 'xss'} disabled={readOnly} onChange={(event) => update(field, event.target.value)}>{Object.values(findingProfiles).map((profile) => <option value={profile.id} key={profile.id}>{profile.label}{profile.implemented ? '' : ' · 검사 준비 중'}</option>)}</select><ChevronDown size={14} /></div></label>
+  if (field === 'status') return <label className="report-field"><span>{label}<small>자동 점검은 structure-ready까지만 설정하며 review-approved는 사람 검토가 필요합니다.</small></span><div className="select-wrap"><select value={normalizeFindingStatus(value)} disabled>{findingStatuses.map(([id, text]) => <option value={id} key={id}>{text}</option>)}</select><ChevronDown size={14} /></div></label>
+  if (field === 'profile') return <label className="report-field"><span>{label}<small>XSS 전용 구조 검증만 구현됨</small></span><div className="select-wrap"><select value={value || 'xss'} disabled={readOnly} onChange={(event) => update(field, event.target.value)}>{Object.values(findingProfiles).map((profile) => <option value={profile.id} key={profile.id}>{profile.label}{profile.implemented ? '' : ' · 검사 준비 중'}</option>)}</select><ChevronDown size={14} /></div></label>
   if (field === 'severity') return <label className="report-field"><span>{label}<small>CVSS와 비즈니스 위험은 별도 근거로 검토</small></span><div className="select-wrap"><select value={value} disabled={readOnly} onChange={(event) => update(field, event.target.value)}><option>Informational</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select><ChevronDown size={14} /></div></label>
   if (field === 'method') return <label className="report-field"><span>{label}</span><div className="select-wrap"><select value={value} disabled={readOnly} onChange={(event) => update(field, event.target.value)}>{['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'DOM only'].map((method) => <option key={method}>{method}</option>)}</select><ChevronDown size={14} /></div></label>
   if (field === 'cvssVersion') return <label className="report-field"><span>{label}</span><div className="select-wrap"><select value={value || '3.1'} disabled={readOnly} onChange={(event) => update(field, event.target.value)}><option value="3.1">CVSS 3.1</option><option value="4.0">CVSS 4.0</option></select><ChevronDown size={14} /></div></label>
@@ -168,13 +195,13 @@ function ReportField({ field, value, update, readOnly }) {
 
 function ReportPreview({ report, checks }) {
   const safe = redactFinding(report)
-  return <article className="report-preview" id="report-print"><header><span>CONFIDENTIAL · TRAINING ONLY</span><h1>{safe.findingId} · {safe.title || '제목 미작성'}</h1><div><strong>{safe.severity}</strong><span>{findingStatuses.find(([id]) => id === safe.status)?.[1] || safe.status}</span></div></header><section className="preview-facts"><div><small>자산</small><strong>{safe.asset}</strong></div><div><small>Endpoint</small><strong>{safe.method} {safe.endpoint}</strong></div><div><small>CVSS</small><strong>{safe.cvssVersion} · {safe.cvssScore || '미평가'}</strong></div><div><small>분류</small><strong>{safe.cwe} · {safe.owaspMapping}</strong></div></section><PreviewSection title="요약" text={safe.summary} /><section><h2>데이터 흐름</h2><div className="preview-flow"><FlowBox label="Source" value={safe.source} /><ArrowRight size={14} /><FlowBox label="Transform" value={safe.transforms} /><ArrowRight size={14} /><FlowBox label="Sink" value={safe.sink} /><ArrowRight size={14} /><FlowBox label="Context" value={safe.context} /></div></section><PreviewSection title="실행 위치" text={safe.executionLocation} /><PreviewSection title="재현 단계" text={safe.reproductionSteps} pre /><section className="preview-evidence"><div><h2>HTTP Request</h2><pre>{safe.request}</pre></div><div><h2>HTTP Response</h2><pre>{safe.response}</pre></div></section><PreviewSection title="관찰된 결과" text={safe.observedResult} /><PreviewSection title="기대되는 안전한 결과" text={safe.expectedResult} /><section className="preview-evidence"><div><PreviewSection title="기술적 영향" text={safe.technicalImpact} /></div><div><PreviewSection title="비즈니스 영향" text={safe.businessImpact} /></div></section><PreviewSection title="근본 원인" text={safe.rootCause} /><PreviewSection title="개선 권고" text={safe.remediation} /><PreviewSection title="보조 통제" text={safe.supportingControls} /><section className="preview-evidence"><div><h2>취약 코드</h2><pre>{safe.vulnerableCode}</pre></div><div><h2>수정 코드</h2><pre>{safe.fixedCode}</pre></div></section><PreviewSection title="재시험" text={`${safe.retestProcedure || '-'}\n\n결과: ${safe.retestResult || '미수행'}`} pre /><footer><span>품질 점검</span><strong>{checks.filter((item) => item.pass).length} / {checks.length} 통과</strong><small>자동 점검은 작성자가 사실관계와 근거를 확인하는 과정을 대신하지 않습니다.</small></footer></article>
+  return <article className="report-preview" id="report-print"><header><span>CONFIDENTIAL · TRAINING ONLY</span><h1>{safe.findingId} · {safe.title || '제목 미작성'}</h1><div><strong>{safe.severity}</strong><span>{getFindingStatusLabel(safe.status)}</span></div></header><section className="preview-facts"><div><small>자산</small><strong>{safe.asset}</strong></div><div><small>Endpoint</small><strong>{safe.method} {safe.endpoint}</strong></div><div><small>CVSS</small><strong>{safe.cvssVersion} · {safe.cvssScore || '미평가'}</strong></div><div><small>분류</small><strong>{safe.cwe} · {safe.owaspMapping}</strong></div></section><PreviewSection title="요약" text={safe.summary} /><section><h2>데이터 흐름</h2><div className="preview-flow"><FlowBox label="Source" value={safe.source} /><ArrowRight size={14} /><FlowBox label="Transform" value={safe.transforms} /><ArrowRight size={14} /><FlowBox label="Sink" value={safe.sink} /><ArrowRight size={14} /><FlowBox label="Context" value={safe.context} /></div></section><PreviewSection title="실행 위치" text={safe.executionLocation} /><PreviewSection title="재현 단계" text={safe.reproductionSteps} pre /><section className="preview-evidence"><div><h2>HTTP Request</h2><pre>{safe.request}</pre></div><div><h2>HTTP Response</h2><pre>{safe.response}</pre></div></section><PreviewSection title="관찰된 결과" text={safe.observedResult} /><PreviewSection title="기대되는 안전한 결과" text={safe.expectedResult} /><section className="preview-evidence"><div><PreviewSection title="기술적 영향" text={safe.technicalImpact} /></div><div><PreviewSection title="비즈니스 영향" text={safe.businessImpact} /></div></section><PreviewSection title="근본 원인" text={safe.rootCause} /><PreviewSection title="개선 권고" text={safe.remediation} /><PreviewSection title="보조 통제" text={safe.supportingControls} /><section className="preview-evidence"><div><h2>취약 코드</h2><pre>{safe.vulnerableCode}</pre></div><div><h2>수정 코드</h2><pre>{safe.fixedCode}</pre></div></section><PreviewSection title="재시험" text={`${safe.retestProcedure || '-'}\n\n결과: ${safe.retestResult || '미수행'}`} pre /><footer><span>자동 구조 점검</span><strong>{checks.filter((item) => item.pass).length} / {checks.length} 통과</strong><small>항목의 존재와 형식만 확인하며 사실관계·품질·사람 검토 승인을 판정하지 않습니다.</small></footer></article>
 }
 
 function PreviewSection({ title, text, pre }) { return <section><h2>{title}</h2>{pre ? <pre className="plain-pre">{text || '-'}</pre> : <p>{text || '-'}</p>}</section> }
 
 function checksForSection(id, checks) {
-  const map = { scope: ['title', 'target'], flow: ['xss-flow', 'xss-execution'], reproduce: ['steps', 'observation', 'materials', 'redaction'], impact: ['impact', 'root-cause', 'severity', 'classification', 'cvss'], fix: ['fix', 'retest', 'xss-defense', 'xss-supporting-control'] }
+  const map = { scope: ['status', 'title', 'target'], flow: ['xss-flow', 'xss-execution'], reproduce: ['steps', 'observation', 'materials', 'redaction'], impact: ['impact', 'root-cause', 'severity', 'classification', 'cvss'], fix: ['fix', 'retest', 'xss-defense', 'xss-supporting-control'] }
   return checks.filter((item) => (map[id] || []).includes(item.id))
 }
 

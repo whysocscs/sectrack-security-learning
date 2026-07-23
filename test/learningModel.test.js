@@ -7,6 +7,7 @@ import {
   evaluateQuizAttempt,
   getConceptResultEvidence,
   getConceptTitle,
+  getQuizPresentation,
   getQuizRetryCount,
   recordConceptReflection,
   recordHintUsage,
@@ -38,6 +39,20 @@ test('quiz pools use explicit rules and complete concept metadata', () => {
     }
   }
   assert.deepEqual(quizRules[0].requiredQuestionIds, ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'])
+})
+
+test('stable quiz presentation balances correct positions and defeats one-position passing', () => {
+  const positionCounts = [0, 0, 0]
+  for (const [weekIndex, pool] of Object.entries(quizzes)) {
+    const presented = getQuizPresentation(Number(weekIndex), pool, `regression-week-${weekIndex}`)
+    assert.deepEqual(presented, getQuizPresentation(Number(weekIndex), pool, `regression-week-${weekIndex}`))
+    for (const question of presented) positionCounts[question.answer] += 1
+    for (let position = 0; position < 3; position += 1) {
+      const positionOnlyAnswers = Object.fromEntries(presented.map((question) => [question.id, question.options[position]?.id]))
+      assert.equal(evaluateQuizAttempt(Number(weekIndex), positionOnlyAnswers, presented).passed, false)
+    }
+  }
+  assert.deepEqual(positionCounts, [34, 34, 34])
 })
 
 test('malformed or missing quiz definitions are reported without breaking progress reads', () => {

@@ -95,7 +95,7 @@ function SectionIntro({ kicker, title, body, action }) {
   return <header className="week0-section-intro"><span>{kicker}</span><div><h2>{title}</h2><p>{body}</p></div>{action}</header>
 }
 
-export default function WeekZeroWorkspace({ activeTab = 'overview', progress, updateProgress, navigate, notify, showPageHeader = false, onTabChange, onCompleteMap }) {
+export default function WeekZeroWorkspace({ activeTab = 'overview', moduleId, initialCareerSection, progress, updateProgress, navigate, notify, showPageHeader = false, onTabChange, onCompleteMap }) {
   const pageTabs = [
     ['overview', '이번 주'],
     ['glossary', '보안 용어'],
@@ -106,13 +106,13 @@ export default function WeekZeroWorkspace({ activeTab = 'overview', progress, up
   const setTab = (tab) => onTabChange?.(tab)
   const render = () => {
     if (activeTab === 'glossary') return <SecurityGlossary />
-    if (activeTab === 'careers') return <CareerEvidenceExplorer progress={progress} updateProgress={updateProgress} navigate={navigate} />
+    if (activeTab === 'careers') return <CareerEvidenceExplorer key={initialCareerSection || 'saved-view'} moduleId={moduleId} initialSection={initialCareerSection} progress={progress} updateProgress={updateProgress} navigate={navigate} />
     if (activeTab === 'map') return <PersonalCareerMap progress={progress} updateProgress={updateProgress} notify={notify} onCompleteMap={onCompleteMap} />
     if (activeTab === 'quiz') return null
     return <WeekZeroOverview openTab={setTab} />
   }
   return <div className="week0-workspace">
-    {showPageHeader && <header className="week0-page-header"><span>WEEK 00 · SECURITY FIELD GUIDE</span><h1>정보보안 핵심 용어와 분야·직무 지도</h1><p>용어를 읽고, 분야와 직무를 구분하고, 실제 공고 표본의 근거 범위를 확인한 뒤 나의 보안 지도를 만듭니다.</p><nav className="week0-page-tabs" aria-label="Week 0 탐색 메뉴">{pageTabs.map(([id, label]) => <button type="button" key={id} className={activeTab === id ? 'active' : ''} aria-current={activeTab === id ? 'page' : undefined} onClick={() => setTab(id)}>{label}</button>)}</nav></header>}
+    {showPageHeader && <header className="week0-page-header"><span>WEEK 00 · SECURITY FIELD GUIDE</span><h2>정보보안 핵심 용어와 분야·직무 지도</h2><p>용어를 읽고, 분야와 직무를 구분하고, 실제 공고 표본의 근거 범위를 확인한 뒤 나의 보안 지도를 만듭니다.</p><nav className="week0-page-tabs" aria-label="Week 0 탐색 메뉴">{pageTabs.map(([id, label]) => <button type="button" key={id} className={activeTab === id ? 'active' : ''} aria-current={activeTab === id ? 'page' : undefined} onClick={() => setTab(id)}>{label}</button>)}</nav></header>}
     {render()}
   </div>
 }
@@ -151,23 +151,29 @@ function SecurityGlossary() {
   const visible = securityGlossary.filter((item) => (category === 'all' || item.category === category) && (!normalized || [item.title, item.englishName, item.simpleDefinition, item.preciseDefinition, item.example, item.misconception].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)))
   const selected = securityGlossary.find((item) => item.id === selectedId) || visible[0] || securityGlossary[0]
   return <div className="week0-glossary">
-    <SectionIntro kicker="SECURITY GLOSSARY · 30 TERMS" title="보안 용어는 정의와 함께, 헷갈리는 경계까지 읽습니다." body="CVE·CWE·CVSS는 각각 무엇을 가리키는지, CVSS가 조직의 최종 위험과 왜 다른지처럼 실제 업무에서 혼동하기 쉬운 지점을 함께 확인합니다." />
+    <SectionIntro kicker="SECURITY GLOSSARY · 30 TERMS" title="정보보안 핵심 용어" body="정의와 함께 헷갈리는 경계를 읽습니다. CVE·CWE·CVSS가 각각 무엇을 가리키는지, CVSS가 조직의 최종 위험과 왜 다른지처럼 실제 업무에서 혼동하기 쉬운 지점을 함께 확인합니다." />
     <section className="cve-flow" aria-label="CWE CVE CVSS와 조직 위험 평가의 관계"><h3>CWE · CVE · CVSS를 한 흐름으로 보기</h3><ol>{cveCweCvssFlow.map(([title, body], index) => <li key={title}><span>{index + 1}</span><div><strong>{title}</strong>{body && <p>{body}</p>}</div>{index < cveCweCvssFlow.length - 1 && <i aria-hidden="true" />}</li>)}</ol></section>
     <div className="glossary-toolbar"><label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="CVE, 권한, 공격, 탐지 검색" aria-label="보안 용어 검색" /></label><div role="group" aria-label="용어 분류">{glossaryCategories.map((item) => <button type="button" key={item.id} className={category === item.id ? 'active' : ''} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.label}</button>)}</div></div>
     <div className="glossary-layout"><div className="glossary-list" aria-label="보안 용어 목록">{visible.map((item, index) => <button type="button" key={item.id} className={selected.id === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.title}</strong><small>{item.englishName}</small></button>)}{!visible.length && <p>검색 결과가 없습니다.</p>}</div><article className="glossary-detail"><span>{glossaryCategories.find((item) => item.id === selected.category)?.label}</span><h2>{selected.title}</h2><small>{selected.englishName}</small><section><h3>쉬운 설명</h3><p>{selected.simpleDefinition}</p></section><section><h3>조금 더 정확히</h3><p>{selected.preciseDefinition}</p></section><section><h3>예시</h3><p>{selected.example}</p></section><section className="glossary-misconception"><h3>흔한 오해</h3><p>{selected.misconception}</p></section><section><h3>함께 비교할 용어</h3><div className="tag-list">{selected.compareWith.map((id) => <button type="button" key={id} onClick={() => setSelectedId(id)}>{securityGlossary.find((item) => item.id === id)?.title || id}</button>)}</div></section><section><h3>연결 WEEK</h3><div className="tag-list">{selected.relatedWeekIds.map((week) => <span key={week}>Week {week}</span>)}</div></section></article></div>
   </div>
 }
 
-function CareerEvidenceExplorer({ progress, updateProgress, navigate }) {
+function CareerEvidenceExplorer({ moduleId, initialSection, progress, updateProgress, navigate }) {
   const view = progress.weekZero.view || {}
-  const initialSection = evidenceSections.some(([id]) => id === view.evidenceSection) ? view.evidenceSection : 'market'
-  const [section, setSection] = useState(initialSection)
+  const requestedSection = evidenceSections.some(([id]) => id === initialSection) ? initialSection : null
+  const savedSection = evidenceSections.some(([id]) => id === view.evidenceSection) ? view.evidenceSection : 'market'
+  const [section, setSection] = useState(requestedSection || savedSection)
+  const moduleTitles = {
+    'w0-domains': '정보보안 분야 전체 지도',
+    'w0-careers': '분야별 세부 직무',
+    'w0-evidence': '실제 채용공고로 직무 읽기',
+  }
   const setSectionState = (next) => {
     setSection(next)
     updateWeekZero(updateProgress, { view: { ...view, evidenceSection: next } })
   }
   return <div className="career-evidence-explorer">
-    <SectionIntro kicker="CAREER EVIDENCE EXPLORER" title="분야에서 직무군으로, 직무군에서 실제 역할로 내려가는 직무 지도" body={`${researchDomains.length}개 전문 분야와 ${representativeRoleCatalog.length}개 역할을 직무군으로 묶고, 근거가 충분한 역할만 상세 문서와 공고·공식 체계 근거로 확장합니다.`} />
+    <SectionIntro kicker="CAREER EVIDENCE EXPLORER" title={moduleTitles[moduleId] || '분야에서 직무군으로, 직무군에서 실제 역할로 내려가는 직무 지도'} body={`${researchDomains.length}개 전문 분야와 ${representativeRoleCatalog.length}개 역할을 직무군으로 묶고, 근거가 충분한 역할만 상세 문서와 공고·공식 체계 근거로 확장합니다.`} />
     <section className="market-caveat"><ShieldCheck size={20} /><div><strong>전문 분야 {researchDomains.length}개 · 대표 역할 {representativeRoleCatalog.length}개 · 상세 근거 카드 {researchRoles.length}개</strong><p>대표 역할은 운영자가 제공한 분야·직무군 목록입니다. 독립 공고·공식 직무 체계 근거가 충분한 역할만 상세 문서로 확장하며, 공개 URL이 보존되지 않은 인용에는 링크를 만들지 않습니다.</p></div></section>
     <nav className="career-evidence-tabs" aria-label="직무 근거 탐색 보기">{evidenceSections.map(([id, label]) => <button type="button" aria-pressed={section === id} className={section === id ? 'active' : ''} key={id} onClick={() => setSectionState(id)}>{id === 'graph' && <GitBranch size={15} />}{label}</button>)}</nav>
     {section === 'market' && <MarketOverview onOpenRoles={() => setSectionState('roles')} />}
@@ -397,6 +403,6 @@ function PersonalCareerMap({ progress, updateProgress, notify, onCompleteMap }) 
 }
 
 function completeMapLab(updateProgress, notify) {
-  updateProgress((current) => ({ ...current, labs: { ...current.labs, 'w0-map': { ...(current.labs['w0-map'] || {}), status: 'completed', completedAt: new Date().toISOString() } } }))
-  notify?.('나의 보안 지도를 완료했습니다.')
+  updateProgress((current) => ({ ...current, labs: { ...current.labs, 'w0-map': { ...(current.labs['w0-map'] || {}), status: 'activity-recorded', recordedAt: new Date().toISOString() } } }))
+  notify?.('나의 보안 지도 활동을 기록했습니다. 사람의 검토 전에는 숙련 승인으로 표시하지 않습니다.')
 }

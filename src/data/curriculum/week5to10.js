@@ -21,7 +21,7 @@ const sources = Object.freeze({
   nvdGradio: { label: 'NVD · CVE-2024-1727', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-1727', note: '로컬 Gradio 서버의 파일 upload CSRF 조건과 upstream patch 참조를 확인합니다.' },
   gradioPatch: { label: 'Gradio · CVE-2024-1727 upstream patch', url: 'https://github.com/gradio-app/gradio/commit/84802ee6a4806c25287344dce581f9548a99834a', note: 'NVD가 Patch로 연결한 upstream 커밋입니다.' },
   nvdSudo: { label: 'NVD · CVE-2021-3156', url: 'https://nvd.nist.gov/vuln/detail/CVE-2021-3156', note: 'sudo의 heap-based buffer overflow 기록과 영향 범위를 확인합니다.' },
-  sudoPatch: { label: 'Sudo · heap-based overflow 보안 권고', url: 'https://www.sudo.ws/security/advisories/heap_based_overflow/', note: 'Sudo 프로젝트의 공식 수정 권고입니다.' },
+  sudoPatch: { label: 'Sudo · heap-based overflow 보안 권고', url: 'https://www.sudo.ws/security/advisories/unescape_overflow/', note: 'Sudo 프로젝트의 공식 수정 권고입니다.' },
   nvdXz: { label: 'NVD · CVE-2024-3094', url: 'https://nvd.nist.gov/vuln/detail/CVE-2024-3094', note: 'xz 공급망 compromise의 영향 버전과 공식 기록을 확인합니다.' },
   redHatXz: { label: 'Red Hat · CVE-2024-3094', url: 'https://access.redhat.com/security/cve/CVE-2024-3094', note: '배포판 공급자의 영향 판정과 권고를 확인합니다.' },
 })
@@ -165,6 +165,7 @@ const lessonDetailsById = {
     },
     {
       type: 'http-message',
+      sourceType: 'educational-reconstruction',
       title: '합성 상태 변경 요청 읽기',
       description: 'Cookie와 token 값은 고정된 교육용 표기이며 실제 자격 증명이 아닙니다.',
       message: 'POST /training/profile HTTP/1.1\nHost: app.training.local\nCookie: training_session=local-demo\nOrigin: https://app.training.local\nX-CSRF-Token: fixed-training-token\n\ndisplay_name=student',
@@ -411,7 +412,7 @@ export const week5to10Content = {
     id: 'week-5', index: 5, title: 'SQL Injection: 쿼리 경계와 방어',
     summary: '웹 요청에서 DB 호출까지의 경계를 읽고, 파라미터 바인딩·식별자 허용 목록·최소 권한·오류 처리·재시험을 각각의 책임으로 연결합니다.',
     objectives: ['관계형 데이터베이스의 테이블·행·열·쿼리·역할을 구분한다.', '문자열 결합과 파라미터 바인딩의 차이를 코드 흐름에서 설명한다.', '값 바인딩이 어려운 식별자·정렬 구조에는 허용 목록과 기능 재설계가 필요한 이유를 설명한다.', 'DB 최소 권한·응답 최소화·내부 로깅이 바인딩과 다른 방어 계층임을 구분한다.', '합성 쿼리 흐름의 관찰·원인·수정·재시험을 과장 없이 기록한다.'],
-    prerequisites: ['Week 3 HTTP 요청·응답과 인증·인가', 'Week 4 Source → Sink와 재시험 기록'],
+    prerequisites: ['Week 2 HTTP 요청·응답과 인증·인가', 'Week 3 Source → Sink와 재시험 기록'],
     quizMinutes: 18,
     recordMinutes: 30,
     modules: [
@@ -442,6 +443,7 @@ export const week5to10Content = {
           },
           {
             type: 'code',
+            sourceType: 'educational-reconstruction',
             title: '정상 검색 요청의 합성 흐름',
             language: 'text',
             description: '값 `blue`는 교육용 정상 fixture입니다. 요청을 실제 서버로 보내지 않습니다.',
@@ -487,6 +489,7 @@ export const week5to10Content = {
           },
           {
             type: 'code',
+            sourceType: 'educational-reconstruction',
             title: '역할별 권한의 합성 예시',
             language: 'sql',
             description: '권한 이름과 객체는 교육용 예시이며 실제 DB에 실행하지 않습니다.',
@@ -519,7 +522,7 @@ export const week5to10Content = {
     id: 'week-6', index: 6, title: 'CSRF·웹 종합: 요청의 정당성',
     summary: '브라우저 인증 상태와 요청 의도를 구분하고, CSRF token·SameSite·Origin·Fetch Metadata·재인증·객체별 인가를 각각의 역할로 읽은 뒤 합성 흐름에서 재시험합니다.',
     objectives: ['CSRF의 전제와 XSS·인증·인가·요청 정당성의 차이를 구분한다.', '상태 변경 endpoint와 안전하지 않은 GET 사용 여부를 식별한다.', 'CSRF token, SameSite, Origin·Referer, Fetch Metadata, 재인증의 역할과 한계를 설명한다.', '정상 요청·token 누락·허용되지 않은 출처·인가 실패의 합성 재시험을 구분한다.', 'CSRF 관찰을 구조적 원인·방어·한계가 분리된 기록으로 작성한다.'],
-    prerequisites: ['Week 3 Cookie·Session·Origin', 'Week 4 XSS 데이터 흐름', 'Week 5의 구조적 방어와 재시험'],
+    prerequisites: ['Week 2 Cookie·Session·Origin', 'Week 3 XSS 데이터 흐름', 'Week 4의 구조적 방어와 재시험'],
     quizMinutes: 18,
     recordMinutes: 30,
     modules: [
@@ -549,6 +552,7 @@ export const week5to10Content = {
           },
           {
             type: 'http-message',
+            sourceType: 'educational-reconstruction',
             title: '상태 변경의 합성 기준선',
             description: '도메인과 Cookie는 교육용 표기입니다.',
             message: 'POST /training/notification-settings HTTP/1.1\nHost: app.training.local\nCookie: training_session=local-demo\nContent-Type: application/json\n\n{"weekly_digest":true}',
@@ -617,8 +621,8 @@ export const week5to10Content = {
   7: {
     id: 'week-7', index: 7, title: 'C·컴퓨터 구조·메모리 레이아웃',
     summary: '작은 C 프로그램의 소스·컴파일 결과·주소·메모리 영역을 연결해 이후 어셈블리와 디버깅의 기준선을 만듭니다.',
-    objectives: ['C의 값·주소·포인터·배열을 구분한다.', '컴파일·링크·실행의 역할을 설명한다.', '코드·데이터·힙·스택 같은 프로세스 메모리 영역을 관찰한다.'],
-    prerequisites: ['Week 1~2 Linux 파일·명령 기초', '텍스트 파일과 터미널 출력 읽기'],
+    objectives: ['C의 값·주소·포인터를 구분한다.', '컴파일·링크·실행의 역할을 설명한다.', '코드·데이터·힙·스택 같은 프로세스 메모리 영역을 관찰한다.'],
+    prerequisites: ['Week 1 Linux 파일·명령 기초', '텍스트 파일과 터미널 출력 읽기'],
     quizMinutes: 18,
     recordMinutes: 30,
     modules: [
@@ -636,7 +640,7 @@ export const week5to10Content = {
     id: 'week-8', index: 8, title: 'x86-64 어셈블리·호출 규약',
     summary: 'C 함수가 x86-64 명령과 레지스터·스택 프레임으로 연결되는 흐름을 합성 전사에서 읽습니다.',
     objectives: ['명령·레지스터·메모리 접근의 역할을 구분한다.', 'call·ret과 스택 프레임의 목적을 설명한다.', 'SysV x86-64 호출 규약에서 인자·반환값 관찰의 기준을 세운다.'],
-    prerequisites: ['Week 7 C 함수·주소·메모리 레이아웃', '함수 호출과 지역 변수의 기초'],
+    prerequisites: ['Week 6 C 함수·주소·메모리 레이아웃', '함수 호출과 지역 변수의 기초'],
     quizMinutes: 18,
     recordMinutes: 30,
     modules: [
@@ -653,8 +657,8 @@ export const week5to10Content = {
   9: {
     id: 'week-9', index: 9, title: 'GDB·Pwntools: 로컬 관찰 자동화',
     summary: '제공된 로컬 교육 프로그램의 정상·오류 흐름을 GDB 전사와 작은 입출력 드라이버로 관찰하고 기록합니다.',
-    objectives: ['breakpoint·step·backtrace·register 관찰의 역할을 구분한다.', '바이트 순서와 텍스트 입력을 구분한다.', 'Pwntools를 로컬 교육 프로세스의 반복 가능한 입출력 기록 도구로 사용한다.'],
-    prerequisites: ['Week 7 C·메모리 레이아웃', 'Week 8 함수 호출·레지스터 관찰'],
+    objectives: ['breakpoint·step·backtrace·register 관찰의 역할을 구분한다.', '바이트 표현과 텍스트 입력을 구분한다.', 'Pwntools를 로컬 교육 프로세스의 반복 가능한 입출력 기록 도구로 사용한다.'],
+    prerequisites: ['Week 6 C·메모리 레이아웃', 'Week 7 함수 호출·레지스터 관찰'],
     quizMinutes: 18,
     recordMinutes: 30,
     modules: [
@@ -672,11 +676,11 @@ export const week5to10Content = {
     id: 'week-10', index: 10, title: '메모리 안전성·BOF 완화기법',
     summary: '버퍼 경계 검증 실패의 원인과 NX·ASLR·PIE·Canary 같은 완화기법의 역할을 합성 코드·재시험으로 분석합니다.',
     objectives: ['경계 검증 실패와 메모리 손상 가능성을 구분해 설명한다.', 'NX·ASLR·PIE·Canary가 줄이는 위험과 한계를 설명한다.', '합성 취약 코드의 수정·정상 경로 재시험을 기록한다.'],
-    prerequisites: ['Week 7 메모리 레이아웃', 'Week 8 함수 호출·스택 프레임', 'Week 9 정상·오류 fixture 관찰'],
+    prerequisites: ['Week 6 메모리 레이아웃', 'Week 7 함수 호출·스택 프레임', 'Week 8 정상·오류 fixture 관찰'],
     quizMinutes: 18,
     recordMinutes: 30,
     modules: [
-      lesson({ id: 'w10-bounds', title: '경계 검증과 메모리 안전성', duration: 42, summary: '입력 길이·버퍼 크기·복사 범위를 맞추지 못하면 프로그램 신뢰성이 깨질 수 있으며, 원인은 경계 검증 설계에서 찾습니다.', question: '버퍼가 작다는 말보다 입력 길이를 검증하지 않은 복사 경로가 더 좋은 원인 설명인 이유는 무엇일까?', paragraphs: ['메모리 안전성 문제는 데이터 크기와 허용된 저장 범위를 확인하지 않은 채 읽기·쓰기·복사를 수행할 때 생길 수 있습니다. 좋은 분석은 특정 입력을 과시하는 대신 어떤 길이·경계·오류 처리가 빠졌는지와 안전한 실패 조건을 설명합니다.', '이 주차의 코드는 브라우저에 표시되는 합성 예제입니다. 실제 셸 획득, 보호 우회, 원격 프로세스 제어는 다루지 않으며, 경계 검사·안전한 API·오류 처리·회귀 테스트의 방어 관점을 학습합니다.'], nodes: ['입력 길이 확인', '대상 용량 비교', '안전한 거절 또는 복사', '오류 기록', '정상 fixture 재시험'], misconception: ['버퍼 크기를 크게 잡으면 모든 경계 검증이 필요 없어지는다.', '크래시가 없으면 메모리 안전성 문제도 없었다.'], checkpoints: [{ title: '원인 설명', prompt: '구조적 원인 설명으로 가장 알맞은 것은?', options: ['입력이 이상함', '복사 전 입력 길이와 대상 경계를 검증하지 않음', '보호 기법 이름을 모름'], answer: 1, explanation: '경계 검증 누락을 설명해야 안전한 수정으로 이어집니다.' }, { title: '안전한 실패', prompt: '입력이 허용 범위를 넘을 때 적절한 동작은?', options: ['경계를 무시하고 계속 복사', '안전한 오류 반환과 기록', '실제 대상에 다시 전송'], answer: 1, explanation: '경계를 확인하고 안전하게 거절한 뒤 재시험합니다.' }], labId: week10Lab.id, sourceIds: ['cwe120', 'cwe787'], bullets: ['원인은 입력 길이와 대상 경계의 검증 누락으로 설명한다.', '안전한 실패·오류 처리·회귀 테스트가 함께 필요하다.', '실제 공격 절차는 교육 범위가 아니다.'] }),
+      lesson({ id: 'w10-bounds', title: '경계 검증과 메모리 안전성', duration: 42, summary: '입력 길이·버퍼 크기·복사 범위를 맞추지 못하면 프로그램 신뢰성이 깨질 수 있으며, 원인은 경계 검증 설계에서 찾습니다.', question: '버퍼가 작다는 말보다 입력 길이를 검증하지 않은 복사 경로가 더 좋은 원인 설명인 이유는 무엇일까?', paragraphs: ['메모리 안전성 문제는 데이터 크기와 허용된 저장 범위를 확인하지 않은 채 읽기·쓰기·복사를 수행할 때 생길 수 있습니다. 좋은 분석은 특정 입력을 과시하는 대신 어떤 길이·경계·오류 처리가 빠졌는지와 안전한 실패 조건을 설명합니다.', '이 주차의 코드는 브라우저에 표시되는 합성 예제입니다. 실제 셸 획득, 보호 우회, 원격 프로세스 제어는 다루지 않으며, 경계 검사·안전한 API·오류 처리·회귀 테스트의 방어 관점을 학습합니다.'], nodes: ['입력 길이 확인', '대상 용량 비교', '안전한 거절 또는 복사', '오류 기록', '정상 fixture 재시험'], misconception: ['버퍼 크기를 크게 잡으면 모든 경계 검증이 필요 없어진다.', '크래시가 없으면 메모리 안전성 문제도 없었다.'], checkpoints: [{ title: '원인 설명', prompt: '구조적 원인 설명으로 가장 알맞은 것은?', options: ['입력이 이상함', '복사 전 입력 길이와 대상 경계를 검증하지 않음', '보호 기법 이름을 모름'], answer: 1, explanation: '경계 검증 누락을 설명해야 안전한 수정으로 이어집니다.' }, { title: '안전한 실패', prompt: '입력이 허용 범위를 넘을 때 적절한 동작은?', options: ['경계를 무시하고 계속 복사', '안전한 오류 반환과 기록', '실제 대상에 다시 전송'], answer: 1, explanation: '경계를 확인하고 안전하게 거절한 뒤 재시험합니다.' }], labId: week10Lab.id, sourceIds: ['cwe120', 'cwe787'], bullets: ['원인은 입력 길이와 대상 경계의 검증 누락으로 설명한다.', '안전한 실패·오류 처리·회귀 테스트가 함께 필요하다.', '실제 공격 절차는 교육 범위가 아니다.'] }),
       lesson({ id: 'w10-mitigations', title: 'NX·ASLR·PIE·Canary의 역할과 한계', duration: 40, summary: '완화기법은 피해 가능성을 줄이는 방어층이며, 입력 경계 검증과 안전한 설계를 대체하지 않습니다.', question: '보호 기법이 켜진 빌드에서도 근본 원인 수정이 필요한 이유는 무엇일까?', paragraphs: ['NX는 특정 메모리 영역의 실행을 제한하고, ASLR·PIE는 배치 예측을 어렵게 하며, Canary는 일부 스택 손상 징후를 탐지하는 데 도움을 줍니다. 각각이 줄이는 경로와 적용 조건은 다릅니다.', '하지만 완화기법은 구현 결함이 존재하지 않게 만들지는 않습니다. 경계 검증, 안전한 API, 최소 권한, 오류 처리, 테스트가 근본 원인을 줄이고 완화기법은 그 위의 추가 방어층으로 작동합니다.'], nodes: ['근본 원인 수정', 'Canary 손상 징후', 'NX 실행 제한', 'ASLR·PIE 배치 다양화', '정상·실패 재시험'], misconception: ['Canary가 있으면 어떤 입력도 안전하다.', 'ASLR을 쓰면 버그를 수정하지 않아도 된다.'], checkpoints: [{ title: '방어층', prompt: '근본 원인 수정과 별도로 완화기법을 쓰는 이유는?', options: ['서로 다른 실패 경로를 줄이기 위해', '코드 검토를 없애기 위해', '실제 서비스에 시험하기 위해'], answer: 0, explanation: '여러 통제는 서로 다른 경로와 영향 범위를 줄입니다.' }, { title: '한계', prompt: 'NX의 설명으로 적절한 것은?', options: ['특정 메모리 영역 실행을 제한하는 방어층', '입력 길이를 자동으로 검증하는 함수', 'DB 권한을 관리하는 정책'], answer: 0, explanation: 'NX는 실행 권한을 제한하지만 입력 경계 검증을 대체하지 않습니다.' }], labId: week10Lab.id, sourceIds: ['gcc', 'cwe120'], bullets: ['완화기법은 근본 수정의 대체물이 아니다.', '각 통제는 다른 실패 경로를 줄인다.', '방어층과 재시험을 함께 기록한다.'] }),
       lesson({ id: 'w10-retest', title: '수정과 재시험: 크래시보다 경계 확인', duration: 36, summary: '합성 경계 초과 fixture와 정상 fixture를 비교해 수정이 안전한 거절과 정상 기능 유지를 모두 만족하는지 확인합니다.', question: '수정 후 오류 fixture가 거절된 것만으로 왜 완료라고 할 수 없을까?', paragraphs: ['수정은 경계 초과 입력을 안전하게 거절해야 하고, 정상 입력이 같은 기능을 계속 수행하는지도 확인해야 합니다. 이 두 결과를 함께 남겨야 오류를 숨긴 것이 아니라 동작을 안전하게 바꿨다고 설명할 수 있습니다.', '보고서에서는 보호 기법 상태를 증거로 적을 수 있지만, 그것을 영향 확정이나 근본 원인 해결의 증거로 과장하지 않습니다. 합성 프로그램·합성 fixture·재시험 조건·남은 한계를 분리해 기록합니다.'], nodes: ['수정 전 합성 실패', '경계·오류 처리 수정', '경계 초과 안전 거절', '정상 fixture 성공 유지', '방어층과 한계 기록'], misconception: ['정상 입력이 실패해도 경계 초과가 막혔으면 성공이다.', '보호 기법 상태만 캡처하면 재시험 기록이 된다.'], checkpoints: [{ title: '재시험 조합', prompt: '수정 후 필요한 최소 비교는?', options: ['경계 초과 fixture와 정상 fixture', '실제 운영 대상과 임의 입력', '보호 기법 이름만 확인'], answer: 0, explanation: '안전 거절과 정상 기능 유지가 함께 확인되어야 합니다.' }, { title: '보고 한계', prompt: '합성 코드에서 Canary가 켜진 것을 봤을 때 적절한 표현은?', options: ['모든 메모리 버그 해결 확정', '추가 방어층 상태를 관찰했으며 경계 수정은 별도 확인', '실제 서비스 공격 가능성 확정'], answer: 1, explanation: '완화기법 관찰과 근본 원인 수정은 분리해 기록합니다.' }], labId: week10Lab.id, sourceIds: ['cwe787', 'gcc'], bullets: ['수정은 안전 거절과 정상 경로를 함께 시험한다.', '보호 기법 관찰은 근본 수정 증거가 아니다.', '합성 fixture와 한계를 기록한다.'] }),
     ],

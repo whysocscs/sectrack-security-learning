@@ -5,12 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "lint": "eslint src test e2e eslint.config.js playwright.config.js",
+    "lint": "eslint src test e2e scripts eslint.config.js playwright.config.js",
     "test": "node --test test/*.test.js",
     "test:browser": "playwright test",
+    "test:browser:contracts": "playwright test e2e/lms024-contracts.spec.js --project=desktop",
+    "validate:content": "node scripts/validate-content.mjs",
     "build": "vite build",
+    "budget:initial": "node scripts/check-initial-bundle-budget.mjs",
+    "build:budget": "npm run build && npm run budget:initial",
     "preview": "vite preview --host 0.0.0.0",
-    "check": "npm run lint && npm run test && npm run build"
+    "check": "npm run validate:content && npm run lint && npm run test && npm run build:budget"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.3",

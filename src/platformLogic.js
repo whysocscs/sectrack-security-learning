@@ -12,6 +12,8 @@ export { findSensitiveData, redactSensitive, reportQualityScore, reportToMarkdow
 export const STORAGE_KEY = 'sectrack-orchestrator-v2'
 
 export const initialProgress = {
+  learningPlanVersion: 1,
+  weekOneContentVersion: 1,
   modulesRead: {},
   moduleNotes: {},
   moduleChecks: {},
@@ -20,6 +22,7 @@ export const initialProgress = {
   submissions: {},
   quizScores: {},
   quizAttempts: {},
+  quizSeeds: {},
   conceptEvidence: {},
   hintUsage: {},
   mastery: {},
@@ -139,7 +142,7 @@ function remapConceptEvidence(conceptEvidence = {}) {
   }))
 }
 
-function migrateMergedLinuxWeek(value) {
+function migrateMergedLinuxWeek(value, migrationSource) {
   const source = value && typeof value === 'object' ? value : {}
   if (source.learningPlanVersion === LINUX_WEEK_MERGE_VERSION) return source
 
@@ -218,6 +221,8 @@ function migrateMergedLinuxWeek(value) {
         ...(source.learningPlanMigration || {}),
         linuxWeekMerge: {
           version: LINUX_WEEK_MERGE_VERSION,
+          sourceStorageVersion: 2,
+          source: migrationSource,
           quizAttempts: legacyQuizAttempts,
           quizScores: legacyQuizScores,
           weeklyRecords: legacyWeeklyRecords,
@@ -228,7 +233,7 @@ function migrateMergedLinuxWeek(value) {
   }
 }
 
-function migrateConsolidatedWeekOne(value) {
+function migrateConsolidatedWeekOne(value, migrationSource) {
   const source = value && typeof value === 'object' ? value : {}
   if (source.weekOneContentVersion === WEEK_ONE_CONTENT_CONSOLIDATION_VERSION) return source
 
@@ -280,6 +285,8 @@ function migrateConsolidatedWeekOne(value) {
         ...(source.learningPlanMigration || {}),
         weekOneContentConsolidation: {
           version: WEEK_ONE_CONTENT_CONSOLIDATION_VERSION,
+          sourceStorageVersion: 2,
+          source: migrationSource,
           retiredModules: retiredRecords,
           retiredLabs,
         },
@@ -288,8 +295,20 @@ function migrateConsolidatedWeekOne(value) {
   }
 }
 
-export function mergeProgress(value) {
-  const source = migrateConsolidatedWeekOne(migrateMergedLinuxWeek(value))
+export function mergeProgress(value, options = {}) {
+  const input = value && typeof value === 'object' ? value : {}
+  const migratedLegacy = options.migrationSource === 'legacy-v2'
+    ? migrateConsolidatedWeekOne(migrateMergedLinuxWeek(input, options.migrationSource), options.migrationSource)
+    : null
+  const source = migratedLegacy
+    ? {
+        ...migratedLegacy,
+        learningPlanMigration: {
+          ...(migratedLegacy.learningPlanMigration || {}),
+          storageSource: { source: options.migrationSource, schemaVersion: 2 },
+        },
+      }
+    : input
   return {
     ...initialProgress,
     ...source,
@@ -301,6 +320,7 @@ export function mergeProgress(value) {
     submissions: { ...initialProgress.submissions, ...(source.submissions || {}) },
     quizScores: { ...initialProgress.quizScores, ...(source.quizScores || {}) },
     quizAttempts: { ...initialProgress.quizAttempts, ...(source.quizAttempts || {}) },
+    quizSeeds: { ...initialProgress.quizSeeds, ...(source.quizSeeds || {}) },
     conceptEvidence: { ...initialProgress.conceptEvidence, ...(source.conceptEvidence || {}) },
     hintUsage: { ...initialProgress.hintUsage, ...(source.hintUsage || {}) },
     mastery: { ...initialProgress.mastery, ...(source.mastery || {}) },
@@ -362,13 +382,14 @@ export function calculateWeekProgress(week, progress) {
 export function getNextTask(weeks, progress) {
   const availableWeeks = Array.isArray(weeks) ? weeks.filter((week) => week && typeof week === 'object') : []
   const state = progress && typeof progress === 'object' ? progress : {}
+  const activityRecorded = (activityId) => ['activity-recorded', 'completed'].includes(state.labs?.[activityId]?.status)
   const latestQuizAttempt = (weekIndex) => {
     const attempts = state.quizAttempts?.[weekIndex]
     return (Array.isArray(attempts) ? attempts.at(-1) : undefined) || state.quizScores?.[weekIndex]
   }
   for (const week of availableWeeks) {
     if (week.index === 0) {
-      if (state.labs?.['w0-map']?.status !== 'completed') return { type: 'lab', week: 0, id: 'w0-map', title: '나의 보안 지도 만들기', label: '나의 보안 지도', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'map' } }
+      if (!activityRecorded('w0-map')) return { type: 'lab', week: 0, id: 'w0-map', title: '나의 보안 지도 만들기', label: '나의 보안 지도', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'map' } }
       const latestQuiz = latestQuizAttempt(0)
       const quizPassed = latestQuiz?.passed ?? (latestQuiz?.percent || 0) >= 80
       if (!quizPassed) return { type: 'quiz', week: 0, id: 'quiz-0', title: 'Week 0 이해 확인', label: '이해 확인', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'quiz' } }
@@ -378,12 +399,12 @@ export function getNextTask(weeks, progress) {
       if (!state.modulesRead?.[module.id]) return { type: 'module', week: week.index, id: module.id, title: module.title, label: '개념 읽기', estimatedMinutes: module.duration, route: { page: 'week', week: week.index, tab: 'concepts', moduleId: module.id } }
     }
     for (const lab of (Array.isArray(week.labs) ? week.labs : []).filter((item) => item?.path !== 'extension')) {
-      if (state.labs?.[lab.id]?.status !== 'completed') return { type: 'lab', week: week.index, id: lab.id, title: lab.title, label: lab.kind === 'external' ? '공식 외부 활동' : '실습', estimatedMinutes: lab.estimatedMinutes, route: { page: 'lab', labId: lab.id } }
+      if (!activityRecorded(lab.id)) return { type: 'lab', week: week.index, id: lab.id, title: lab.title, label: lab.kind === 'external' ? '공식 외부 활동' : '실습', estimatedMinutes: lab.estimatedMinutes, route: { page: 'lab', labId: lab.id } }
     }
     const latestQuiz = latestQuizAttempt(week.index)
     const quizPassed = latestQuiz?.passed ?? (latestQuiz?.percent || 0) >= 80
     if (!quizPassed) return { type: 'quiz', week: week.index, id: `quiz-${week.index}`, title: `${week.index}주차 이해 확인`, label: '이해 확인', estimatedMinutes: week.quizMinutes || 15, route: { page: 'week', week: week.index, tab: 'quiz' } }
-    if (week.weeklyRecord && !state.submissions?.[`week-${week.index}`]) return { type: 'record', week: week.index, id: `record-${week.index}`, title: `${week.index}주차 학습 정리`, label: '주차 정리', estimatedMinutes: week.recordMinutes || 25, route: { page: 'week', week: week.index, tab: 'record' } }
+    if (week.weeklyRecord && state.submissions?.[`week-${week.index}`]?.status !== 'evidence-ready') return { type: 'record', week: week.index, id: `record-${week.index}`, title: `${week.index}주차 학습 정리`, label: '주차 정리', estimatedMinutes: week.recordMinutes || 25, route: { page: 'week', week: week.index, tab: 'record' } }
   }
   const finalWeek = availableWeeks.reduce((latest, week) => (
     !latest || Number(week.index) > Number(latest.index) ? week : latest
@@ -431,6 +452,14 @@ export function buildXssTrace(kind, mode = 'marker', contextMode = 'body') {
   return contextMode === 'body' ? (traces[kind] || traces['xss-reflected']) : (contextTraces[contextMode] || traces[kind] || traces['xss-reflected'])
 }
 
+function safeDecodeURIComponent(value) {
+  try {
+    return { ok: true, value: decodeURIComponent(value) }
+  } catch {
+    return { ok: false, value: null }
+  }
+}
+
 export function parseHash(hash = '') {
   const clean = String(hash).replace(/^#\/?/, '').replace(/\/$/, '')
   if (!clean) return { page: 'home' }
@@ -439,8 +468,19 @@ export function parseHash(hash = '') {
     if (!parts[3]) return { page: 'week', week: Number(parts[2]) }
     const week = Number(parts[2])
     const tabs = week === 0 ? ['overview', 'concepts', 'labs', 'glossary', 'careers', 'map', 'quiz'] : ['overview', 'concepts', 'labs', 'quiz', 'record']
-    if (!tabs.includes(parts[3]) || (parts[4] && parts[3] !== 'concepts') || parts.length > 5) return { page: 'not-found', path: clean }
-    return { page: 'week', week, tab: parts[3], ...(parts[4] ? { moduleId: decodeURIComponent(parts[4]) } : {}) }
+    const hasSectionRoute = parts.length === 7 && parts[3] === 'concepts' && parts[4] && parts[5] === 'section' && parts[6]
+    if (!tabs.includes(parts[3]) || (parts[4] && parts[3] !== 'concepts') || (parts.length > 5 && !hasSectionRoute)) return { page: 'not-found', path: clean }
+    if (!parts[4]) return { page: 'week', week, tab: parts[3] }
+    const decodedModuleId = safeDecodeURIComponent(parts[4])
+    const decodedSectionId = hasSectionRoute ? safeDecodeURIComponent(parts[6]) : { ok: true, value: null }
+    if (!decodedModuleId.ok || !decodedSectionId.ok) return { page: 'not-found', path: clean, reason: 'malformed-uri-component' }
+    return {
+      page: 'week',
+      week,
+      tab: parts[3],
+      moduleId: decodedModuleId.value,
+      ...(decodedSectionId.value ? { sectionId: decodedSectionId.value } : {}),
+    }
   }
   if (parts[0] === 'learn' && parts[1] === 'week') return { page: 'not-found', path: clean }
   if (parts[0] === 'labs' && parts[1]) return { page: 'lab', labId: parts.slice(1).join('/') }
@@ -455,7 +495,8 @@ export function routeToHash(route) {
   if (route.page === 'home') return '#/'
   if (route.page === 'week') {
     const tab = route.tab || 'overview'
-    const modulePath = tab === 'concepts' && route.moduleId ? `/${encodeURIComponent(route.moduleId)}` : ''
+    const sectionPath = tab === 'concepts' && route.moduleId && route.sectionId ? `/section/${encodeURIComponent(route.sectionId)}` : ''
+    const modulePath = tab === 'concepts' && route.moduleId ? `/${encodeURIComponent(route.moduleId)}${sectionPath}` : ''
     return `#/learn/week/${route.week}/${tab}${modulePath}`
   }
   if (route.page === 'lab') return `#/labs/${route.labId}`

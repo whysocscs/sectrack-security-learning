@@ -67,6 +67,25 @@ test('week tabs and modules round-trip while invalid routes stay explicit', () =
   assert.deepEqual(parseHash('#/labs/w0-map'), { page: 'lab', labId: 'w0-map' })
   assert.deepEqual(parseHash('#/admin'), { page: 'insights', legacyRoute: true })
   assert.deepEqual(parseHash('#/bad/path'), { page: 'not-found', path: 'bad/path' })
+  const sectionRoute = { ...moduleRoute, sectionId: 'w3-http-checkpoint-1' }
+  assert.equal(routeToHash(sectionRoute), '#/learn/week/3/concepts/w3-http/section/w3-http-checkpoint-1')
+  assert.deepEqual(parseHash(routeToHash(sectionRoute)), sectionRoute)
+  assert.equal(parseHash('#/learn/week/3/concepts/w3-http/extra').page, 'not-found')
+})
+
+test('malformed encoded module ids become recoverable not-found routes without throwing', () => {
+  for (const malformed of ['%', '%E0%A4%A', '%ZZ']) {
+    const hash = `#/learn/week/3/concepts/${malformed}`
+    assert.doesNotThrow(() => parseHash(hash))
+    assert.deepEqual(parseHash(hash), {
+      page: 'not-found',
+      path: `learn/week/3/concepts/${malformed}`,
+      reason: 'malformed-uri-component',
+    })
+  }
+
+  const koreanRoute = { page: 'week', week: 3, tab: 'concepts', moduleId: '한국어 모듈' }
+  assert.deepEqual(parseHash(routeToHash(koreanRoute)), koreanRoute)
 })
 
 test('next task contains an exact route for module, quiz, and weekly record', () => {
@@ -81,6 +100,38 @@ test('next task contains an exact route for module, quiz, and weekly record', ()
   const recordTask = getNextTask(weeks, mergeProgress({ learningPlanVersion: 1, modulesRead: { m1: true }, quizScores: { 1: { percent: 100 } } }))
   assert.equal(recordTask.type, 'record')
   assert.deepEqual(recordTask.route, { page: 'week', week: 1, tab: 'record' })
+
+  const stillRecordTask = getNextTask(weeks, mergeProgress({
+    learningPlanVersion: 1,
+    modulesRead: { m1: true },
+    quizScores: { 1: { percent: 100 } },
+    submissions: { 'week-1': { status: 'recorded' } },
+  }))
+  assert.equal(stillRecordTask.type, 'record')
+
+  const reviewTask = getNextTask(weeks, mergeProgress({
+    learningPlanVersion: 1,
+    modulesRead: { m1: true },
+    quizScores: { 1: { percent: 100 } },
+    submissions: { 'week-1': { status: 'evidence-ready' } },
+  }))
+  assert.equal(reviewTask.type, 'review')
+})
+
+test('next task accepts activity-recorded and legacy completed lab states, including the Week 0 map', () => {
+  const weekZero = [{ index: 0, modules: [], labs: [] }]
+  const weekOne = [{
+    index: 1,
+    modules: [],
+    labs: [{ id: 'lab-1', title: '로컬 실습', estimatedMinutes: 10 }],
+  }]
+
+  assert.equal(getNextTask(weekZero, mergeProgress()).id, 'w0-map')
+  assert.equal(getNextTask(weekZero, mergeProgress({ labs: { 'w0-map': { status: 'activity-recorded' } } })).type, 'quiz')
+  assert.equal(getNextTask(weekZero, mergeProgress({ labs: { 'w0-map': { status: 'completed' } } })).type, 'quiz')
+  assert.equal(getNextTask(weekOne, mergeProgress({ labs: { 'lab-1': { status: 'attempted' } } })).id, 'lab-1')
+  assert.equal(getNextTask(weekOne, mergeProgress({ labs: { 'lab-1': { status: 'activity-recorded' } } })).type, 'quiz')
+  assert.equal(getNextTask(weekOne, mergeProgress({ labs: { 'lab-1': { status: 'completed' } } })).type, 'quiz')
 })
 
 test('completed curriculum falls back to the final available week review', () => {
@@ -103,7 +154,7 @@ test('legacy Week 1 and 2 progress merges into the new Week 1 without losing rec
       'week-3': true,
     },
     conceptEvidence: { 'w3-http': { quizResults: [{ weekIndex: 3 }], latestQuizResult: { weekIndex: 3 } } },
-  })
+  }, { migrationSource: 'legacy-v2' })
 
   assert.equal(progress.learningPlanVersion, 1)
   assert.deepEqual(progress.quizScores[1].migratedFromWeeks, [1, 2])
@@ -121,6 +172,28 @@ test('legacy Week 1 and 2 progress merges into the new Week 1 without losing rec
     week2: { status: 'recorded', completedAt: '2026-07-11T10:00:00.000Z' },
   })
   assert.equal(progress.conceptEvidence['w3-http'].latestQuizResult.weekIndex, 2)
+  assert.deepEqual(progress.learningPlanMigration.storageSource, { source: 'legacy-v2', schemaVersion: 2 })
+})
+
+test('current progress never remaps week keys without an explicit legacy source', () => {
+  const progress = mergeProgress({
+    quizScores: { 3: { percent: 80 } },
+    evidence: { 'week-3': { command: 'http' } },
+    submissions: { 'week-3': { status: 'recorded' } },
+    conceptEvidence: { 'w3-http': { latestQuizResult: { weekIndex: 3 } } },
+    futureData: { retained: true },
+    quizSeeds: { 3: 'stable-week-3-seed' },
+  })
+
+  assert.equal(progress.learningPlanVersion, 1)
+  assert.equal(progress.quizScores[3].percent, 80)
+  assert.equal(progress.quizScores[2], undefined)
+  assert.deepEqual(progress.evidence['week-3'], { command: 'http' })
+  assert.equal(progress.evidence['week-2'], undefined)
+  assert.deepEqual(progress.submissions['week-3'], { status: 'recorded' })
+  assert.equal(progress.conceptEvidence['w3-http'].latestQuizResult.weekIndex, 3)
+  assert.deepEqual(progress.futureData, { retained: true })
+  assert.equal(progress.quizSeeds[3], 'stable-week-3-seed')
 })
 
 test('retired Week 1 Linux modules and labs remain preserved while overlapping concepts map to the consolidated reader', () => {
@@ -132,7 +205,7 @@ test('retired Week 1 Linux modules and labs remain preserved while overlapping c
     conceptEvidence: { 'w2-text': { selfExplanation: { text: 'find 뒤 grep' } } },
     labs: { 'w1-path': { status: 'completed' }, 'w2-bandit': { status: 'attempted' } },
     activityRecords: { 'w1-path': { procedure: 'pwd' } },
-  })
+  }, { migrationSource: 'legacy-v2' })
 
   assert.equal(progress.modulesRead['w1-permission'], true)
   assert.equal(progress.modulesRead['w1-navigation'], true)
