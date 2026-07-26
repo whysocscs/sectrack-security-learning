@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
+import { localContentAuthoringPlugin } from './scripts/local-content-authoring.mjs'
 
 export default defineConfig({
+  plugins: [localContentAuthoringPlugin()],
   build: {
     rolldownOptions: {
       output: {

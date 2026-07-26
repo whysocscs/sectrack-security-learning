@@ -2,7 +2,6 @@ import { CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react'
 import { weekContent } from '../courseData.js'
 import { getConcepts } from '../content/conceptRegistry.js'
 import {
-  EDUCATIONAL_CODE_NOTICE,
   getLessonBlockAnchor,
   getLessonBlocks,
   validateCheckpointAnswer,
@@ -90,16 +89,15 @@ const evidenceLabels = {
   'official-patch': '공식 수정 diff',
   'official-remediation': '공식 공급자 수정 기록',
   'standards-derived': '공식 표준 기반 모델',
-  'educational-model': '교육용 구조 모델',
   'actual-project-source': '실제 프로젝트 소스',
   'official-upstream-patch': '공식 upstream patch',
   'standards-derived-model': 'RFC·표준 기반 모델',
-  'educational-reconstruction': '교육용 재구성 예제',
   'author-guidance': '작성자 해설·권장 설계',
 }
 
 function EvidenceMeta({ block }) {
   const evidenceType = block.evidenceKind || block.sourceType
+  if (evidenceType === 'educational-model' || evidenceType === 'educational-reconstruction') return null
   const label = evidenceLabels[evidenceType] || '출처 수준 확인 필요'
   return <div className={`lesson-evidence-meta evidence-${evidenceType || 'unknown'}`} aria-label={`자료 유형: ${label}`}>
     <strong>{label}</strong>
@@ -137,7 +135,7 @@ function PatchLineage({ block }) {
 }
 
 function GenericCodeProvenance({ block }) {
-  return <><EvidenceMeta block={block} />{block.sourceType === 'educational-reconstruction' && <p className="educational-code-notice">{EDUCATIONAL_CODE_NOTICE}</p>}</>
+  return <EvidenceMeta block={block} />
 }
 
 function Mechanism({ block }) {
@@ -153,7 +151,6 @@ function Mechanism({ block }) {
 function CodeTrace({ block }) {
   return <article className="lesson-code-trace">
     <header><EvidenceMeta block={block} /><BlockHeading block={block} /></header>
-    {block.evidenceKind === 'educational-model' && <p className="educational-code-notice">{EDUCATIONAL_CODE_NOTICE}</p>}
     {block.description && <p className="code-trace-description"><InlineCodeText text={block.description} /></p>}
     <pre tabIndex="0" aria-label={`${block.title || '코드 추적'} 코드 영역`}><code>{block.code}</code></pre>
     <ol className="code-trace-steps">{block.trace.map((step) => <li key={`${step.lines}-${step.action}`}><strong>줄 {step.lines}</strong><dl><div><dt>실행 전</dt><dd><InlineCodeText text={step.before} /></dd></div><div><dt>이 줄의 동작</dt><dd><InlineCodeText text={step.action} /></dd></div><div><dt>실행 후</dt><dd><InlineCodeText text={step.after} /></dd></div></dl></li>)}</ol>
@@ -198,7 +195,6 @@ function PatchDiff({ block }) {
 function PatchAnalysis({ block }) {
   return <article className="lesson-patch-analysis">
     <header><EvidenceMeta block={block} /><BlockHeading block={block} /></header>
-    {block.evidenceKind === 'educational-model' && <p className="educational-code-notice">{EDUCATIONAL_CODE_NOTICE}</p>}
     {block.description && <p className="patch-description"><InlineCodeText text={block.description} /></p>}
     <div className="patch-code-grid"><section><h4>{block.before.label}</h4><pre tabIndex="0"><code>{block.before.code}</code></pre></section><section><h4>{block.after.label}</h4><pre tabIndex="0"><code>{block.after.code}</code></pre></section></div>
     <PatchDiff block={block} />
@@ -241,22 +237,17 @@ function CveCase({ block }) {
   </article>
 }
 
-function ModuleLearningMeta({ module, blocks }) {
+function ModuleLearningMeta({ module }) {
   if (['deep-guide-v2', 'deep-guide-v3', 'case-dossier-v1', 'patch-workshop-v1'].includes(module.contentLevel)) return null
-  const estimatedMinutes = Number(module.estimatedMinutes ?? module.duration)
-  const learningQuestionBlock = blocks.find((block) => ['question', 'prerequisite-check'].includes(block?.type))
-  const learningQuestion = module.learningQuestion || learningQuestionBlock?.body || learningQuestionBlock?.prompt
   const prerequisiteConcepts = getConcepts(module.prerequisiteConceptIds || [])
-  if (!(estimatedMinutes > 0) && !learningQuestion && !prerequisiteConcepts.length) return null
+  if (!prerequisiteConcepts.length) return null
   return <dl className="lesson-module-meta" aria-label="모듈 학습 정보">
-    {estimatedMinutes > 0 && <div><dt>예상 학습 시간</dt><dd>{estimatedMinutes}분</dd></div>}
-    {prerequisiteConcepts.length > 0 && <div><dt>선수 개념</dt><dd>{prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>)}</dd></div>}
-    {learningQuestion && <div><dt>이 모듈의 질문</dt><dd><InlineCodeText text={learningQuestion} /></dd></div>}
+    <div><dt>선수 개념</dt><dd>{prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>)}</dd></div>
   </dl>
 }
 
 function SectionJump({ moduleId, blocks, duplicateBlockIndexes, activeSectionId, onSectionNavigate, sectionHref }) {
-  const sections = blocks.map((block, index) => ({ block, index })).filter(({ block, index }) => !duplicateBlockIndexes.has(index) && (block?.title || block?.type === 'checkpoint'))
+  const sections = blocks.map((block, index) => ({ block, index })).filter(({ block, index }) => block?.type !== 'question' && !duplicateBlockIndexes.has(index) && (block?.title || block?.type === 'checkpoint'))
   if (sections.length < 2) return null
   return <nav className="lesson-section-jump" aria-label="이 모듈 절 바로 가기"><span>이 모듈에서 바로 가기</span><div>{sections.map(({ block, index }, sectionIndex) => {
     const targetId = getLessonBlockAnchor(moduleId, block, index)
@@ -281,12 +272,13 @@ export default function LessonRenderer({ module, activeSectionId, onSectionNavig
     if (seenBlockIds.has(block.id)) duplicateBlockIndexes.add(index)
     else seenBlockIds.add(block.id)
   })
-  return <div className="lesson-blocks"><ModuleLearningMeta module={module} blocks={blocks} /><SectionJump moduleId={moduleId} blocks={blocks} duplicateBlockIndexes={duplicateBlockIndexes} activeSectionId={activeSectionId} onSectionNavigate={onSectionNavigate} sectionHref={sectionHref} />{blocks.map((block, index) => {
+  return <div className="lesson-blocks"><ModuleLearningMeta module={module} /><SectionJump moduleId={moduleId} blocks={blocks} duplicateBlockIndexes={duplicateBlockIndexes} activeSectionId={activeSectionId} onSectionNavigate={onSectionNavigate} sectionHref={sectionHref} />{blocks.map((block, index) => {
     const baseId = getLessonBlockAnchor(moduleId, block, index)
     const id = duplicateBlockIndexes.has(index) ? `${baseId}-duplicate-${index + 1}` : baseId
     const questionNumber = blocks.slice(0, index + 1).filter((item, itemIndex) => item?.type === 'checkpoint' && !duplicateBlockIndexes.has(itemIndex)).length
     if (duplicateBlockIndexes.has(index) || validateLessonBlock(block, index).length) return <div id={id} key={id}><ContentError moduleId={moduleId} block={block} index={index} /></div>
-    if (block.type === 'question' || block.type === 'prerequisite-check') return <section id={id} key={id} className={`lesson-question ${block.type === 'prerequisite-check' ? 'prerequisite' : ''} ${block.variant ? `variant-${block.variant}` : ''}`}><span>{block.type === 'question' ? 'LEARNING QUESTION' : 'BEFORE YOU CONTINUE'}</span><BlockHeading block={block} /><p><InlineCodeText text={block.body || block.prompt} /></p></section>
+    if (block.type === 'question') return null
+    if (block.type === 'prerequisite-check') return <section id={id} key={id} className={`lesson-question prerequisite ${block.variant ? `variant-${block.variant}` : ''}`}><span>BEFORE YOU CONTINUE</span><BlockHeading block={block} /><p><InlineCodeText text={block.body || block.prompt} /></p></section>
     if (block.type === 'explanation') return <section id={id} key={id} className={`lesson-explanation ${block.variant ? `variant-${block.variant}` : ''}`}><BlockHeading block={block} />{(block.paragraphs || [block.body]).filter(Boolean).map((paragraph, paragraphIndex) => <p key={`${id}-${paragraphIndex}`}><InlineCodeText text={paragraph} /></p>)}</section>
     if (block.type === 'diagram') return <section id={id} key={id}><Diagram block={block} /></section>
     if (block.type === 'terminal' || block.type === 'http-message' || block.type === 'code') return <section id={id} key={id} className={`lesson-transcript ${block.type}`}><header><span>{block.type === 'terminal' ? 'TERMINAL' : block.type === 'http-message' ? 'HTTP MESSAGE' : (block.language || 'CODE').toUpperCase()}</span><BlockHeading block={block} /></header><GenericCodeProvenance block={block} />{block.description && <p><InlineCodeText text={block.description} /></p>}<pre tabIndex="0" aria-label={`${block.title || '전사'} 코드 영역`}><code>{block.command || block.message || block.code || ''}{block.output ? `\n${block.output}` : ''}</code></pre>{block.annotations?.length ? <ol>{block.annotations.map((annotation, annotationIndex) => <li key={`${annotation}-${annotationIndex}`}><InlineCodeText text={annotation} /></li>)}</ol> : null}</section>

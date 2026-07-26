@@ -12,6 +12,25 @@ test('learning roadmap renders from its direct hash route', async ({ page }) => 
   await expect(page.locator('.roadmap-item').filter({ hasText: '보안 기초·Linux·도구' })).toBeVisible()
 })
 
+test('local page editor is available on Week 0 glossary and previews selected text without saving', async ({ page }) => {
+  await open(page, '#/learn/week/0/glossary')
+  await page.getByRole('button', { name: '페이지 편집', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: '화면 문구 직접 수정' })
+  await expect(editor).toBeVisible()
+  const glossaryTitle = page.locator('.glossary-detail h2')
+  const originalTitle = await glossaryTitle.textContent()
+  await glossaryTitle.click()
+  const text = editor.getByLabel('수정 문구')
+  await text.fill('화면에서 확인하는 보안 용어')
+  await expect(glossaryTitle).toHaveText('화면에서 확인하는 보안 용어')
+  await editor.getByRole('button', { name: '입력 취소' }).click()
+  await expect(glossaryTitle).toHaveText(originalTitle)
+
+  await editor.getByRole('button', { name: '페이지 편집 패널 닫기' }).click()
+  await open(page, '#/')
+  await expect(page.getByRole('button', { name: '페이지 편집', exact: true })).toBeVisible()
+})
+
 test('page navigation and local view selectors use current-page or pressed states instead of incomplete tabs', async ({ page }) => {
   await open(page, '#/learn/week/4')
   const weekNavigation = page.getByRole('navigation', { name: '주차 학습 메뉴' })
@@ -46,14 +65,22 @@ test('Week 0 to 2 learning routes load their intended reader or workspace', asyn
 })
 
 test('merged Week 1 keeps Linux reader and shell layouts within the viewport', async ({ page }) => {
-  await open(page, '#/learn/week/1/concepts/w1-navigation')
+  await open(page, '#/learn/week/1/concepts/w1-shell')
   await expect(page.locator('.reader-toc > button')).toHaveCount(10)
   await expect.poll(() => page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true)
+  await expect(page.locator('.lesson-question')).toHaveCount(0)
+  await expect(page.getByText('예상 학습 시간', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('이 모듈의 질문', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('LEARNING QUESTION', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('터미널에서 입력한 명령은 어떤 과정을 거쳐 파일을 읽고 화면에 출력될까?', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
+  await expect(page.getByText('교육용 재구성 예제', { exact: true })).toHaveCount(0)
+
+  await open(page, '#/learn/week/1/concepts/w1-navigation')
   const misconceptions = page.locator('.lesson-misconception li')
   await expect(misconceptions).toHaveCount(2)
   await expect(misconceptions.locator('> div')).toHaveCount(2)
   await expect(misconceptions.locator('> code')).toHaveCount(0)
-  await expect(page.locator('.lesson-question')).toHaveCount(1)
   await expect(page.getByText('CODECURELAB CASE')).toHaveCount(0)
   await expect(page.locator('.lesson-checkpoint')).toHaveCount(2)
   const firstCheckpoint = page.locator('.lesson-checkpoint').first()
@@ -83,7 +110,9 @@ test('merged Week 1 keeps Linux reader and shell layouts within the viewport', a
 test('display Week 03 XSS guide shows CVE evidence, retests, and exactly four allowed activities', async ({ page }) => {
   await open(page, '#/learn/week/3/concepts/w4-nature')
   await expect(page.locator('.reader-document > header h2')).toHaveText('검색어는 언제 HTML이 되는가')
-  await expect(page.getByText('이 모듈의 질문')).toBeVisible()
+  await expect(page.getByText('예상 학습 시간', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('이 모듈의 질문', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('LEARNING QUESTION', { exact: true })).toHaveCount(0)
   await expect(page.locator('.lesson-concept-ref details')).toHaveCount(5)
 
   await open(page, '#/learn/week/3/concepts/w4-taint')
@@ -91,7 +120,8 @@ test('display Week 03 XSS guide shows CVE evidence, retests, and exactly four al
   await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
   await expect(page.locator('.lesson-cve-case').getByText('CVE-2020-10688', { exact: true })).toBeVisible()
   await expect(page.locator('.lesson-mechanism')).toContainText('REST API가 문자열을 Java 값으로 바꾸다 실패하는 정상 경로')
-  await expect(page.locator('.lesson-code-trace')).toContainText('아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
+  await expect(page.getByText('교육용 재구성 예제', { exact: true })).toHaveCount(0)
   await expect(page.locator('.lesson-cve-case')).toContainText('RESTEasy는 Java 애플리케이션이 HTTP 요청을 JAX-RS resource 메서드와 Java parameter로 연결')
   await expect(page.locator('.lesson-patch-analysis')).toContainText('공식 수정 diff')
   await expect(page.locator('.lesson-patch-analysis')).toContainText('_encode(strVal)')
@@ -161,7 +191,8 @@ test('Week 5 SQLi reader connects database foundations, controls, and a safe des
   await expect(page.locator('.lesson-cve-case').getByText('CVE-2023-34362', { exact: true })).toBeVisible()
   await expect(page.locator('.cve-profile')).toContainText('managed file transfer')
   await expect(page.locator('.cve-profile')).toContainText('2023.0.1')
-  await expect(page.locator('.educational-code-notice').first()).toHaveText('아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
+  await expect(page.getByText('교육용 재구성 예제', { exact: true })).toHaveCount(0)
   await expect(page.locator('.lesson-patch-analysis')).toContainText('실제 취약 source')
   await expect(page.locator('.lesson-patch-analysis')).toContainText('db.query(sql, params)')
   await expect(page.locator('.lesson-impact-map')).toContainText('공격자가 직접 정할 수 없는 상태')
@@ -327,7 +358,7 @@ test('Week 08 debugger reader keeps the xz case at artifact-provenance review', 
   await expect(page.locator('.reader-document > header h2')).toHaveText('GDB로 실행 흐름 관찰하기')
   await expect(page.getByRole('heading', { name: '디버거는 같은 산출물의 실행을 멈춰 상태 전이를 비교한다' })).toBeVisible()
   await expect(page.locator('.lesson-code-trace')).toContainText('정상값과 범위 밖 값을 같은 중단점에서 비교하는 합성 GDB 전사')
-  await expect(page.locator('.lesson-code-trace')).toContainText('아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
 
   await open(page, '#/learn/week/8/concepts/w9-xz-provenance')
   await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
@@ -374,7 +405,7 @@ test('Week 09 memory-safety reader preserves root-fix and safe-retest boundaries
   await expect(page.getByRole('heading', { name: '복사 전에 데이터 길이·종료 byte·목적지 용량을 하나의 계약으로 계산한다' })).toBeVisible()
   await expect(page.locator('.lesson-code-trace')).toContainText("dst[length] = '\\0'")
   await expect(page.locator('.lesson-code-trace')).toContainText('객체 경계를 처음 벗어난 정확한 실패·효과 지점')
-  await expect(page.locator('.lesson-code-trace')).toContainText('아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
 
   await open(page, '#/learn/week/9/concepts/w10-sudo-overflow')
   await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
@@ -423,7 +454,7 @@ test('Week 10 AI-analysis reader uses xz only as evidence-verification context',
   await expect(page.getByRole('heading', { name: 'AI 답변은 결론이 아니라 검증 대기 중인 주장 묶음으로 처리한다' })).toBeVisible()
   await expect(page.locator('.lesson-code-trace')).toContainText('합성 claim ledger')
   await expect(page.locator('.lesson-code-trace')).toContainText('contradicted')
-  await expect(page.locator('.lesson-code-trace')).toContainText('아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
 
   await open(page, '#/learn/week/10/concepts/w11-xz-evidence')
   await expect(page.locator('.lesson-cve-case')).toHaveCount(1)
@@ -470,7 +501,7 @@ test('Week 11 crypto reader maps Terrapin to strict-KEX remediation without MITM
   await expect(page.locator('.reader-document > header h2')).toHaveText('인코딩·해시·암호화의 목적')
   await expect(page.getByRole('heading', { name: '같은 byte라도 표현·동일성 비교·기밀성 보호는 서로 다른 변환을 쓴다' })).toBeVisible()
   await expect(page.locator('.lesson-code-trace')).toContainText('training-key-handle')
-  await expect(page.locator('.lesson-code-trace')).toContainText('아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
+  await expect(page.locator('.educational-code-notice')).toHaveCount(0)
 
   await open(page, '#/learn/week/11/concepts/w12-terrapin-flow')
   await expect(page.locator('.lesson-cve-case')).toHaveCount(1)

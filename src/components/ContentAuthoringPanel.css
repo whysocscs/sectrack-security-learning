@@ -1,0 +1,324 @@
+.content-authoring-trigger {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 70;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  color: #fff;
+  background: #176d6b;
+  border: 1px solid #0f5755;
+  border-radius: 4px;
+  box-shadow: 0 5px 18px rgba(16, 44, 44, .2);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.content-authoring-trigger > span {
+  min-width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  color: #194544;
+  background: #ffd166;
+  border-radius: 10px;
+  font: 800 .6875rem var(--mono);
+}
+
+.content-authoring-panel {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 90;
+  width: min(430px, 100vw);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  color: #222c31;
+  background: #f7f8f6;
+  border-left: 1px solid #aeb9b7;
+  box-shadow: -8px 0 26px rgba(25, 36, 39, .18);
+}
+
+.content-authoring-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #fff;
+  border-bottom: 1px solid #ccd4d1;
+}
+
+.content-authoring-header span {
+  color: #176d6b;
+  font: 800 .6875rem var(--mono);
+  letter-spacing: .04em;
+}
+
+.content-authoring-header h2 {
+  margin: 5px 0 3px;
+  font-size: 1.125rem;
+}
+
+.content-authoring-header p {
+  max-width: 330px;
+  margin: 0;
+  color: #687278;
+  font: .6875rem/1.45 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.content-authoring-header button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #465258;
+  background: transparent;
+  border: 1px solid #ccd4d1;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.content-authoring-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+
+.content-authoring-body section {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #ccd4d1;
+  border-radius: 4px;
+}
+
+.content-authoring-body section + section {
+  margin-top: 14px;
+}
+
+.content-authoring-body section > header {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #e1e5e2;
+}
+
+.content-authoring-body section > header strong {
+  font-size: .9375rem;
+}
+
+.content-authoring-body section > header small,
+.content-authoring-footer > small {
+  color: #687278;
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.content-authoring-guide > label {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.content-authoring-guide > label > span {
+  color: #4c585e;
+  font-size: .75rem;
+  font-weight: 750;
+}
+
+.content-authoring-guide textarea {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  padding: 10px;
+  color: #222c31;
+  background: #fff;
+  border: 1px solid #aeb9b7;
+  border-radius: 3px;
+  font: .875rem/1.6 inherit;
+}
+
+.content-authoring-pick {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #176d6b;
+  background: #edf5f3;
+  border: 1px solid #a9cfca;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.content-authoring-selection {
+  margin-top: 14px;
+  padding: 10px 11px;
+  background: #f4f5f2;
+  border-left: 3px solid #7c8b8a;
+}
+
+.content-authoring-selection small,
+.content-authoring-saved-list small {
+  color: #687278;
+  font-size: .6875rem;
+  font-weight: 750;
+}
+
+.content-authoring-selection p,
+.content-authoring-saved-list p {
+  margin: 3px 0 0;
+  color: #354147;
+  font-size: .8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.content-authoring-saved-list {
+  display: grid;
+  gap: 8px;
+}
+
+.content-authoring-saved-list article {
+  display: grid;
+  grid-template-columns: 1fr 1fr 34px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  background: #f7f8f6;
+  border: 1px solid #dce2df;
+  border-radius: 3px;
+}
+
+.content-authoring-saved-list button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #8b3b32;
+  background: #fff;
+  border: 1px solid #d8b6b1;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.content-authoring-footer {
+  padding: 13px 16px 15px;
+  background: #fff;
+  border-top: 1px solid #ccd4d1;
+}
+
+.content-authoring-footer p {
+  min-height: 18px;
+  margin: 0 0 9px;
+  color: #536066;
+  font-size: .75rem;
+}
+
+.content-authoring-footer > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.content-authoring-footer button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  color: #334046;
+  background: #fff;
+  border: 1px solid #aeb9b7;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: .75rem;
+  font-weight: 750;
+}
+
+.content-authoring-footer button.primary {
+  color: #fff;
+  background: #176d6b;
+  border-color: #0f5755;
+}
+
+.content-authoring-footer button:disabled,
+.content-authoring-saved-list button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.content-authoring-footer code {
+  padding: 2px 5px;
+  color: #255a59;
+  background: #e6f0ee;
+  border-radius: 3px;
+  font-family: var(--mono);
+}
+
+.authoring-hover-target {
+  cursor: crosshair !important;
+  outline: 2px dashed #d59a10 !important;
+  outline-offset: 3px !important;
+}
+
+.authoring-selected-target {
+  outline: 2px solid #176d6b !important;
+  outline-offset: 3px !important;
+}
+
+.content-authoring-guide textarea:focus-visible,
+.content-authoring-panel button:focus-visible {
+  outline: 3px solid #f2ba38;
+  outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+  .content-authoring-trigger {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .content-authoring-panel {
+    inset: auto 0 0;
+    width: 100vw;
+    height: min(58vh, 520px);
+    border-top: 1px solid #aeb9b7;
+    border-left: 0;
+    box-shadow: 0 -8px 26px rgba(25, 36, 39, .18);
+  }
+
+  .content-authoring-panel.is-selecting {
+    height: min(38vh, 330px);
+  }
+
+  .content-authoring-header {
+    padding: 12px 14px;
+  }
+
+  .content-authoring-header span {
+    display: none;
+  }
+
+  .content-authoring-header h2 {
+    margin-top: 0;
+  }
+
+  .content-authoring-body {
+    padding: 9px;
+  }
+
+  .content-authoring-body section {
+    padding: 12px;
+  }
+}

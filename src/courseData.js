@@ -9,6 +9,7 @@ import { week5to10Content, week5to10Quizzes } from './data/curriculum/week5to10.
 import { week11to16Content, week11to16Quizzes } from './data/curriculum/week11to16.js'
 import { objectiveModuleAlignment } from './objectiveAlignment.js'
 import { applyBaseModuleArchitecture, getSupplementalLabs } from './content/curriculumArchitecture.js'
+import { applyContentOverrides } from './content/contentOverrides.js'
 
 export const masteryLabels = {
   unknown: '아직 모름',
@@ -90,7 +91,7 @@ function normalizeWeek(week) {
   const orderedModules = week.curriculumId === 'week-4'
     ? [...normalizedModules].sort((left, right) => week4CveFirstModuleOrder.indexOf(left.id) - week4CveFirstModuleOrder.indexOf(right.id))
     : normalizedModules
-  const modules = applyBaseModuleArchitecture(week.index, orderedModules)
+  const modules = applyContentOverrides(applyBaseModuleArchitecture(week.index, orderedModules))
   const supplementalLabs = getSupplementalLabs(week.index)
   const labs = [...week.labs, ...supplementalLabs].filter((lab) => !week.retiredActivityIds?.includes(lab.id)).map((lab) => ({
     ...lab,

@@ -48,8 +48,6 @@ export const GENERIC_CODE_SOURCE_TYPES = Object.freeze([
   'author-guidance',
 ])
 
-export const EDUCATIONAL_CODE_NOTICE = '아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.'
-
 const blockTypeSet = new Set(LESSON_BLOCK_TYPES)
 const codeEvidenceKindSet = new Set(CODE_EVIDENCE_KINDS)
 const genericCodeSourceTypeSet = new Set(GENERIC_CODE_SOURCE_TYPES)

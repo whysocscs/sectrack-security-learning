@@ -5,7 +5,6 @@ import { codeCureLab } from '../src/content/codeCureLab.js'
 import { conceptRegistry } from '../src/content/conceptRegistry.js'
 import { loadDeepGuideModules } from '../src/content/deepGuideLoader.js'
 import {
-  EDUCATIONAL_CODE_NOTICE,
   GENERIC_CODE_SOURCE_TYPES,
   getCheckpointMinimumLength,
   getLessonBlocks,
@@ -62,7 +61,6 @@ test('generic code blocks receive an explicit conservative provenance contract',
   const genericBlocks = Object.values(weekContent).flatMap((week) => week.modules).flatMap((module) => getLessonBlocks(module)).filter((block) => ['terminal', 'http-message', 'code'].includes(block.type))
   const normalized = getLessonBlocks({ id: 'provenance-example', title: '예시', blocks: [{ type: 'code', code: 'safe_training_value = true' }] })
 
-  assert.equal(EDUCATIONAL_CODE_NOTICE, '아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
   assert.equal(normalized[0].sourceType, 'educational-reconstruction')
   assert.ok(genericBlocks.length > 0)
   assert.ok(genericBlocks.every((block) => allowedSourceTypes.has(block.sourceType)))
@@ -625,8 +623,6 @@ test('display Week 03 through Week 15 satisfy the complete evidence, CVE, patch,
   const allowedLevels = new Set(['deep-guide-v3', 'concept-code-cve-v1', 'case-dossier-v1', 'patch-workshop-v1'])
   const allowedEvidenceKinds = new Set(['official-source', 'official-patch', 'official-remediation', 'standards-derived', 'educational-model'])
   const riskyEducationalCode = /curl\s+https?:|wget\s+https?:|nc\s+-|nmap\s|shellcode|AKIA[0-9A-Z]{16}|BEGIN PRIVATE KEY|os\.system\(|__import__\(/i
-
-  assert.equal(EDUCATIONAL_CODE_NOTICE, '아래 코드는 실제 프로젝트 소스 코드가 아니라, 공식 취약점 설명과 패치 구조를 단순화한 재현용 예제이다.')
 
   displayWeeks.forEach((weekIndex) => {
     const week = weekContent[weekIndex]

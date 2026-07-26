@@ -52,6 +52,7 @@ import LessonRenderer from './components/LessonRenderer'
 import { getConcepts } from './content/conceptRegistry'
 import { getLessonBlockAnchor, getLessonBlocks } from './content/lessonSchema'
 import { loadDeepGuideModules, supportsDeepGuide } from './content/deepGuideLoader'
+import { applyPageTextOverrides } from './content/pageTextOverrides'
 import { buildLocalLearningInsights } from './adapters/analytics'
 import { getLocalLearningGuidance } from './adapters/feedback'
 import {
@@ -73,6 +74,7 @@ const ReportsPage = React.lazy(() => import('./components/Reports').then((module
 const ReportEditor = React.lazy(() => import('./components/Reports').then((module) => ({ default: module.ReportEditor })))
 const WeekZeroWorkspace = React.lazy(() => import('./components/week0/WeekZeroWorkspace').then((module) => ({ default: module.default })))
 const WeekZeroExplorerPage = React.lazy(() => import('./components/week0/WeekZeroWorkspace').then((module) => ({ default: module.WeekZeroExplorerPage })))
+const ContentAuthoringPanel = import.meta.env.DEV ? React.lazy(() => import('./components/ContentAuthoringPanel')) : null
 
 const regularWeekCount = Object.values(weekContent).filter((week) => week.index > 0).length
 
@@ -234,11 +236,22 @@ export default function App() {
     ? `Week ${String(currentWeek.index).padStart(2, '0')} · ${activeModule?.title || currentWeek.title}`
     : roadmapWeek ? `Week ${String(roadmapWeek.index).padStart(2, '0')} · ${roadmapWeek.title}` : meta[0]
   const routeFocusKey = `${route.page}:${route.week ?? ''}:${route.tab ?? ''}:${route.moduleId ?? ''}:${route.labId ?? ''}:${route.reportId ?? ''}`
+  const authoringRouteKey = window.location.hash || '#/'
 
   useEffect(() => {
     document.title = `${pageTitle} · SecTrack`
     document.getElementById('main-content')?.focus({ preventScroll: true })
   }, [pageTitle, routeFocusKey])
+
+  useEffect(() => {
+    const root = document.getElementById('root')
+    if (!root) return undefined
+    const apply = () => applyPageTextOverrides(root, authoringRouteKey)
+    apply()
+    const observer = new MutationObserver(apply)
+    observer.observe(root, { childList: true, characterData: true, subtree: true })
+    return () => observer.disconnect()
+  }, [authoringRouteKey, routeFocusKey])
 
   const setSidebarMode = (sidebarMode) => updateProgress((current) => ({ ...current, settings: { ...current.settings, sidebarMode } }))
 
@@ -382,6 +395,7 @@ export default function App() {
           </RouteErrorBoundary>
         </main>
       </div>
+      {ContentAuthoringPanel && <React.Suspense fallback={null}><ContentAuthoringPanel routeKey={authoringRouteKey} /></React.Suspense>}
       {toast && <div className="toast" role="status"><CheckCircle2 size={17} />{toast}</div>}
     </div>
   )
@@ -753,9 +767,8 @@ function ConceptReader({ week, selectedId, sectionId, progress, updateProgress, 
   const lessonBlocks = useMemo(() => getLessonBlocks(selected), [selected])
   const sectionEntries = useMemo(() => lessonBlocks
     .map((block, index) => ({ block, index, targetId: getLessonBlockAnchor(selected.id, block, index) }))
-    .filter(({ block }) => block.title || block.type === 'checkpoint'), [lessonBlocks, selected.id])
+    .filter(({ block }) => block.type !== 'question' && (block.title || block.type === 'checkpoint')), [lessonBlocks, selected.id])
   const [activeSectionId, setActiveSectionId] = useState(sectionId || sectionEntries[0]?.targetId || '')
-  const isDeepGuide = ['deep-guide-v2', 'deep-guide-v3', 'case-dossier-v1', 'patch-workshop-v1'].includes(selected.contentLevel)
   const prerequisiteConcepts = getConcepts(selected.prerequisiteConceptIds || [])
   const toggleDone = () => updateProgress((current) => ({ ...current, modulesRead: { ...current.modulesRead, [selected.id]: !done } }))
   useEffect(() => {
@@ -824,14 +837,14 @@ function ConceptReader({ week, selectedId, sectionId, progress, updateProgress, 
   }
   return (
     <div className="reader-layout">
-      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{module.title}</strong></button>)}{sectionEntries.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sectionEntries.map(({ block, targetId }, index) => <a href={routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} aria-current={activeSectionId === targetId ? 'location' : undefined} key={targetId} onClick={(event) => { event.preventDefault(); scrollToSection(targetId) }}>{block.title || (week.index === 1 && block.type === 'checkpoint' ? `Question ${sectionEntries.slice(0, index + 1).filter((item) => item.block.type === 'checkpoint').length}.` : '중간 확인')}</a>)}</nav>}</aside>
+      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{selected.id === module.id ? selected.title : module.title}</strong></button>)}{sectionEntries.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sectionEntries.map(({ block, targetId }, index) => <a href={routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} aria-current={activeSectionId === targetId ? 'location' : undefined} key={targetId} onClick={(event) => { event.preventDefault(); scrollToSection(targetId) }}>{block.title || (week.index === 1 && block.type === 'checkpoint' ? `Question ${sectionEntries.slice(0, index + 1).filter((item) => item.block.type === 'checkpoint').length}.` : '중간 확인')}</a>)}</nav>}</aside>
       <article className="reader-document">
-        <header><span>MODULE {String(week.modules.indexOf(selected) + 1).padStart(2, '0')}</span><h2>{selected.title}</h2><p>{selected.summary}</p>{isDeepGuide && <dl className="reader-learning-meta"><div><dt>읽기 시간</dt><dd>{selected.estimatedMinutes}분</dd></div><div><dt>선수 개념</dt><dd>{prerequisiteConcepts.length ? prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>) : '없음'}</dd></div><div><dt>이 모듈의 질문</dt><dd>{selected.learningQuestion}</dd></div></dl>}</header>
+        <header><span>MODULE {String(week.modules.findIndex((module) => module.id === selected.id) + 1).padStart(2, '0')}</span><h2>{selected.title}</h2><p>{selected.summary}</p>{prerequisiteConcepts.length > 0 && <dl className="reader-learning-meta"><div><dt>선수 개념</dt><dd>{prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>)}</dd></div></dl>}</header>
         <LessonRenderer module={selected} activeSectionId={activeSectionId} onSectionNavigate={scrollToSection} sectionHref={(targetId) => routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} checkpointResults={check.checkpoints || {}} onCheckpoint={updateCheckpoint} onOpenLab={openLab} />
         <section className="reader-reflection" aria-labelledby={`${selected.id}-reflection-title`}>
           <header><span>SELF EXPLANATION · 자기 기록</span><h3 id={`${selected.id}-reflection-title`}>이 모듈을 내 말로 설명하기</h3><p>정상 흐름, 신뢰 경계, 실패 지점, 방어 또는 재시험을 연결해 적으세요. 이 기록과 수준 선택은 자동 채점이나 교수자 승인이 아닙니다.</p></header>
           {Object.keys(reflectionErrors).length > 0 && <div className="form-error-summary" role="alert"><strong>저장 전 확인할 항목이 있습니다.</strong><ul>{Object.values(reflectionErrors).map((error) => <li key={error}>{error}</li>)}</ul></div>}
-          <label><span>내 말로 설명 <em>필수 · 공백 제외 80자 이상</em></span><textarea required minLength="80" rows="6" value={reflectionForm.explanation} aria-invalid={Boolean(reflectionErrors.explanation)} aria-describedby={reflectionErrors.explanation ? `${selected.id}-explanation-error` : undefined} onChange={(event) => setReflectionForm((current) => ({ ...current, explanation: event.target.value }))} placeholder={selected.learningQuestion ? `${selected.learningQuestion} 질문에 본인의 말로 답하세요.` : '정상 동작에서 실패와 방어까지 이어지는 흐름을 본인의 말로 적으세요.'} />{reflectionErrors.explanation && <small className="field-error" id={`${selected.id}-explanation-error`}>{reflectionErrors.explanation}</small>}<small>{getLearningTextLength(reflectionForm.explanation)} / 80자</small></label>
+          <label><span>내 말로 설명 <em>필수 · 공백 제외 80자 이상</em></span><textarea required minLength="80" rows="6" value={reflectionForm.explanation} aria-invalid={Boolean(reflectionErrors.explanation)} aria-describedby={reflectionErrors.explanation ? `${selected.id}-explanation-error` : undefined} onChange={(event) => setReflectionForm((current) => ({ ...current, explanation: event.target.value }))} placeholder="정상 동작에서 실패와 방어까지 이어지는 흐름을 본인의 말로 적으세요." />{reflectionErrors.explanation && <small className="field-error" id={`${selected.id}-explanation-error`}>{reflectionErrors.explanation}</small>}<small>{getLearningTextLength(reflectionForm.explanation)} / 80자</small></label>
           <div className="reader-reflection-selects">
             <label><span>현재 확신도 <em>자기평가</em></span><select required value={reflectionForm.confidence} aria-invalid={Boolean(reflectionErrors.confidence)} onChange={(event) => setReflectionForm((current) => ({ ...current, confidence: event.target.value }))}><option value="">선택</option><option value="low">낮음</option><option value="medium">보통</option><option value="high">높음</option></select>{reflectionErrors.confidence && <small className="field-error">{reflectionErrors.confidence}</small>}</label>
             <label><span>현재 설명·적용 수준 <em>자기평가</em></span><select required value={reflectionForm.masteryLevel} aria-invalid={Boolean(reflectionErrors.masteryLevel)} onChange={(event) => setReflectionForm((current) => ({ ...current, masteryLevel: event.target.value }))}><option value="">선택</option><option value="unknown">아직 모름</option><option value="heard">들어본 적 있음</option><option value="explain">설명 가능</option><option value="apply">기초 적용 가능</option></select>{reflectionErrors.masteryLevel && <small className="field-error">{reflectionErrors.masteryLevel}</small>}</label>
