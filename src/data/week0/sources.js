@@ -34,13 +34,6 @@ export const weekZeroSources = Object.freeze([
     sourceType: 'standard',
     note: 'CVSS의 기술적 심각도와 벡터 표현을 확인하는 공식 문서입니다.',
   },
-  {
-    id: 'source-jobkorea-cyberone',
-    label: 'JobKorea · 싸이버원 침해사고 조사 담당자',
-    url: 'https://m.jobkorea.co.kr/Recruit/GI_Read/49530641?sc=226',
-    sourceType: 'individualVacancy',
-    note: '사용자가 제공한 metadata-only 공고입니다. 본문을 재검증하기 전까지 세부 업무·역량을 표시하지 않습니다.',
-  },
 ])
 
 export const evidenceTypeLabels = Object.freeze({
@@ -55,6 +48,7 @@ export const completenessLabels = Object.freeze({
   detailed: '상세 Seed',
   partial: 'Partial Seed',
   metadataOnly: '메타데이터만',
+  urlAudit: 'URL 최종 감사',
 })
 
 export const currentStatusLabels = Object.freeze({

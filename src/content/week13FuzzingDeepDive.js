@@ -356,9 +356,9 @@ export function buildWeek13FuzzingGuide(modules) {
     'w14-minimize-retest': (blocks) => enrichWithBlocks(blocks, [minimizeMechanism, minimizationTrace, fuzzingControls], [libFuzzerDoc, asanDoc, ossFuzzDoc]),
   }
 
-  return modules.map((module) => ({
+  return modules.map((module) => enrichers[module.id] ? {
     ...module,
     contentLevel: 'concept-code-cve-v1',
-    blocks: enrichers[module.id] ? enrichers[module.id](module.blocks) : module.blocks,
-  }))
+    blocks: enrichers[module.id](module.blocks),
+  } : module)
 }

@@ -2,12 +2,12 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { securityGlossary } from '../src/data/week0/glossary.js'
 import {
+  auditedRepresentativeRoles,
   calculateContentCompletenessScore,
-  detailedJobPostingSeeds,
   jobMarketResearchSummary,
   jobPostingSeeds,
-  metadataOnlyJobPosting,
-  partialJobPostingSeeds,
+  postingsForAuditedRole,
+  postingAuditGroup,
 } from '../src/data/week0/jobMarketResearch.js'
 import { jobFamilies, roleDetails, rolesForFamily, securityDomains } from '../src/data/week0/jobTaxonomy.js'
 import { allowedSharedRepresentativeRoleTitles, representativeRoleCatalog, representativeRoleGroups, representativeRolesForDomain, researchDomainById, researchDomains, researchRoleById, researchRoles } from '../src/data/week0/careerResearch.js'
@@ -74,38 +74,52 @@ test('operator-supplied career map keeps every field, role group, and evidence b
   assert.ok(representativeRoleCatalog.some((role) => role.detailRoleId === null))
 })
 
-test('21-job sample preserves detailed, partial, and metadata-only evidence boundaries', () => {
-  assert.equal(jobMarketResearchSummary.sampleSize, 21)
-  assert.equal(jobMarketResearchSummary.domesticCount, 10)
-  assert.equal(jobMarketResearchSummary.internationalCount, 11)
-  assert.equal(detailedJobPostingSeeds.length, 13)
-  assert.equal(partialJobPostingSeeds.length, 8)
-  assert.equal(jobPostingSeeds.length, 21)
-  for (const posting of detailedJobPostingSeeds) {
-    assert.equal(posting.evidence.bodyVerified, true)
-    assert.equal(posting.evidence.contentCompleteness, 'detailed')
-    assert.equal(posting.source.isCurrent, null)
-    assert.equal(posting.source.postingUrl, null)
+test('audited 320-mapping dataset preserves URL verification and non-fabrication boundaries', () => {
+  assert.equal(jobMarketResearchSummary.sampleSize, 320)
+  assert.equal(jobMarketResearchSummary.uniqueUrlCount, 290)
+  assert.equal(jobMarketResearchSummary.fieldCount, 16)
+  assert.equal(jobMarketResearchSummary.representativeRoleCount, 80)
+  assert.equal(jobMarketResearchSummary.domesticCount, 160)
+  assert.equal(jobMarketResearchSummary.internationalCount, 160)
+  assert.equal(jobMarketResearchSummary.directOpenMappingCount, 189)
+  assert.equal(jobMarketResearchSummary.directOpenUniqueCount, 171)
+  assert.equal(jobPostingSeeds.length, 320)
+  assert.equal(new Set(jobPostingSeeds.map((posting) => posting.id)).size, 320)
+  assert.equal(new Set(jobPostingSeeds.map((posting) => posting.source.auditUrl)).size, 290)
+  assert.equal(new Set(jobPostingSeeds.map((posting) => `${posting.normalized.securityDomainTitle}::${posting.normalized.representativeRole}`)).size, 80)
+  assert.equal(jobPostingSeeds.filter((posting) => posting.evidence.bodyVerified).length, 189)
+  for (const posting of jobPostingSeeds) {
+    assert.equal(posting.evidence.contentCompleteness, 'urlAudit')
+    assert.equal(posting.source.checkedDate, '2026-07-27')
+    assert.equal(posting.normalized.roleMappings.length, 1)
+    assert.equal(posting.raw.responsibilities.length, 0, 'the workbook does not provide job-body responsibilities')
+    assert.equal(posting.raw.requirements.length, 0, 'the workbook does not provide requirements')
     assert.equal(posting.evidence.contentCompletenessScore, calculateContentCompletenessScore(posting))
+    if (['hidden', 'manual'].includes(postingAuditGroup(posting))) assert.equal(posting.source.postingUrl, null)
+    if (postingAuditGroup(posting) === 'candidate') assert.ok(posting.source.postingUrl)
   }
-  for (const posting of partialJobPostingSeeds) {
-    assert.equal(posting.evidence.bodyVerified, true)
-    assert.equal(posting.evidence.contentCompleteness, 'partial')
-    assert.equal(posting.raw.requirements.length, 0)
+})
+
+test('personal security map resolves four audited postings for every representative role', () => {
+  assert.equal(auditedRepresentativeRoles.length, 80)
+  for (const role of auditedRepresentativeRoles) {
+    const postings = postingsForAuditedRole(role.id)
+    assert.equal(postings.length, 4, `${role.domainTitle} / ${role.title}`)
+    assert.equal(postings.filter((posting) => posting.source.market === 'domestic').length, 2)
+    assert.equal(postings.filter((posting) => posting.source.market === 'international').length, 2)
+    assert.ok(postings.every((posting) => posting.normalized.roleMappings[0].auditRoleId === role.id))
   }
-  assert.equal(metadataOnlyJobPosting.evidence.bodyVerified, false)
-  assert.equal(metadataOnlyJobPosting.raw.responsibilities.length, 0)
-  assert.ok(metadataOnlyJobPosting.source.postingUrl)
 })
 
 test('Week 0 personal-map state merges with existing browser data without deleting legacy map state', () => {
   const progress = mergeProgress({
     mindmap: { notes: { legacy: 'keep this' }, roleInterests: ['role-example'] },
-    weekZero: { selectedDomainIds: ['cloud'], selectedRoleIds: ['role-iam-engineer'] },
+    weekZero: { selectedDomainIds: ['cloud'], selectedRoleIds: ['role-iam-engineer'], selectedPostingIds: ['audit-posting-001'] },
     legacyWeekZeroData: { 'w0-roe': 'preserved' },
   })
   assert.deepEqual(progress.weekZero.selectedDomainIds, ['cloud'])
   assert.deepEqual(progress.weekZero.selectedRoleIds, ['role-iam-engineer'])
+  assert.deepEqual(progress.weekZero.selectedPostingIds, ['audit-posting-001'])
   assert.equal(progress.mindmap.notes.legacy, 'keep this')
   assert.deepEqual(progress.legacyWeekZeroData, { 'w0-roe': 'preserved' })
 })

@@ -1,5 +1,64 @@
 {
   "version": 1,
   "modules": {},
-  "pageText": {}
+  "pageText": {
+    "#/learn/week/1/concepts": [
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#w1-shell-reflection-title",
+        "nodeIndex": 0,
+        "baseText": "이 모듈을 내 말로 설명하기",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > header > p",
+        "nodeIndex": 0,
+        "baseText": "정상 흐름, 신뢰 경계, 실패 지점, 방어 또는 재시험을 연결해 적으세요. 이 기록과 수준 선택은 자동 채점이나 교수자 승인이 아닙니다.",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > header > span",
+        "nodeIndex": 0,
+        "baseText": "SELF EXPLANATION · 자기 기록",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > label > span > em",
+        "nodeIndex": 0,
+        "baseText": "필수 · 공백 제외 80자 이상",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > label > span",
+        "nodeIndex": 0,
+        "baseText": "내 말로 설명 ",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > label > small",
+        "nodeIndex": 1,
+        "baseText": " / 80자",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > label > small",
+        "nodeIndex": 0,
+        "baseText": "0",
+        "text": ""
+      },
+      {
+        "routeKey": "#/learn/week/1/concepts",
+        "selector": "#main-content > div > div > article > section > div > label:nth-of-type(1) > span",
+        "nodeIndex": 0,
+        "baseText": "현재 확신도 ",
+        "text": ""
+      }
+    ]
+  }
 }

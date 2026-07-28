@@ -371,9 +371,9 @@ export function buildWeek14CloudIamGuide(modules) {
     'w15-isolated-cloudgoat': (blocks) => enrichWithBlocks(blocks, [cloudGoatBoundaryMechanism, cloudGoatScopeTrace], [cloudGoatRepo, awsShared, awsIamBest]),
   }
 
-  return modules.map((module) => ({
+  return modules.map((module) => enrichers[module.id] ? {
     ...module,
     contentLevel: 'concept-code-cve-v1',
-    blocks: enrichers[module.id] ? enrichers[module.id](module.blocks) : module.blocks,
-  }))
+    blocks: enrichers[module.id](module.blocks),
+  } : module)
 }

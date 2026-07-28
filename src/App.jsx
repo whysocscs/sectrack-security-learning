@@ -63,7 +63,6 @@ import {
   getQuizRetryCount,
   getWeeklyRecordState,
   isActivityRecorded,
-  recordConceptReflection,
   recordQuizAttempt,
 } from './learningModel'
 import { getLearningTextLength, validateLearningText, validateStructuredReflection } from './validation'
@@ -558,10 +557,11 @@ function RoadmapPage({ progress, navigate }) {
   const orientation = roadmapItems.find((item) => item.index === 0)
   const formalWeeks = roadmapItems.filter((item) => item.index !== 0)
   const phases = [
-    { id: 'foundation', label: 'FOUNDATION', title: 'Linux와 관찰의 기본', matches: (index) => index >= 1 && index <= 2 },
-    { id: 'web', label: 'WEB', title: '웹 요청과 브라우저 보안', matches: (index) => index >= 3 && index <= 6 },
-    { id: 'system', label: 'SYSTEM · PWN', title: '시스템 구조와 취약점 분석', matches: (index) => index >= 7 && index <= 11 },
-    { id: 'applied', label: 'APPLIED SECURITY', title: '분야 확장과 종합', matches: (index) => index >= 12 },
+    { id: 'foundation', label: 'FOUNDATION', title: 'Linux 기초', matches: (index) => index === 1 },
+    { id: 'web', label: 'WEB', title: '웹 요청과 브라우저 보안', matches: (index) => index === 2 },
+    { id: 'system', label: 'REVERSING · PWN', title: '리버싱과 PWN 입문', matches: (index) => index >= 3 && index <= 4 },
+    { id: 'blue', label: 'BLUE TEAM', title: '암호·포렌식·네트워크 관제', matches: (index) => index >= 5 && index <= 6 },
+    { id: 'applied', label: 'APPLIED SECURITY', title: '분야 확장과 종합', matches: (index) => index >= 7 },
   ]
   return (
     <div className="page-width roadmap-page">
@@ -644,7 +644,7 @@ function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
       {tab === 'overview' && <WeekOverview week={week} progress={progress} navigate={navigate} setTab={openTab} />}
       {tab === 'concepts' && supportsDeepGuide(week.index) && (guideState.weekIndex !== week.index || ['idle', 'loading'].includes(guideState.status)) && <section className="empty-state" role="status"><BookOpen size={24} /><strong>심화 학습 자료를 불러오는 중입니다.</strong><p>이 주차의 코드·CVE·패치 근거를 준비하고 있습니다.</p></section>}
       {tab === 'concepts' && supportsDeepGuide(week.index) && guideState.weekIndex === week.index && guideState.status === 'error' && <section className="empty-state" role="alert"><AlertTriangle size={24} /><strong>{guideState.error}</strong><p>다른 학습 기록은 그대로 유지됩니다.</p><button className="button secondary" type="button" onClick={() => setGuideAttempt((value) => value + 1)}>다시 불러오기</button></section>}
-      {tab === 'concepts' && (!supportsDeepGuide(week.index) || (guideState.weekIndex === week.index && guideState.status === 'ready')) && <ConceptReader week={renderedWeek} selectedId={route.moduleId} sectionId={route.sectionId} progress={progress} updateProgress={updateProgress} openModule={(moduleId) => openTab('concepts', moduleId)} openSection={(moduleId, sectionId) => navigate({ page: 'week', week: week.index, tab: 'concepts', moduleId, sectionId })} openLab={(labId) => navigate({ page: 'lab', labId })} />}
+      {tab === 'concepts' && (!supportsDeepGuide(week.index) || (guideState.weekIndex === week.index && guideState.status === 'ready')) && <ConceptReader week={renderedWeek} selectedId={route.moduleId} sectionId={route.sectionId} progress={progress} updateProgress={updateProgress} openModule={(moduleId) => openTab('concepts', moduleId)} openSection={(moduleId, sectionId) => navigate({ page: 'week', week: week.index, tab: 'concepts', moduleId, sectionId })} />}
       {tab === 'labs' && <WeekLabs week={week} progress={progress} navigate={navigate} />}
       {tab === 'quiz' && <QuizView key={week.index} week={week} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} />}
       {tab === 'record' && <SubmissionView week={week} progress={progress} updateProgress={updateProgress} notify={notify} />}
@@ -677,6 +677,7 @@ function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify 
 
 function WeekOverview({ week, navigate, setTab }) {
   const requiredModuleCount = week.modules.filter((module) => module.path !== 'extension').length
+  const requiredSessionCount = week.sessions?.length || 0
   const extensionModuleCount = week.modules.length - requiredModuleCount
   const hasExtensionLab = week.labs.some((lab) => lab.path === 'extension')
   return (
@@ -685,7 +686,7 @@ function WeekOverview({ week, navigate, setTab }) {
         <section className="document-section">
           <SectionTitle title="이번 주에 할 일" />
           <ol className="sequence-list">
-            <li><span>01</span><div><strong>필수 개념 모듈 {requiredModuleCount}개 읽기</strong><p>용어와 데이터 흐름을 먼저 확인합니다.</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>
+            <li><span>01</span><div><strong>{requiredSessionCount ? `핵심 세션 ${requiredSessionCount}개 학습` : `필수 개념 모듈 ${requiredModuleCount}개 읽기`}</strong><p>{requiredSessionCount ? '각 세션의 개념과 사례를 순서대로 연결합니다.' : '용어와 데이터 흐름을 먼저 확인합니다.'}</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>
             {extensionModuleCount > 0 && <li><span>02</span><div><strong>심화 개념 모듈 {extensionModuleCount}개</strong><p>필수 경로를 마친 뒤 더 깊게 확인합니다.</p></div><button type="button" onClick={() => setTab('concepts')}>열기</button></li>}
             <li><span>{extensionModuleCount > 0 ? '03' : '02'}</span><div><strong>내부 실습으로 관찰 기록</strong><p>단계형 힌트는 막힌 경우에만 엽니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>
             {hasExtensionLab && <li><span>{extensionModuleCount > 0 ? '04' : '03'}</span><div><strong>공식 외부 실습 또는 심화 과제</strong><p>자격 증명과 토큰을 마스킹하고 수행 과정을 기록합니다.</p></div><button type="button" onClick={() => setTab('labs')}>열기</button></li>}
@@ -697,7 +698,7 @@ function WeekOverview({ week, navigate, setTab }) {
         <section className="document-section"><SectionTitle title="보고서와 연결" /><div className="report-connection"><FileText size={20} /><p>{week.reportConnection}</p>{week.modules.some((module) => module.id === 'w4-types') && <button className="button secondary" type="button" onClick={() => navigate({ page: 'report-editor', reportId: 'local-xss-draft' })}>Finding 초안 열기<ArrowRight size={15} /></button>}</div></section>
       </div>
       <aside className="week-aside">
-        <section><h3>학습 구성</h3><dl><div><dt>핵심 개념</dt><dd>{week.modules.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>필수 활동</dt><dd>{week.labs.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>심화 활동</dt><dd>{week.labs.filter((item) => item.path === 'extension').length}개</dd></div><div><dt>이해 확인</dt><dd>{quizzes[week.index].length}문항</dd></div></dl></section>
+        <section><h3>학습 구성</h3><dl><div><dt>{week.sessions?.length ? '핵심 세션' : '핵심 개념'}</dt><dd>{week.sessions?.length || week.modules.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>필수 활동</dt><dd>{week.labs.filter((item) => item.path !== 'extension').length}개</dd></div><div><dt>심화 활동</dt><dd>{week.labs.filter((item) => item.path === 'extension').length}개</dd></div><div><dt>이해 확인</dt><dd>{quizzes[week.index].length}문항</dd></div></dl></section>
         <section><h3>선수지식</h3><ul>{week.prerequisites.map((item) => <li key={item}>{item}</li>)}</ul></section>
         <section><h3>제출물</h3><ul>{week.deliverables.map((item) => <li key={item}>{item}</li>)}</ul></section>
         <section className="next-week"><span>NEXT</span><strong>{week.next}</strong></section>
@@ -753,29 +754,29 @@ function ImageDialog({ item, trigger, close }) {
   return <div ref={dialogRef} className="modal-layer" role="dialog" aria-modal="true" aria-label={`${item.company} 참가기업 프로필 확대`}><button className="modal-backdrop" type="button" tabIndex="-1" onClick={close} aria-label="확대 화면 닫기" /><div className="image-modal"><button className="icon-button" type="button" onClick={close} aria-label="닫기"><X size={20} /></button><img src={publicAsset(item.image)} alt={`${item.company} 참가기업 프로필 확대`} /></div></div>
 }
 
-function ConceptReader({ week, selectedId, sectionId, progress, updateProgress, openModule, openSection, openLab }) {
+function ConceptReader({ week, selectedId, sectionId, progress, updateProgress, openModule, openSection }) {
   const selected = week.modules.find((item) => item.id === selectedId) || week.modules[0]
   const done = Boolean(progress.modulesRead[selected.id])
   const check = progress.moduleChecks[selected.id] || {}
-  const [reflectionForm, setReflectionForm] = useState(() => ({
-    explanation: check.explanation || '',
-    confidence: check.confidence || '',
-    masteryLevel: check.masteryLevel || '',
-    reviewState: check.reviewState || '',
-  }))
-  const [reflectionErrors, setReflectionErrors] = useState({})
+  const moduleGroups = useMemo(() => {
+    if (!week.sessions?.length) return [{ id: 'all-modules', modules: week.modules }]
+    const moduleById = new Map(week.modules.map((module) => [module.id, module]))
+    const assignedIds = new Set(week.sessions.flatMap((session) => session.moduleIds))
+    const groups = week.sessions.map((session, index) => ({
+      ...session,
+      number: index + 1,
+      modules: session.moduleIds.map((moduleId) => moduleById.get(moduleId)).filter(Boolean),
+    })).filter((session) => session.modules.length)
+    const remaining = week.modules.filter((module) => !assignedIds.has(module.id))
+    return remaining.length ? [...groups, { id: 'additional-modules', title: '추가 자료', number: groups.length + 1, modules: remaining }] : groups
+  }, [week.modules, week.sessions])
   const lessonBlocks = useMemo(() => getLessonBlocks(selected), [selected])
   const sectionEntries = useMemo(() => lessonBlocks
     .map((block, index) => ({ block, index, targetId: getLessonBlockAnchor(selected.id, block, index) }))
-    .filter(({ block }) => block.type !== 'question' && (block.title || block.type === 'checkpoint')), [lessonBlocks, selected.id])
+    .filter(({ block }) => !['question', 'case', 'work-context', 'practice-link'].includes(block.type) && (block.title || block.type === 'checkpoint')), [lessonBlocks, selected.id])
   const [activeSectionId, setActiveSectionId] = useState(sectionId || sectionEntries[0]?.targetId || '')
   const prerequisiteConcepts = getConcepts(selected.prerequisiteConceptIds || [])
   const toggleDone = () => updateProgress((current) => ({ ...current, modulesRead: { ...current.modulesRead, [selected.id]: !done } }))
-  useEffect(() => {
-    const saved = progress.moduleChecks[selected.id] || {}
-    setReflectionForm({ explanation: saved.explanation || '', confidence: saved.confidence || '', masteryLevel: saved.masteryLevel || '', reviewState: saved.reviewState || '' })
-    setReflectionErrors({})
-  }, [selected.id])
   useEffect(() => {
     const validSectionId = sectionEntries.some((entry) => entry.targetId === sectionId) ? sectionId : sectionEntries[0]?.targetId
     setActiveSectionId(validSectionId || '')
@@ -801,21 +802,6 @@ function ConceptReader({ week, selectedId, sectionId, progress, updateProgress, 
     })
     return () => observer.disconnect()
   }, [sectionEntries, selected.id])
-  const saveReflection = () => {
-    const errors = {}
-    const explanationError = validateLearningText(reflectionForm.explanation, { minLength: 80, label: '내 말로 설명' })
-    if (explanationError) errors.explanation = explanationError
-    if (!reflectionForm.confidence) errors.confidence = '현재 확신도를 선택하세요.'
-    if (!reflectionForm.masteryLevel) errors.masteryLevel = '현재 자기평가 수준을 선택하세요.'
-    if (!reflectionForm.reviewState) errors.reviewState = '다시 볼 시점을 선택하세요.'
-    if (Object.keys(errors).length) { setReflectionErrors(errors); return }
-    updateProgress((current) => recordConceptReflection(current, {
-      conceptId: selected.id,
-      ...reflectionForm,
-      recordedAt: new Date().toISOString(),
-    }))
-    setReflectionErrors({})
-  }
   const updateCheckpoint = (checkpointId, result) => updateProgress((current) => ({
     ...current,
     moduleChecks: {
@@ -835,23 +821,13 @@ function ConceptReader({ week, selectedId, sectionId, progress, updateProgress, 
     setActiveSectionId(targetId)
     openSection(selected.id, targetId)
   }
+  const moduleNumber = selected.displayNumber || String(week.modules.findIndex((module) => module.id === selected.id) + 1).padStart(2, '0')
   return (
     <div className="reader-layout">
-      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>개념 목차</h2>{week.modules.map((module, index) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : String(index + 1).padStart(2, '0')}</span><strong>{selected.id === module.id ? selected.title : module.title}</strong></button>)}{sectionEntries.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sectionEntries.map(({ block, targetId }, index) => <a href={routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} aria-current={activeSectionId === targetId ? 'location' : undefined} key={targetId} onClick={(event) => { event.preventDefault(); scrollToSection(targetId) }}>{block.title || (week.index === 1 && block.type === 'checkpoint' ? `Question ${sectionEntries.slice(0, index + 1).filter((item) => item.block.type === 'checkpoint').length}.` : '중간 확인')}</a>)}</nav>}</aside>
+      <aside className="reader-toc"><span>WEEK {String(week.index).padStart(2, '0')} · CONCEPTS</span><h2>{week.sessions?.length ? '2개 세션' : '개념 목차'}</h2>{moduleGroups.map((group) => <section className="reader-session-group" key={group.id}>{week.sessions?.length && <header><span>SESSION {String(group.number).padStart(2, '0')}</span><strong>{group.title}</strong>{group.description && <p>{group.description}</p>}</header>}{group.modules.map((module) => <button type="button" key={module.id} className={selected.id === module.id ? 'active' : ''} onClick={() => openModule(module.id)}><span>{progress.modulesRead[module.id] ? <Check size={14} /> : module.displayNumber || String(week.modules.findIndex((item) => item.id === module.id) + 1).padStart(2, '0')}</span><strong>{selected.id === module.id ? selected.title : module.title}</strong></button>)}</section>)}{sectionEntries.length > 1 && <nav className="reader-section-toc" aria-label={`${selected.title} 절 목차`}><small>이 모듈</small>{sectionEntries.map(({ block, targetId }, index) => <a href={routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} aria-current={activeSectionId === targetId ? 'location' : undefined} key={targetId} onClick={(event) => { event.preventDefault(); scrollToSection(targetId) }}>{block.title || (week.index === 1 && block.type === 'checkpoint' ? `Question ${sectionEntries.slice(0, index + 1).filter((item) => item.block.type === 'checkpoint').length}.` : '중간 확인')}</a>)}</nav>}</aside>
       <article className="reader-document">
-        <header><span>MODULE {String(week.modules.findIndex((module) => module.id === selected.id) + 1).padStart(2, '0')}</span><h2>{selected.title}</h2><p>{selected.summary}</p>{prerequisiteConcepts.length > 0 && <dl className="reader-learning-meta"><div><dt>선수 개념</dt><dd>{prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>)}</dd></div></dl>}</header>
-        <LessonRenderer module={selected} activeSectionId={activeSectionId} onSectionNavigate={scrollToSection} sectionHref={(targetId) => routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} checkpointResults={check.checkpoints || {}} onCheckpoint={updateCheckpoint} onOpenLab={openLab} />
-        <section className="reader-reflection" aria-labelledby={`${selected.id}-reflection-title`}>
-          <header><span>SELF EXPLANATION · 자기 기록</span><h3 id={`${selected.id}-reflection-title`}>이 모듈을 내 말로 설명하기</h3><p>정상 흐름, 신뢰 경계, 실패 지점, 방어 또는 재시험을 연결해 적으세요. 이 기록과 수준 선택은 자동 채점이나 교수자 승인이 아닙니다.</p></header>
-          {Object.keys(reflectionErrors).length > 0 && <div className="form-error-summary" role="alert"><strong>저장 전 확인할 항목이 있습니다.</strong><ul>{Object.values(reflectionErrors).map((error) => <li key={error}>{error}</li>)}</ul></div>}
-          <label><span>내 말로 설명 <em>필수 · 공백 제외 80자 이상</em></span><textarea required minLength="80" rows="6" value={reflectionForm.explanation} aria-invalid={Boolean(reflectionErrors.explanation)} aria-describedby={reflectionErrors.explanation ? `${selected.id}-explanation-error` : undefined} onChange={(event) => setReflectionForm((current) => ({ ...current, explanation: event.target.value }))} placeholder="정상 동작에서 실패와 방어까지 이어지는 흐름을 본인의 말로 적으세요." />{reflectionErrors.explanation && <small className="field-error" id={`${selected.id}-explanation-error`}>{reflectionErrors.explanation}</small>}<small>{getLearningTextLength(reflectionForm.explanation)} / 80자</small></label>
-          <div className="reader-reflection-selects">
-            <label><span>현재 확신도 <em>자기평가</em></span><select required value={reflectionForm.confidence} aria-invalid={Boolean(reflectionErrors.confidence)} onChange={(event) => setReflectionForm((current) => ({ ...current, confidence: event.target.value }))}><option value="">선택</option><option value="low">낮음</option><option value="medium">보통</option><option value="high">높음</option></select>{reflectionErrors.confidence && <small className="field-error">{reflectionErrors.confidence}</small>}</label>
-            <label><span>현재 설명·적용 수준 <em>자기평가</em></span><select required value={reflectionForm.masteryLevel} aria-invalid={Boolean(reflectionErrors.masteryLevel)} onChange={(event) => setReflectionForm((current) => ({ ...current, masteryLevel: event.target.value }))}><option value="">선택</option><option value="unknown">아직 모름</option><option value="heard">들어본 적 있음</option><option value="explain">설명 가능</option><option value="apply">기초 적용 가능</option></select>{reflectionErrors.masteryLevel && <small className="field-error">{reflectionErrors.masteryLevel}</small>}</label>
-            <label><span>다시 볼 시점 <em>자기 계획</em></span><select required value={reflectionForm.reviewState} aria-invalid={Boolean(reflectionErrors.reviewState)} onChange={(event) => setReflectionForm((current) => ({ ...current, reviewState: event.target.value }))}><option value="">선택</option><option value="now">지금 다시 보기</option><option value="later">나중에 복습</option><option value="reviewed">설명 후 재확인</option></select>{reflectionErrors.reviewState && <small className="field-error">{reflectionErrors.reviewState}</small>}</label>
-          </div>
-          <footer><button className="button secondary" type="button" onClick={saveReflection}>자기 설명 저장</button>{check.explanation && <small>저장된 자기 설명이 있습니다. 수정 후 다시 저장할 수 있습니다.</small>}</footer>
-        </section>
+        <header><span>{selected.sessionNumber ? `SESSION ${String(selected.sessionNumber).padStart(2, '0')} · ` : ''}MODULE {moduleNumber}</span><h2>{selected.title}</h2><p>{selected.summary}</p>{prerequisiteConcepts.length > 0 && <dl className="reader-learning-meta"><div><dt>선수 개념</dt><dd>{prerequisiteConcepts.map((concept) => <a key={concept.id} href={concept.coreAnchor}>{concept.label}</a>)}</dd></div></dl>}</header>
+        <LessonRenderer module={selected} activeSectionId={activeSectionId} onSectionNavigate={scrollToSection} sectionHref={(targetId) => routeToHash({ page: 'week', week: week.index, tab: 'concepts', moduleId: selected.id, sectionId: targetId })} checkpointResults={check.checkpoints || {}} onCheckpoint={updateCheckpoint} />
         <footer className="reader-footer"><button className={`button ${done ? 'secondary' : 'primary'}`} type="button" onClick={toggleDone}>{done ? <><Check size={16} />읽음 취소</> : <><CheckCircle2 size={16} />읽음으로 표시</>}</button><small>읽음 표시는 새로고침 후에도 유지됩니다.</small></footer>
       </article>
     </div>

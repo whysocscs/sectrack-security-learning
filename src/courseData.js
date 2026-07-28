@@ -10,6 +10,10 @@ import { week11to16Content, week11to16Quizzes } from './data/curriculum/week11to
 import { objectiveModuleAlignment } from './objectiveAlignment.js'
 import { applyBaseModuleArchitecture, getSupplementalLabs } from './content/curriculumArchitecture.js'
 import { applyContentOverrides } from './content/contentOverrides.js'
+import { applySystemIntroWeekDesign } from './content/systemIntroSessions.js'
+import { web3FuzzingLab, web3FuzzingModules, web3FuzzingQuizQuestions } from './content/week7Web3Blocks.js'
+import { supplyChainLab, supplyChainModules, supplyChainQuizQuestions } from './content/week8SupplyChainBlocks.js'
+import { otSecurityWeek, otSecurityQuizQuestions } from './data/curriculum/otSecurityWeek.js'
 
 export const masteryLabels = {
   unknown: '아직 모름',
@@ -91,8 +95,13 @@ function normalizeWeek(week) {
   const orderedModules = week.curriculumId === 'week-4'
     ? [...normalizedModules].sort((left, right) => week4CveFirstModuleOrder.indexOf(left.id) - week4CveFirstModuleOrder.indexOf(right.id))
     : normalizedModules
-  const modules = applyContentOverrides(applyBaseModuleArchitecture(week.index, orderedModules))
-  const supplementalLabs = getSupplementalLabs(week.index)
+  const architectedModules = week.disableArchitecture ? orderedModules : applyBaseModuleArchitecture(week.index, orderedModules)
+  const modules = applyContentOverrides(architectedModules).map((module) => {
+    const sessionIndex = week.sessions?.findIndex((session) => session.moduleIds.includes(module.id)) ?? -1
+    const session = sessionIndex >= 0 ? week.sessions[sessionIndex] : null
+    return session ? { ...module, sessionId: session.id, sessionNumber: sessionIndex + 1, sessionTitle: session.title } : module
+  })
+  const supplementalLabs = week.disableArchitecture ? [] : getSupplementalLabs(week.index)
   const labs = [...week.labs, ...supplementalLabs].filter((lab) => !week.retiredActivityIds?.includes(lab.id)).map((lab) => ({
     ...lab,
     activityType: lab.activityType || labActivityTypes[lab.kind] || 'practice',
@@ -249,22 +258,73 @@ const baseWeekContent = {
     reportConnection: '환경, 도구와 버전, 원본·변경 요청, 원본·변경 응답, 관찰 결과와 마스킹 여부를 실습 기록으로 저장합니다.', next: 'Week 3 · 웹 구조와 HTTP',
   },
   3: {
-    id: 'week-3', index: 3, title: '웹 구조·HTTP·브라우저 보안 기초',
-    summary: 'URL 입력부터 렌더링까지의 흐름을 따라가며 HTTP 메시지, 인증 상태, 브라우저 데이터 흐름을 읽습니다.',
-    objectives: ['URL·DNS·TCP/TLS·HTTP 요청 흐름을 설명한다.', '요청과 응답의 각 부분을 구분한다.', 'Cookie·Session·Token과 인증·인가를 구분한다.', 'DOM에서 Source·Sink와 렌더링 컨텍스트를 찾는다.'],
-    prerequisites: ['Week 1 curl과 HTTP 기준선', '허가된 HTTP 실습 범위'], estimatedMinutes: 360, quizMinutes: 15, recordMinutes: 25,
+    id: 'week-3', index: 3, title: '웹 통신·상태·브라우저 보안',
+    summary: 'URL에서 HTTP 통신, Cookie·Session, XSS와 Session 취약점까지 한 흐름으로 연결합니다.',
+    objectives: ['URL의 구성 요소와 Origin을 구분한다.', 'DNS·TCP/TLS·HTTP 요청·응답·렌더링 흐름을 설명한다.', 'Cookie와 서버 Session의 역할을 구분한다.', 'Reflected·Stored·DOM-based XSS의 데이터 흐름을 구분한다.', 'Cookie·Session 취약점과 필요한 방어를 설명한다.'],
+    prerequisites: ['Week 1 Linux 기본 명령', '로컬 또는 명시적으로 허가된 웹 학습 범위'], estimatedMinutes: 170, quizMinutes: 15, recordMinutes: 0, disableWeeklyRecord: true,
     modules: [
-      { id: 'w3-flow', title: 'URL에서 화면까지', duration: 45, summary: '브라우저가 주소를 해석하고 서버 응답을 화면으로 만드는 전체 경로입니다.', points: ['URL 파싱 → DNS 질의 → IP 결정 → TCP 연결 → HTTPS의 TLS 핸드셰이크 → HTTP 요청 순서로 진행된다.', '요청은 Reverse Proxy·Web Server·Application Server를 거쳐 DB나 외부 서비스에 연결될 수 있다.', '응답 뒤 브라우저는 HTML을 파싱해 DOM을 만들고 CSS와 JavaScript를 적용한다.', 'CDN과 캐시는 응답 경로와 재사용에 관여하지만 원본 애플리케이션의 권한 검증을 대신하지 않는다.'] },
-      { id: 'w3-url-dns', title: 'URL과 DNS', duration: 40, summary: '주소의 구성 요소와 Origin을 정확히 구분합니다.', points: ['URL은 scheme, host, port, path, query, fragment로 나뉜다.', 'Origin은 scheme + host + port 조합이다.', 'fragment는 기본 HTTP 요청에 포함되지 않고 브라우저 안에서 사용된다.', 'DNS는 도메인을 IP 등 레코드에 연결하지만 통신 내용의 암호화와 서버 인증을 자동 보장하지 않는다.', 'A·AAAA는 주소, CNAME은 별칭, TXT는 텍스트 데이터를 제공한다.'] },
-      { id: 'w3-encoding-body', title: 'Percent Encoding·요청 본문 형식', duration: 55, summary: 'URL 구성 요소와 HTTP 본문의 표현 형식을 Content-Type에 맞춰 구분합니다.', points: ['Percent Encoding은 바이트를 `%HH`로 표현하며 URL 전체를 한꺼번에 인코딩하지 않고 path·query 등 구성 요소의 경계를 유지한다.', '`application/x-www-form-urlencoded`는 이름·값 쌍을 `&`로 구분하고 폼 규칙에서 공백을 `+`로 표현할 수 있다.', '`multipart/form-data`는 boundary로 여러 part를 나누며 파일과 각 part의 헤더를 함께 전달할 수 있다.', '`application/json`은 JSON 문법의 구조화된 본문이며 폼 인코딩과 같은 디코더를 사용하지 않는다.', 'MIME type은 데이터의 미디어 형식을 나타내고 HTTP `Content-Type`은 수신자가 현재 본문을 어떤 형식으로 해석할지 알린다.', '같은 문자도 URL 파싱, 폼 디코딩, JSON 파싱 순서에 따라 다른 값이 될 수 있으므로 원문과 디코딩 후 값을 구분한다.'] },
-      { id: 'w3-http', title: 'HTTP 요청·응답', duration: 65, summary: '메시지 문법과 메서드·상태 코드를 근거로 동작을 읽습니다.', points: ['요청은 Request line, Headers, 빈 줄, 선택적 Body로 구성된다.', '응답은 Status line, Headers, 빈 줄, 선택적 Body로 구성된다.', 'GET은 조회에 주로 쓰고 POST는 처리를 요청하지만, 메서드 이름만으로 서버의 실제 안전성이 보장되지는 않는다.', 'Safe는 의도된 서버 상태 변경 여부, Idempotent는 같은 요청 반복 시 의도된 효과가 같은지를 나타낸다.', '401은 인증 정보가 필요하거나 유효하지 않은 상태, 403은 서버가 요청 주체를 알지만 권한상 거부한 상태다.', 'Redirect는 3xx 상태와 Location 헤더를 함께 읽는다.'] },
-      { id: 'w3-headers', title: '주요 HTTP 헤더', duration: 40, summary: '방향과 역할을 기준으로 헤더를 분류합니다.', points: ['Host, User-Agent, Accept, Authorization, Cookie, Origin, Referer는 요청에서 자주 본다.', 'Content-Type과 Content-Length는 본문의 형식과 길이를 설명한다.', 'Set-Cookie는 응답에서 브라우저에 쿠키 저장을 지시한다.', 'Location은 리다이렉션 목적지를, Cache-Control은 캐시 정책을 전달한다.', 'Content-Security-Policy와 X-Content-Type-Options는 브라우저 해석을 제한하는 보조 통제다.'] },
-      { id: 'w3-session', title: 'Cookie·Session·Token', duration: 55, summary: '브라우저 저장 수단과 서버 인증 상태를 같은 것으로 보지 않습니다.', points: ['Cookie는 브라우저가 이름·값과 속성을 저장하고 조건에 맞는 요청에 전송하는 메커니즘이다.', 'Session은 서버가 상태를 저장하고 식별자로 연결하는 방식이며 쿠키는 그 식별자를 운반할 수 있다.', 'Token은 검증 가능한 인증·권한 정보를 담거나 상태 식별자로 쓰일 수 있지만 저장 위치와 만료·폐기 전략이 필요하다.', 'Secure는 HTTPS 전송, HttpOnly는 JavaScript의 쿠키 읽기 제한, SameSite는 교차 사이트 요청 전송 정책에 관여한다.', 'Domain과 Path는 전송 범위, Expires와 Max-Age는 수명을 정한다.', 'HttpOnly는 XSS 자체를 제거하지 않으며 DOM 읽기·사용자 권한 행동 대행 같은 영향은 남을 수 있다.'] },
-      { id: 'w3-auth-origin', title: '인증·인가·Same-Origin Policy', duration: 45, summary: '로그인과 권한 검증, 출처 간 읽기 제한을 구분합니다.', points: ['Authentication은 주체 확인, Authorization은 요청한 행동의 허용 여부 결정이다.', '클라이언트 UI에서 버튼을 숨기는 것은 서버 측 인가가 아니다.', 'SOP는 브라우저가 다른 Origin의 응답을 임의로 읽는 것을 제한한다.', 'Same-site와 Same-origin은 기준이 다르다.', 'CORS는 서버가 특정 Origin의 브라우저 읽기를 허용하는 정책이며 서버 간 요청을 막는 방화벽이 아니다.', '복잡한 교차 출처 요청은 Preflight OPTIONS로 허용 여부를 먼저 확인할 수 있다.'] },
-      { id: 'w3-browser-runtime', title: 'fetch·XHR·캐시·렌더링', duration: 55, summary: '브라우저가 추가 요청을 만들고 캐시를 재검증하며 응답 원문을 실행 후 DOM으로 바꾸는 과정을 비교합니다.', points: ['`fetch`와 `XMLHttpRequest`는 JavaScript가 HTTP 요청을 만들고 응답 데이터를 처리하는 API이며 SOP와 CORS 정책의 영향을 받는다.', '브라우저 캐시는 Cache-Control과 validator를 사용하며 조건부 요청에서 리소스가 바뀌지 않았으면 `304 Not Modified`로 기존 본문을 재사용할 수 있다.', '304 응답에 새 본문이 없더라도 브라우저 화면에는 캐시된 본문이 나타날 수 있으므로 네트워크 기록과 표시 결과를 함께 본다.', 'SSR은 서버가 초기 HTML을 만들고 CSR은 JavaScript가 브라우저에서 데이터를 가져와 DOM을 구성하는 비중이 크다.', '페이지 소스나 네트워크 응답 원문은 서버가 보낸 HTML이고 Elements의 DOM은 파싱·복구·스크립트 변경이 반영된 현재 트리다.', '보안 분석에서는 raw response, JavaScript가 받은 데이터, 실행 후 DOM을 각각 기록한다.'] },
-      { id: 'w3-dom', title: 'HTML·DOM·JavaScript 데이터 흐름', duration: 70, summary: '사용자 데이터가 브라우저에서 어느 문법으로 해석되는지 추적합니다.', points: ['DOM은 브라우저가 HTML을 파싱하고 스크립트 변경을 반영해 만든 객체 트리다.', '원본 응답 HTML과 실행 후 DOM은 다를 수 있다.', 'Source는 query, fragment, form, cookie, localStorage, API response처럼 데이터가 들어오는 지점이다.', 'Sink는 `innerHTML`, `document.write`, `eval`처럼 데이터를 HTML이나 코드로 해석할 수 있는 지점이다.', '`textContent`와 `createTextNode`는 텍스트를 표시할 때 더 안전한 선택이다.', 'HTML body, attribute, JavaScript string, URL, CSS 컨텍스트마다 필요한 출력 처리가 다르다.'] },
+      { id: 'w3-url-dns', title: 'URL이란?', duration: 25, displayNumber: '00', summary: 'URL의 scheme, host, port, path, query, fragment를 구분합니다.', objectiveIndexes: [0] },
+      { id: 'w3-flow', title: '브라우저와 서버는 어떻게 통신하는가', duration: 35, displayNumber: '01', summary: 'DNS·연결·TLS·HTTP 요청과 응답·렌더링 순서를 따라갑니다.', objectiveIndexes: [1] },
+      { id: 'w3-session', title: 'Cookie와 Session은 상태를 어떻게 유지하는가', duration: 30, displayNumber: '02', summary: '브라우저 Cookie와 서버 Session이 로그인 상태를 연결하는 방식을 구분합니다.', objectiveIndexes: [2] },
+      { id: 'w3-dom', title: 'XSS란?', duration: 35, displayNumber: '03', summary: '외부 값이 브라우저에서 코드로 해석되는 흐름과 세 XSS 유형을 구분합니다.', objectiveIndexes: [3] },
+      { id: 'w3-auth-origin', title: 'Cookie와 Session에서는 어떤 취약점이 발생하는가', duration: 30, displayNumber: '04', summary: 'Cookie 변조, CSRF, Session Hijacking·Fixation·Prediction과 인가 누락을 살펴봅니다.', objectiveIndexes: [4] },
     ],
+    retiredActivityIds: ['w3-http-message', 'w3-timeline', 'w3-cookie', 'w3-source-sink', 'w3-tool-triangle', 'w3-threat-model'],
     labs: [
+      {
+        ...commonLabFields,
+        id: 'w3-xss-packet-classifier',
+        week: 3,
+        title: 'Reflected XSS HTTP 패킷 판별',
+        kind: 'xss-packet-classifier',
+        packetVariant: 'reflected',
+        activityType: 'investigation',
+        estimatedMinutes: 35,
+        objective: '현재 요청의 입력이 같은 HTTP 응답에 반사되는 흐름에서 Source, HTML Sink와 브라우저 해석 지점을 찾습니다.',
+        prerequisites: ['w3-flow', 'w3-dom'],
+        requiredTools: ['내장 HTTP 패킷 판별기'],
+        safeScope: '브라우저에 포함된 고정 로컬 교육 패킷만 분석합니다. 문자열은 실행하지 않으며 Cookie와 인증 값은 모두 마스킹합니다.',
+        successCriteria: ['예제에서 Source·Sink·브라우저 해석 지점 확인', '정상 패킷 2개와 악성 패킷 1개 정확히 판별', '요청 문자열이 아니라 응답 출력 문맥을 근거로 판단'],
+        hints: ['요청의 query 값이 응답 어디에 들어갔는지 먼저 찾으세요.', '응답에서 꺾쇠가 엔티티로 남는지 실제 요소 문법으로 돌아오는지 비교하세요.', '값이 innerHTML 같은 HTML Sink로 들어가 브라우저가 요소나 이벤트 속성으로 해석하면 악성 흐름입니다.'],
+        relatedConceptIds: ['w3-flow', 'w3-dom'],
+        nextRecommendations: ['w3-stored-xss-packet-classifier'],
+      },
+      {
+        ...commonLabFields,
+        id: 'w3-stored-xss-packet-classifier',
+        week: 3,
+        title: 'Stored XSS HTTP 패킷 판별',
+        kind: 'xss-packet-classifier',
+        packetVariant: 'stored',
+        activityType: 'investigation',
+        estimatedMinutes: 35,
+        objective: '입력이 저장 요청을 거쳐 나중의 조회 응답에 출력되는 흐름에서 저장 지점, Sink와 피해자 요청을 구분합니다.',
+        prerequisites: ['w3-flow', 'w3-dom'],
+        requiredTools: ['내장 HTTP 패킷 판별기'],
+        safeScope: '브라우저에 포함된 고정 로컬 교육 패킷만 분석합니다. 문자열은 실행하지 않으며 Cookie와 인증 값은 모두 마스킹합니다.',
+        successCriteria: ['저장 요청과 피해자 조회 요청을 분리해 확인', '정상 패킷 2개와 악성 패킷 1개 정확히 판별', '저장 여부와 최종 출력 문맥을 함께 근거로 판단'],
+        hints: ['작성 응답만 보지 말고 값이 나중에 어느 화면으로 다시 나오는지 찾으세요.', 'DB에 저장됐다는 사실만으로 XSS가 되지는 않습니다. 최종 응답의 출력 문맥을 확인하세요.', '저장된 값이 HTML Sink에 들어가 요소나 이벤트 속성으로 해석되는 패킷을 찾으세요.'],
+        relatedConceptIds: ['w3-flow', 'w3-dom'],
+        nextRecommendations: ['w3-dom-xss-packet-classifier'],
+      },
+      {
+        ...commonLabFields,
+        id: 'w3-dom-xss-packet-classifier',
+        week: 3,
+        title: 'DOM-based XSS 흐름 판별',
+        kind: 'xss-packet-classifier',
+        packetVariant: 'dom',
+        activityType: 'investigation',
+        estimatedMinutes: 35,
+        objective: 'HTTP 응답 원문에 입력이 없어도 브라우저 JavaScript의 Source가 DOM Sink로 이동해 실행 문맥이 만들어지는 흐름을 찾습니다.',
+        prerequisites: ['w3-flow', 'w3-dom'],
+        requiredTools: ['내장 HTTP·DOM 흐름 판별기'],
+        safeScope: '브라우저에 포함된 고정 로컬 교육 패킷과 코드 문자열만 분석합니다. 스크립트는 sandbox 밖에서 실행하지 않습니다.',
+        successCriteria: ['HTTP 응답과 실행 후 DOM을 구분', '정상 흐름 2개와 악성 흐름 1개 정확히 판별', '브라우저 Source와 DOM Sink를 근거로 판단'],
+        hints: ['URL fragment는 일반 HTTP 요청에 포함되지 않는다는 점부터 확인하세요.', '서버 응답에 입력이 없더라도 브라우저 코드가 location 값을 읽을 수 있습니다.', '외부 값이 textContent가 아니라 innerHTML 같은 해석 Sink로 들어가는 흐름을 찾으세요.'],
+        relatedConceptIds: ['w3-flow', 'w3-dom'],
+        nextRecommendations: ['w3-auth-origin'],
+      },
       { ...commonLabFields, id: 'w3-http-message', week: 3, title: 'HTTP 메시지 해부', kind: 'http-label', estimatedMinutes: 35, objective: '실제 형식의 요청·응답에서 요청선·헤더·본문·상태선을 표시합니다.', prerequisites: ['HTTP 메시지 구조'], requiredTools: ['내장 HTTP 분석기'], safeScope: '정적 교육용 메시지만 분석합니다.', successCriteria: ['요청·응답 요소 8개 이상 식별', '401·403 차이 설명'], hints: ['첫 줄을 먼저 요청선 또는 상태선으로 구분하세요.', '빈 줄 위는 헤더, 아래는 본문입니다.', '방향에 따라 Cookie와 Set-Cookie를 구분하세요.'], relatedConceptIds: ['w3-http', 'w3-headers'], nextRecommendations: ['요청 타임라인'] },
       { ...commonLabFields, id: 'w3-timeline', week: 3, title: '요청 타임라인', kind: 'timeline', estimatedMinutes: 25, objective: 'URL 입력부터 렌더링까지 단계를 순서대로 배치합니다.', prerequisites: ['URL에서 화면까지'], requiredTools: ['브라우저'], safeScope: '단계 카드만 이동합니다.', successCriteria: ['8단계 순서 완성', '공격·방어 지점 연결'], hints: ['도메인을 IP로 바꿔야 연결할 수 있습니다.', 'HTTPS에서는 HTTP보다 TLS가 먼저입니다.', '응답을 받은 뒤 브라우저가 파싱하고 렌더링합니다.'], relatedConceptIds: ['w3-flow'], nextRecommendations: ['Cookie 속성 실험'] },
       { ...commonLabFields, id: 'w3-cookie', week: 3, title: 'Cookie 속성 실험', kind: 'cookie', estimatedMinutes: 35, objective: 'Secure·HttpOnly·SameSite 조합에 따른 브라우저 동작 차이를 비교합니다.', prerequisites: ['Cookie와 Session'], requiredTools: ['내장 쿠키 시뮬레이터'], safeScope: '실제 인증 쿠키가 아닌 `TRAINING_SESSION`만 사용합니다.', successCriteria: ['세 속성 조합 비교', '각 속성이 막지 못하는 영향 설명'], hints: ['전송 조건과 JavaScript 접근 조건을 나눠 보세요.', 'HttpOnly는 네트워크 전송을 끄는 속성이 아닙니다.', 'SameSite는 same-origin이 아닌 site 기준을 사용합니다.'], relatedConceptIds: ['w3-session'], nextRecommendations: ['Source → Sink 추적'] },
@@ -272,7 +332,7 @@ const baseWeekContent = {
       { ...commonLabFields, id: 'w3-tool-triangle', week: 3, title: 'HTTP Tool Triangle', kind: 'tool-triangle', estimatedMinutes: 45, objective: '같은 고정 training 요청을 curl·DevTools·Burp 관점에서 비교하고, 각 도구가 답하는 질문과 공통 HTTP 필드를 기록합니다.', prerequisites: ['Week 1 HTTP 정상 요청 기준선', 'HTTP 메시지 구조'], requiredTools: ['내장 Tool Triangle 비교기'], safeScope: '고정된 로컬 training 메시지만 비교합니다. 외부 요청·실제 Cookie·값 변조는 수행하지 않습니다.', successCriteria: ['세 도구의 관찰 지점 구분', 'URL·Method·Headers·Body·Status 대조', '마스킹 항목 표시', 'Week 3에 연결할 Source·Sink 질문 작성'], hints: ['세 도구 모두 같은 요청을 보지만 화면과 목적이 다릅니다.', 'Request URL, method, status, response body는 공통 필드입니다.', 'Cookie·Authorization 값은 “보였는가”가 아니라 “마스킹했는가”를 기록하세요.'], relatedConceptIds: ['w3-http', 'w3-headers', 'w3-browser-runtime'], nextRecommendations: ['Week 3 XSS 선수 체크'] },
       { ...commonLabFields, id: 'w3-threat-model', week: 3, title: '로컬 검색 페이지 미니 위협 모델', kind: 'threat-model', path: 'extension', estimatedMinutes: 35, objective: '자산·입력 지점·신뢰 경계·공격 표면·통제를 한 장에 정리합니다.', prerequisites: ['핵심 보안 언어', '웹 요청 흐름'], requiredTools: ['내장 양식'], safeScope: '가상의 로컬 검색 페이지를 대상으로 합니다.', successCriteria: ['다섯 필드 작성', '통제와 공격 표면 연결'], hints: ['먼저 보호할 데이터와 사용자 행동을 적으세요.', '브라우저와 서버 사이를 신뢰 경계로 표시하세요.', '각 입력 지점이 어느 컨텍스트에 출력되는지 확인하세요.'], relatedConceptIds: ['w3-flow', 'w3-dom'], nextRecommendations: ['Week 3 XSS 선수 체크'] },
     ],
-    deliverables: ['Web Request Flow Report', 'HTTP 메시지 분석', '요청 흐름 다이어그램', 'Cookie·Session 관찰표', 'curl·DevTools·Burp Tool Triangle 비교', 'Source·Transform·Sink·Context 메모'],
+    deliverables: ['URL·HTTP·Cookie·Session·XSS 핵심 정리'],
     recordBlueprint: { title: 'Web Request Flow Report', description: '한 정상 training 요청을 URL, HTTP, Cookie·Session, 브라우저 DOM, 도구별 관찰, Week 3 질문까지 연결합니다.', sections: ['URL·Origin·대상과 허가 범위', '정상 요청·응답 기준선', 'Cookie·Session·객체 인가 질문', 'curl·DevTools·Burp 비교', 'Source·Transform·Sink·Context와 Week 3 handoff'] },
     reportConnection: '자산, Endpoint, Method, Parameter, 인증, Source, Sink, 컨텍스트, 기대·실제 동작, 요청·응답 증거 필드를 연습합니다.', next: 'Week 4 · Cross-Site Scripting',
   },
@@ -319,90 +379,136 @@ const baseWeekContent = {
 function mergeLinuxWeeks(weekOne, weekTwo) {
   const moduleById = (id) => [...weekOne.modules, ...weekTwo.modules].find((module) => module.id === id)
   const labById = (id) => [...weekOne.labs, ...weekTwo.labs].find((lab) => lab.id === id)
-  const navigation = moduleById('w1-navigation')
-  const permission = moduleById('w1-permission')
-  const bandit = labById('w1-bandit')
 
   return {
     ...weekOne,
-    title: '보안 기초·Linux·도구',
-    summary: '경로·파일·권한·텍스트·HTTP 관찰을 하나의 Linux 학습 흐름으로 익히고 Bandit 0~10에 적용합니다.',
+    title: 'Linux',
+    summary: '웹 서비스가 동작하는 운영체제 환경을 이해하고, 위치·경로·검색·파일 변경·입출력 흐름을 확인하는 최소 Linux 명령을 익힙니다.',
     objectives: [
-      ...weekOne.objectives,
-      ...weekTwo.objectives.slice(0, 2),
-      'Base64 인코딩과 파일 표현 관찰을 암호화와 구분한다.',
-      'curl로 정상 HTTP 요청과 응답 기준선을 관찰한다.',
+      '웹 해킹 전에 운영체제와 Linux CLI를 알아야 하는 이유를 설명한다.',
+      '운영체제·터미널·셸·커널의 역할을 구분한다.',
+      '절대 경로와 상대 경로를 구분하고 pwd·ls·cd로 위치를 확인한다.',
+      'find와 grep으로 경로 검색과 텍스트 검색을 구분한다.',
+      'mkdir와 rm의 영향을 이해하고 삭제 전 대상을 확인한다.',
+      'stdin·stdout·stderr, 리다이렉션과 파이프를 구분한다.',
     ],
     prerequisites: weekOne.prerequisites,
-    quizMinutes: 25,
-    recordMinutes: 35,
+    quizMinutes: 15,
+    recordMinutes: 20,
     modules: [
-      moduleById('w1-shell'),
-      moduleById('w1-filesystem'),
       {
-        ...navigation,
-        title: '파일·탐색·텍스트·형식 관찰 명령',
-        duration: 125,
-        summary: '`pwd`, `ls`, `cd`, `find`, `grep`, `file`과 텍스트 관찰 명령을 문법과 옵션 중심으로 익힙니다.',
-        points: [...navigation.points, ...moduleById('w2-text').points, ...moduleById('w2-binary').points],
-      },
-      moduleById('w1-fileops'),
-      {
-        ...permission,
-        title: '사용자·그룹·소유권과 권한',
-        duration: 75,
-        summary: '파일과 디렉터리의 권한을 읽고, `chmod`·`chown`·`chgrp`가 바꾸는 대상을 구분합니다.',
-        points: [...permission.points, ...moduleById('w2-permissions').points],
-      },
-      moduleById('w1-ssh'),
-      moduleById('w2-streams'),
-      moduleById('w2-curl'),
-      moduleById('w2-process'),
-      moduleById('w2-git'),
-    ].filter(Boolean),
-    labs: [
-      labById('w1-treasure'),
-      {
-        ...commonLabFields,
-        id: 'w1-command-ctf',
-        week: 1,
-        title: '명령어 CTF · 사건 기록',
-        kind: 'linux-shell',
-        scenario: 'command-ctf',
-        estimatedMinutes: 40,
-        objective: '가상 사건 디렉터리에서 목록, 파일 형식, 경로 검색, 텍스트 검색을 조합해 세 개의 교육용 FLAG를 찾습니다.',
-        prerequisites: ['`ls`, `file`, `find`, `grep`의 역할 구분'],
-        requiredTools: ['내장 가상 Linux 셸'],
-        safeScope: '브라우저 메모리 안의 읽기 전용 교육용 파일 시스템입니다.',
-        successCriteria: ['FLAG 3개 확인', '각 FLAG에 사용한 명령 순서 기록', '경로 검색과 내용 검색의 차이 설명'],
-        hints: ['먼저 목록으로 보이는 파일과 숨김 파일을 구분하세요.', '확장자보다 `file` 결과를 먼저 읽어 보세요.', '경로는 `find`, 특정 줄은 `grep`으로 나누어 찾으세요.'],
-        relatedConceptIds: ['w1-navigation', 'w1-filesystem'],
-        nextRecommendations: ['OverTheWire Bandit 0~10'],
+        id: 'w1-why-linux',
+        title: '왜 운영체제와 Linux CLI를 배우는가',
+        duration: 15,
+        summary: '웹 요청 뒤에서 서버 프로세스와 운영체제가 어떤 역할을 하는지 먼저 확인합니다.',
       },
       {
-        ...bandit,
-        title: 'OverTheWire Bandit 0~10',
-        estimatedMinutes: 240,
-        objective: '공식 워게임에서 Linux 기본 명령·권한·텍스트 처리·SSH 흐름을 적용하고 풀이 기록을 남깁니다.',
-        prerequisites: ['파일 탐색', '권한과 텍스트 처리', 'SSH'],
-        successCriteria: ['0~10 레벨 완료', '레벨별 목표·명령·원리·막힌 지점 기록', '다음 레벨 비밀번호 마스킹'],
-        relatedConceptIds: ['w1-navigation', 'w1-permission', 'w2-streams', 'w2-curl'],
-        nextRecommendations: ['Week 2 웹 구조'],
-        path: 'extension',
+        ...moduleById('w1-shell'),
+        title: '운영체제·터미널·셸·커널',
+        duration: 35,
+        summary: '터미널과 셸을 구분하고 커널이 프로세스·메모리·파일·네트워크 접근을 관리하는 방식을 살펴봅니다.',
       },
-    ].filter(Boolean),
-    deliverables: ['가상 파일 시스템 보물찾기 기록', '명령어 CTF 풀이 기록', 'Bandit 0~10 풀이 기록', 'Linux 명령 관찰 노트'],
+      {
+        ...moduleById('w1-filesystem'),
+        title: '절대 경로와 상대 경로',
+        duration: 25,
+        summary: '루트와 현재 작업 디렉터리를 기준으로 두 경로 표기를 구분합니다.',
+      },
+      {
+        ...moduleById('w1-navigation'),
+        title: 'pwd·ls·cd·find·grep',
+        duration: 45,
+        summary: '현재 위치, 목록, 이동, 경로 검색, 텍스트 검색에 필요한 다섯 명령만 익힙니다.',
+      },
+      {
+        ...moduleById('w1-fileops'),
+        title: 'mkdir·rm',
+        duration: 25,
+        summary: '디렉터리를 만들고 파일을 삭제할 때 대상 범위를 확인합니다.',
+      },
+      {
+        id: 'w1-streams',
+        title: '표준 스트림·리다이렉션·파이프',
+        duration: 35,
+        summary: 'stdin·stdout·stderr를 구분하고 출력의 목적지를 파일이나 다음 명령으로 연결합니다.',
+      },
+    ].filter(Boolean).map((module, index) => ({ ...module, displayNumber: String(index).padStart(2, '0') })),
+    labs: [labById('w1-path')].filter(Boolean),
+    deliverables: ['절대·상대 경로 구분 기록', 'Linux 최소 명령과 스트림 요약'],
     recordBlueprint: {
-      title: 'Linux 관찰·명령 기록',
-      description: '경로·권한·텍스트 처리·HTTP 기준선과 Bandit 풀이를 한 기록에서 연결합니다.',
-      sections: ['현재 위치·대상 경로·명령 목적', '권한·스트림·텍스트 처리 관찰', '정상 HTTP 기준선과 마스킹', 'Bandit 0~10 풀이와 막힌 지점', '다음에 재시험할 조건'],
+      title: 'Linux 최소 명령 기록',
+      description: '위치·경로·검색·파일 변경·입출력 흐름을 짧게 정리합니다.',
+      sections: ['현재 위치와 경로', '사용한 명령과 목적', 'stdout·stderr와 연결 방식'],
     },
-    reportConnection: '명령, 현재 위치, 대상 경로, 중간 출력, 권한·마스킹 여부를 남기는 기록 습관을 만듭니다.',
+    reportConnection: '명령, 현재 위치, 대상 경로와 출력 흐름을 구분해 기록합니다.',
+  }
+}
+
+function applyFuzzingWeb3Design(week, index) {
+  if (index !== 7) return week
+
+  return {
+    ...week,
+    title: 'Fuzzing·Web3·블록체인 보안',
+    summary: '로컬 Fuzzing과 Crash Triage를 스마트 컨트랙트의 상태·호출 순서·Invariant 검증으로 확장합니다.',
+    prerequisites: ['W03 리버싱 입문', 'W04 PWN 입문', '로컬·합성 대상만 사용하는 안전 범위'],
+    objectives: [
+      ...(week.objectives || []),
+      'Web3 애플리케이션의 지갑·RPC·스마트 컨트랙트·체인 상태 경계를 구분한다.',
+      '로컬 합성 스마트 컨트랙트에서 Stateful Invariant Fuzzing 흐름을 설명한다.',
+    ],
+    keyConcepts: ['Fuzzing', 'Web3·블록체인', 'Smart Contract Invariant'],
+    modules: [...(week.modules || []), ...web3FuzzingModules],
+    labs: [...(week.labs || []), { ...web3FuzzingLab, week: index }],
+    deliverables: [...(week.deliverables || []), 'Web3 신뢰 경계와 스마트 컨트랙트 Invariant 표'],
+  }
+}
+
+function applySupplyChainCloudDesign(week, index) {
+  if (index !== 8) return week
+
+  return {
+    ...week,
+    title: '공급망·Cloud/IAM 보안',
+    summary: 'Source와 Dependency에서 Build·Artifact·배포까지의 공급망을 추적하고, Cloud 공유 책임과 IAM 최소 권한으로 운영 경계를 확장합니다.',
+    prerequisites: ['W05 증거 보존과 관제 판단', 'W07 Fuzzing의 Artifact·재시험 개념', '실제 CI·Registry·Cloud 계정을 사용하지 않는 안전 범위'],
+    objectives: [
+      'Source·Dependency·Build·Artifact·배포로 이어지는 소프트웨어 공급망과 신뢰 경계를 설명한다.',
+      'SBOM·Hash·전자서명·Provenance의 역할과 한계를 구분한다.',
+      'CI/CD Runner·Secret·Registry·Release 권한을 최소 권한과 검증 흐름으로 설계한다.',
+      ...(week.objectives || []),
+    ],
+    keyConcepts: ['Software Supply Chain', 'SBOM·Provenance', 'Cloud·IAM'],
+    modules: [...supplyChainModules, ...(week.modules || [])],
+    labs: [{ ...supplyChainLab, week: index }, ...(week.labs || [])],
+    sessions: [
+      {
+        id: 'w8-supply-chain-security',
+        title: '소프트웨어 공급망과 안전한 Release',
+        description: '의존성·Build·Artifact·배포 경계를 따라가며 SBOM·서명·Provenance와 CI/CD 권한을 연결합니다.',
+        outcome: '승인된 Source에서 실제 배포 Digest까지 필요한 증거와 통제를 설명할 수 있다.',
+        moduleIds: ['w8-supply-chain-flow', 'w8-sbom-provenance', 'w8-cicd-controls'],
+      },
+      {
+        id: 'w8-cloud-iam-security',
+        title: 'Cloud 공유 책임과 IAM 최소 권한',
+        description: '공급자와 고객의 책임을 나누고 IAM 정책·관리 연결·격리된 교육 환경의 권한 경계를 검토합니다.',
+        outcome: 'Cloud 자산의 책임 주체와 필요한 최소 권한·승인·재시험 조건을 작성할 수 있다.',
+        moduleIds: ['w15-shared-responsibility', 'w15-azure-cluster-connect', 'w15-msrc-remediation', 'w15-iam-least-privilege', 'w15-isolated-cloudgoat'],
+      },
+    ],
+    deliverables: ['공급망 신뢰 경계와 Artifact Provenance 판별 기록', ...(week.deliverables || [])],
+    recordBlueprint: {
+      title: 'Supply Chain·Cloud IAM Security Note',
+      description: 'Source부터 배포 Artifact까지의 근거와 Cloud 권한 경계를 한 기록으로 연결합니다.',
+      sections: ['Source·Dependency·Build 경계', 'SBOM·Signer·Provenance·Artifact Digest', 'CI/CD·Registry 권한과 Release 승인', 'Cloud 공유 책임과 IAM 최소 권한', '중단·보존·재검증과 정상 회귀'],
+    },
+    reportConnection: '공급망·Cloud Finding에는 Source·Builder·Artifact·배포 Inventory, 변경 권한, 고객 책임과 최소 권한 통제를 추적 가능한 근거로 연결합니다.',
   }
 }
 
 function reindexWeek(week, index) {
-  return {
+  const reindexed = applySystemIntroWeekDesign({
     ...week,
     id: `week-${index}`,
     index,
@@ -411,15 +517,51 @@ function reindexWeek(week, index) {
     legacyPrefix: week.legacyPrefix || `w${week.index}`,
     route: `/learn/week/${index}`,
     labs: (week.labs || []).map((lab) => ({ ...lab, week: index })),
-  }
+  }, index)
+
+  const designed = applySupplyChainCloudDesign(applyFuzzingWeb3Design(reindexed, index), index)
+  return index === 10 ? {
+    ...designed,
+    prerequisites: ['W00 자산·위협·통제와 허가 범위', 'W07 Fuzzing의 검증·재시험', 'W08 공급망·IAM 최소 권한과 승인 경계'],
+  } : designed
 }
 
 const mergedWeekOne = mergeLinuxWeeks(baseWeekContent[1], baseWeekContent[2])
+function mergeSystemWeeks(weeks, id) {
+  const [first] = weeks
+  return {
+    ...first,
+    id,
+    curriculumId: id,
+    disableArchitecture: true,
+    prerequisites: [...new Set(weeks.flatMap((week) => week.prerequisites || []))],
+    modules: weeks.flatMap((week) => week.modules || []),
+    labs: weeks.flatMap((week) => week.labs || []),
+    deliverables: [...new Set(weeks.flatMap((week) => week.deliverables || []))],
+    recordBlueprint: {
+      title: id === 'reversing-intro' ? '리버싱 관찰 노트' : 'PWN 분석 노트',
+      description: '두 세션에서 확인한 실행 흐름, 관찰 근거와 재시험 조건을 하나의 문서로 연결합니다.',
+      sections: ['관찰 대상과 허가 범위', '실행 흐름과 상태 변화', '근거·해석·확인하지 못한 범위', '정상·경계 재시험'],
+    },
+    reportConnection: id === 'reversing-intro'
+      ? '바이너리 식별 정보, 함수 흐름, 레지스터·메모리 관찰과 바이트 입출력을 재현 가능한 순서로 연결합니다.'
+      : '메모리 경계의 최초 실패 지점, 보호 기법, 크래시 근거, 수정과 정상·경계 재시험을 분리해 기록합니다.',
+  }
+}
+
+const reversingIntroWeek = mergeSystemWeeks([baseLaterWeekContent[7], baseLaterWeekContent[8], baseLaterWeekContent[9]], 'reversing-intro')
+const pwnIntroWeek = mergeSystemWeeks([baseLaterWeekContent[10], baseLaterWeekContent[11]], 'pwn-intro')
 const curriculumDefinitions = [
   weekZeroDefinition,
   reindexWeek(mergedWeekOne, 1),
-  ...Object.values(baseWeekContent).filter((week) => week.index >= 3).map((week) => reindexWeek(week, week.index - 1)),
-  ...Object.values(baseLaterWeekContent).map((week) => reindexWeek(week, week.index - 1)),
+  reindexWeek(baseWeekContent[3], 2),
+  reindexWeek(reversingIntroWeek, 3),
+  reindexWeek(pwnIntroWeek, 4),
+  ...Object.values(baseLaterWeekContent)
+    .filter((week) => week.index >= 12 && week.index <= 15)
+    .map((week) => reindexWeek(week, week.index - 7)),
+  reindexWeek(otSecurityWeek, 9),
+  reindexWeek(baseLaterWeekContent[16], 10),
 ].sort((left, right) => left.index - right.index)
 
 const definitionsWithNext = curriculumDefinitions.map((week, index, weeks) => ({
@@ -454,7 +596,7 @@ const baseQuizzes = {
   ],
   2: [
     { id: 'w2q1', conceptIds: ['w1-permission'], difficulty: 'foundation', remediationModuleIds: ['w1-permission'], question: '`640` 권한에서 그룹이 할 수 있는 일은?', options: ['읽기만', '읽기와 쓰기', '실행만'], answer: 0, explanation: '가운데 숫자 4는 그룹의 읽기 권한입니다.' },
-    { id: 'w2q2', conceptIds: ['w2-streams'], difficulty: 'foundation', remediationModuleIds: ['w2-streams'], question: '`2>`가 보내는 스트림은?', options: ['stdin', 'stdout', 'stderr'], answer: 2, explanation: '파일 설명자 2는 표준 오류입니다.' },
+    { id: 'w2q2', conceptIds: ['w1-streams'], difficulty: 'foundation', remediationModuleIds: ['w1-streams'], question: '`2>`가 보내는 스트림은?', options: ['stdin', 'stdout', 'stderr'], answer: 2, explanation: '파일 설명자 2는 표준 오류입니다.' },
     { id: 'w2q3', conceptIds: ['w1-navigation'], difficulty: 'foundation', remediationModuleIds: ['w1-navigation'], question: 'Base64에 대한 올바른 설명은?', options: ['비밀키 암호화', '복호화 불가능한 해시', '문자 기반 표현을 위한 인코딩'], answer: 2, explanation: 'Base64는 비밀성을 제공하지 않는 인코딩입니다.' },
     { id: 'w2q4', conceptIds: ['w2-curl'], difficulty: 'application', remediationModuleIds: ['w2-curl'], question: '요청 값을 바꾸기 전 가장 먼저 할 일은?', options: ['정상 요청 기준선 저장', '모든 파라미터 동시 변경', '외부 사이트 스캔'], answer: 0, explanation: '원본 기준선이 있어야 변경의 영향을 비교할 수 있습니다.' },
     { id: 'w2q5', conceptIds: ['w1-navigation'], difficulty: 'application', remediationModuleIds: ['w1-navigation'], question: '같은 경로별 발생 횟수를 세기 전에 필요한 순서는?', options: ['uniq 후 sort', 'sort 후 uniq -c', 'cut 후 chmod'], answer: 1, explanation: '같은 값을 붙여 놓도록 정렬한 뒤 `uniq -c`로 빈도를 셉니다.' },
@@ -462,11 +604,10 @@ const baseQuizzes = {
   ],
   3: [
     { id: 'w3q1', conceptIds: ['w3-url-dns'], difficulty: 'foundation', remediationModuleIds: ['w3-url-dns'], question: 'URL fragment에 대한 설명으로 맞는 것은?', options: ['항상 HTTP 요청 헤더에 포함된다', '기본적으로 서버 요청에 포함되지 않는다', 'DNS 서버에만 전달된다'], answer: 1, explanation: 'fragment는 보통 브라우저 내부에서 처리됩니다.' },
-    { id: 'w3q2', conceptIds: ['w3-auth-origin'], difficulty: 'application', remediationModuleIds: ['w3-auth-origin'], question: '로그인은 성공했지만 다른 사용자의 문서를 읽을 수 있다. 빠진 검증은?', options: ['DNS', '인가', 'HTML 파싱'], answer: 1, explanation: '인증 이후에도 객체별 인가 검증이 필요합니다.' },
-    { id: 'w3q3', conceptIds: ['w3-session'], difficulty: 'foundation', remediationModuleIds: ['w3-session'], question: 'HttpOnly가 직접 제한하는 것은?', options: ['JavaScript의 쿠키 읽기', '모든 XSS 실행', '서버의 세션 생성'], answer: 0, explanation: 'HttpOnly는 스크립트의 쿠키 접근을 제한하지만 XSS 자체를 막지 않습니다.' },
-    { id: 'w3q4', conceptIds: ['w3-dom'], difficulty: 'application', remediationModuleIds: ['w3-dom'], question: '일반 텍스트를 DOM에 표시할 때 더 안전한 Sink는?', options: ['innerHTML', 'eval', 'textContent'], answer: 2, explanation: '`textContent`는 값을 HTML 코드로 해석하지 않습니다.' },
-    { id: 'w3q5', conceptIds: ['w3-encoding-body'], difficulty: 'application', remediationModuleIds: ['w3-encoding-body'], question: '파일과 일반 필드를 boundary로 나누어 전송하는 Content-Type은?', options: ['application/json', 'multipart/form-data', 'text/plain'], answer: 1, explanation: '`multipart/form-data`는 boundary로 여러 part를 구분합니다.' },
-    { id: 'w3q6', conceptIds: ['w3-browser-runtime'], difficulty: 'analysis', remediationModuleIds: ['w3-browser-runtime'], question: '조건부 요청이 304를 받았는데 화면에 본문이 보이는 이유는?', options: ['304가 새 본문을 포함해서', '브라우저가 검증된 캐시 본문을 재사용해서', 'DNS가 HTML을 생성해서'], answer: 1, explanation: '304는 캐시된 표현이 유효함을 알리고 브라우저는 저장한 본문을 재사용할 수 있습니다.' },
+    { id: 'w3q2', conceptIds: ['w3-flow'], difficulty: 'foundation', remediationModuleIds: ['w3-flow'], question: 'HTTP Response에서 Body의 형식을 설명하는 Header는?', options: ['Host', 'Content-Type', 'Cookie'], answer: 1, explanation: 'Content-Type은 응답 Body의 media type을 설명합니다.' },
+    { id: 'w3q3', conceptIds: ['w3-session'], difficulty: 'foundation', remediationModuleIds: ['w3-session'], question: '일반적인 서버 측 Session 방식에서 Cookie에 담기 가장 적절한 값은?', options: ['전체 개인정보', '예측하기 어려운 Session ID', '데이터베이스 비밀번호'], answer: 1, explanation: 'Cookie에는 최소한의 Session 식별자를 두고 실제 상태는 서버에서 관리합니다.' },
+    { id: 'w3q4', conceptIds: ['w3-dom'], difficulty: 'application', remediationModuleIds: ['w3-dom'], question: 'HttpOnly가 설정된 페이지에서 XSS가 발견됐을 때 맞는 설명은?', options: ['XSS가 완전히 해결됐다', 'Cookie 직접 읽기는 제한되지만 XSS 실행 가능성은 남는다', 'Session 때문에 스크립트가 실행되지 않는다'], answer: 1, explanation: 'HttpOnly는 JavaScript의 Cookie 읽기를 제한하지만 XSS 원인을 제거하지 않습니다.' },
+    { id: 'w3q5', conceptIds: ['w3-auth-origin'], difficulty: 'application', remediationModuleIds: ['w3-auth-origin'], question: '로그인 전과 로그인 후에 같은 Session ID를 유지해 발생할 수 있는 공격은?', options: ['Session Fixation', 'DNS Spoofing', 'Content Sniffing'], answer: 0, explanation: '로그인 성공 후에는 새 Session ID를 발급하고 이전 ID를 폐기해야 합니다.' },
   ],
   4: [
     { id: 'w4q1', conceptIds: ['w4-types', 'w4-taint'], difficulty: 'application', remediationModuleIds: ['w4-types', 'w4-taint'], question: '서버 응답 원문에 입력이 없지만 실행 후 DOM에서 코드가 만들어졌다. 우선 의심할 유형은?', options: ['Stored XSS', 'DOM-based XSS', 'SQL Injection'], answer: 1, explanation: '브라우저 JavaScript의 Source와 Sink 흐름을 확인해야 합니다.' },
@@ -494,10 +635,20 @@ function enrichQuizQuestion(question) {
 
 export const quizzes = Object.fromEntries([
   [0, baseQuizzes[0]],
-  [1, [...baseQuizzes[1], ...baseQuizzes[2]]],
+  [1, [...baseQuizzes[1], ...baseQuizzes[2]].filter((question) => ['w1q1', 'w1q4', 'w1q5', 'w2q2'].includes(question.id))],
+  [3, [...baseQuizzes[7], ...baseQuizzes[8], ...baseQuizzes[9]].filter((question) => ['w7q1', 'w7q2', 'w8q1', 'w8q2', 'w9q1', 'w9q5'].includes(question.id))],
+  [4, [...baseQuizzes[10], ...baseQuizzes[11]].filter((question) => ['w10q1', 'w10q3', 'w10q4', 'w10q5', 'w11q2', 'w11q5'].includes(question.id))],
+  [7, [...baseQuizzes[14], ...web3FuzzingQuizQuestions]],
+  [8, [...baseQuizzes[15], ...supplyChainQuizQuestions]],
+  [9, otSecurityQuizQuestions],
   ...Object.entries(baseQuizzes)
-    .filter(([index]) => Number(index) >= 3)
-    .map(([index, questions]) => [Number(index) - 1, questions]),
+    .filter(([index]) => [3, 12, 13, 16].includes(Number(index)))
+    .map(([index, questions]) => {
+      const sourceIndex = Number(index)
+      if (sourceIndex === 3) return [2, questions]
+      if (sourceIndex === 16) return [10, questions]
+      return [sourceIndex - 7, questions]
+    }),
 ].map(([weekIndex, questions]) => [weekIndex, questions.map(enrichQuizQuestion)]))
 
 function unique(values) {
@@ -536,8 +687,8 @@ export const objectiveEvidence = Object.freeze(Object.fromEntries(Object.values(
 
 const baseCoreQuizQuestionIds = {
   0: ['w0q2', 'w0q3', 'w0q6', 'w0q7', 'w0q8', 'w0q12'],
-  1: ['w1q1', 'w1q3', 'w1q4'],
-  2: ['w2q1', 'w2q2', 'w2q4'],
+  1: ['w1q1', 'w1q4', 'w1q5'],
+  2: ['w2q2'],
   3: ['w3q1', 'w3q2', 'w3q5'],
   4: ['w4q1', 'w4q2', 'w4q3'],
 }
@@ -545,12 +696,16 @@ const baseCoreQuizQuestionIds = {
 const coreQuizQuestionIds = Object.fromEntries([
   [0, baseCoreQuizQuestionIds[0]],
   [1, [...baseCoreQuizQuestionIds[1], ...baseCoreQuizQuestionIds[2]]],
-  ...Object.entries(baseCoreQuizQuestionIds)
-    .filter(([index]) => Number(index) >= 3)
-    .map(([index, questionIds]) => [Number(index) - 1, questionIds]),
+  [2, baseCoreQuizQuestionIds[3]],
+  [3, ['w7q1', 'w8q2', 'w9q1']],
+  [4, ['w10q1', 'w10q4', 'w11q5']],
+  [7, ['w14q1', 'w14q2', 'w7web3q2']],
+  [8, ['w8supplyq1', 'w8supplyq2', 'w15q2']],
+  [9, ['w9otq1', 'w9otq3', 'w9otq4']],
+  [10, ['w16q1', 'w16q2', 'w16q4']],
 ])
 
-const quizMinimumCorrectOverrides = { 1: 10 }
+const quizMinimumCorrectOverrides = { 1: 3 }
 
 export const quizRules = Object.fromEntries(Object.entries(quizzes).map(([weekIndex, questionPool]) => [
   weekIndex,

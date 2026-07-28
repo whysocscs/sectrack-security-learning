@@ -21,13 +21,14 @@ import {
 } from 'lucide-react'
 import { cveCweCvssFlow, glossaryCategories, securityGlossary } from '../../data/week0/glossary.js'
 import {
-  getPostingById,
+  auditedRepresentativeRoles,
   jobMarketResearchSummary,
+  jobPostingFieldOptions,
   jobPostingSeeds,
-  metadataOnlyJobPosting,
+  postingsForAuditedRole,
+  postingAuditGroup,
   postingMarket,
 } from '../../data/week0/jobMarketResearch.js'
-import { domainById, familyById, roleById, roleDetails, rolesForDomain, securityDomains } from '../../data/week0/jobTaxonomy.js'
 import {
   researchDomainById,
   researchDomainLinks,
@@ -41,12 +42,13 @@ import {
   representativeRoleGroupsForDomain,
   representativeRolesForDomain,
 } from '../../data/week0/careerResearch.js'
-import { completenessLabels, currentStatusLabels, evidenceTypeLabels } from '../../data/week0/sources.js'
+import { completenessLabels, evidenceTypeLabels } from '../../data/week0/sources.js'
 
 const evidenceSections = [
   ['market', '시장 개요'],
   ['domains', '분야'],
   ['roles', '세부 직무'],
+  ['postings', '채용공고 320건'],
   ['graph', '관계도'],
 ]
 
@@ -61,6 +63,10 @@ function updateWeekZero(updateProgress, patch) {
 function unique(values) {
   return [...new Set(values)]
 }
+
+const auditedRoleById = new Map(auditedRepresentativeRoles.map((role) => [role.id, role]))
+const representativeRoleById = new Map(representativeRoleCatalog.map((role) => [role.id, role]))
+const auditedPostingById = new Map(jobPostingSeeds.map((posting) => [posting.id, posting]))
 
 function useCompactMindmap() {
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 720)
@@ -87,8 +93,8 @@ function CompletenessBadge({ posting }) {
 }
 
 function PostingStatus({ posting }) {
-  const status = posting.source.isCurrent === true ? 'active' : posting.source.isCurrent === false ? 'closed' : 'unknown'
-  return <span className={`posting-status status-${status}`}>{currentStatusLabels[status]}</span>
+  const group = postingAuditGroup(posting)
+  return <span className={`posting-status status-${group}`}>{posting.source.finalLinkStatus}</span>
 }
 
 function SectionIntro({ kicker, title, body, action }) {
@@ -133,7 +139,7 @@ function WeekZeroOverview({ openTab }) {
         ['04', '나의 보안 지도', '관심 직무와 대표 산출물, 연결 WEEK, 포트폴리오 후보를 저장합니다.', 'map', Target],
       ].map(([number, title, body, target, Icon]) => <button type="button" key={number} onClick={() => openTab(target)}><span>{number}</span><Icon size={19} /><div><strong>{title}</strong><p>{body}</p></div><ChevronRight size={17} /></button>)}
     </section>
-    <section className="research-caveat" aria-label="채용 표본 해석 주의"><BarChart3 size={21} /><div><strong>실제 공개 채용공고 21건을 분석한 1차 표본입니다.</strong><p>{jobMarketResearchSummary.caveat}</p></div></section>
+    <section className="research-caveat" aria-label="채용 표본 해석 주의"><BarChart3 size={21} /><div><strong>{jobMarketResearchSummary.sampleSize}개 매핑·{jobMarketResearchSummary.uniqueUrlCount}개 고유 URL 최종 감사 자료입니다.</strong><p>{jobMarketResearchSummary.caveat}</p></div></section>
     <div className="week0-layer-grid">
       <article><span>전문 분야</span><strong>웹·클라우드·DFIR·암호처럼 무엇을 다루는가</strong><p>기술과 시스템의 범위입니다.</p></article>
       <article><span>업무 기능</span><strong>기획·설계·진단·탐지·대응·감사처럼 무엇을 하는가</strong><p>조직에서 맡는 행동과 책임입니다.</p></article>
@@ -186,14 +192,14 @@ function CareerEvidenceExplorer({ moduleId, initialSection, progress, updateProg
 
 function MarketOverview({ onOpenRoles }) {
   return <div className="market-overview">
-    <section className="market-stats" aria-label="직무 지도 개요"><div><small>전문 분야</small><strong>{researchDomains.length}<span>개</span></strong></div><div><small>대표 역할</small><strong>{representativeRoleCatalog.length}<span>개</span></strong></div><div><small>상세 근거 카드</small><strong>{researchRoles.length}<span>개</span></strong></div><div><small>기존 공고 표본</small><strong>{jobMarketResearchSummary.sampleSize}<span>건</span></strong></div></section>
+    <section className="market-stats" aria-label="직무 지도 개요"><div><small>전문 분야</small><strong>{researchDomains.length}<span>개</span></strong></div><div><small>감사 대상 대표 직무</small><strong>{jobMarketResearchSummary.representativeRoleCount}<span>개</span></strong></div><div><small>직무-공고 매핑</small><strong>{jobMarketResearchSummary.sampleSize}<span>개</span></strong></div><div><small>고유 공고 URL</small><strong>{jobMarketResearchSummary.uniqueUrlCount}<span>개</span></strong></div></section>
     <section className="competency-frequency"><header><div><span>HOW TO READ THIS MAP</span><h2>역할 수가 아니라 근거 강도를 먼저 봅니다.</h2><p>대표 역할은 운영자가 정한 분야별 직무군 목록입니다. 상세 카드에만 실제 공고 확인, 공식 직무 체계, 공식·산업 자료의 근거 상태를 표시합니다.</p></div><button type="button" onClick={onOpenRoles}>세부 직무 읽기<ArrowRight size={15} /></button></header><div>{[
       { id: 'jobPosting', label: researchEvidenceLabels.jobPosting, count: researchRoles.filter((role) => role.evidence.level === 'jobPosting').length, description: '보고서가 공고 원문 확인으로 분류한 상세 역할입니다.' },
       { id: 'officialFramework', label: researchEvidenceLabels.officialFramework, count: researchRoles.filter((role) => role.evidence.level === 'officialFramework').length, description: 'NIST NICE 같은 공식 체계의 역할 정의가 근거입니다.' },
       { id: 'industryResearch', label: researchEvidenceLabels.industryResearch, count: researchRoles.filter((role) => role.evidence.level === 'industryResearch').length, description: '공식·산업 자료로 업무 실체를 확인한 역할입니다.' },
     ].map((item) => <article key={item.id}><div><strong>{item.label}</strong><span>{item.count}개</span></div><i style={{ width: `${Math.max(22, (item.count / researchRoles.length) * 100)}%` }} /><p>{item.description}</p></article>)}</div></section>
-    <section className="industry-insights"><header><span>INDUSTRY INSIGHTS</span><h2>산업이 바뀌면 보안의 우선순위도 달라집니다.</h2></header><div>{jobMarketResearchSummary.industryInsights.map((item) => <article key={item.id}><strong>{item.title}</strong><p>{item.body}</p></article>)}</div></section>
-    <section className="market-next"><UsersRound size={20} /><div><strong>가장 자주 등장한 공통 역량은 협업·문서화였습니다.</strong><p>이는 발표를 잘하라는 추상적인 요구가 아니라, 정책·보고서·플레이북·위협 모델·감사 결과·기술 문서를 재현 가능하고 검토 가능한 산출물로 만드는 능력을 뜻합니다.</p></div><button className="button primary" type="button" onClick={onOpenRoles}>세부 직무 비교<ArrowRight size={16} /></button></section>
+    <section className="industry-insights"><header><span>DATASET INSIGHTS</span><h2>매핑 수와 URL 검증 상태를 구분해 읽습니다.</h2></header><div>{jobMarketResearchSummary.industryInsights.map((item) => <article key={item.id}><strong>{item.title}</strong><p>{item.body}</p></article>)}</div></section>
+    <section className="market-next"><UsersRound size={20} /><div><strong>URL이 열렸다는 사실과 현재 모집 중이라는 판단은 다릅니다.</strong><p>지원 또는 학습 근거로 사용할 때는 최종 링크 상태와 검증일을 읽고, 직접 열린 공고도 현재 접수 여부를 다시 확인하세요.</p></div><button className="button primary" type="button" onClick={onOpenRoles}>세부 직무 비교<ArrowRight size={16} /></button></section>
   </div>
 }
 
@@ -267,24 +273,47 @@ function RoleDetail({ role, progress, updateProgress }) {
 function PostingExplorer({ progress, updateProgress }) {
   const view = progress.weekZero.view || {}
   const [market, setMarket] = useState('all')
-  const [completeness, setCompleteness] = useState('all')
+  const [field, setField] = useState('all')
+  const [auditGroup, setAuditGroup] = useState('all')
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState(view.selectedPostingId || jobPostingSeeds[0].id)
   const normalized = query.trim().toLocaleLowerCase('ko-KR')
-  const postings = jobPostingSeeds.filter((posting) => (market === 'all' || postingMarket(posting.id) === market) && (completeness === 'all' || posting.evidence.contentCompleteness === completeness) && (!normalized || [posting.raw.companyName, posting.raw.jobTitle, ...posting.raw.responsibilities, ...posting.raw.requirements, ...posting.normalized.tools, ...posting.normalized.lawsAndStandards].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)))
-  const selected = getPostingById(selectedId) || postings[0] || jobPostingSeeds[0]
+  const postings = jobPostingSeeds.filter((posting) => (
+    (market === 'all' || postingMarket(posting.id) === market)
+    && (field === 'all' || posting.normalized.securityDomainId === field)
+    && (auditGroup === 'all' || postingAuditGroup(posting) === auditGroup)
+    && (!normalized || [posting.raw.companyName, posting.raw.jobTitle, posting.normalized.securityDomainTitle, posting.normalized.representativeRole, posting.source.finalLinkStatus].join(' ').toLocaleLowerCase('ko-KR').includes(normalized))
+  ))
+  const selected = postings.find((posting) => posting.id === selectedId) || postings[0] || null
   const select = (id) => {
     setSelectedId(id)
     updateWeekZero(updateProgress, { view: { ...view, selectedPostingId: id } })
   }
-  return <div className="posting-explorer"><div className="posting-filter-bar"><label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="회사·직무·기술 검색" aria-label="실제 공고 검색" /></label><select value={market} onChange={(event) => setMarket(event.target.value)} aria-label="국내외 필터"><option value="all">국내·국외 전체</option><option value="domestic">국내 표본</option><option value="international">국외 표본</option></select><select value={completeness} onChange={(event) => setCompleteness(event.target.value)} aria-label="공고 완성도 필터"><option value="all">완성도 전체</option><option value="detailed">상세 Seed</option><option value="partial">Partial Seed</option></select></div><p className="posting-caveat">공고의 공개 URL, 게시일, 마감일, 현재 모집 여부가 handoff에 없는 경우 만들지 않았습니다. 링크가 없는 항목은 버튼을 표시하지 않습니다.</p><div className="posting-explorer-layout"><div className="posting-list">{postings.map((posting) => <button type="button" key={posting.id} className={selected.id === posting.id ? 'selected' : ''} onClick={() => select(posting.id)}><span><CompletenessBadge posting={posting} /><PostingStatus posting={posting} /></span><strong>{posting.raw.companyName}</strong><p>{posting.raw.jobTitle}</p><small>{postingMarket(posting.id) === 'domestic' ? '국내 표본' : '국외 표본'} · 역할 매핑 {posting.normalized.roleMappings.length}개</small></button>)}{!postings.length && <p className="empty-state-copy">필터와 일치하는 공고가 없습니다.</p>}</div><PostingDetail posting={selected} /></div><section className="metadata-only-note"><h3>제목·메타데이터만 확인한 별도 기록</h3><p>{metadataOnlyJobPosting.raw.companyName} · {metadataOnlyJobPosting.raw.jobTitle}</p><EvidenceBadge type="metadataOnly" /><p>{metadataOnlyJobPosting.evidence.notes}</p><a href={metadataOnlyJobPosting.source.postingUrl} target="_blank" rel="noreferrer">제공된 공개 공고 링크<ExternalLink size={14} /></a></section></div>
+  return <div className="posting-explorer">
+    <div className="posting-filter-bar">
+      <label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="회사·공고·대표 직무 검색" aria-label="실제 공고 검색" /></label>
+      <select value={market} onChange={(event) => setMarket(event.target.value)} aria-label="국내외 필터"><option value="all">국내·국외 전체</option><option value="domestic">국내 160개</option><option value="international">해외 160개</option></select>
+      <select value={field} onChange={(event) => setField(event.target.value)} aria-label="보안 분야 필터"><option value="all">16개 분야 전체</option>{jobPostingFieldOptions.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select>
+      <select value={auditGroup} onChange={(event) => setAuditGroup(event.target.value)} aria-label="URL 감사 상태 필터"><option value="all">URL 감사 상태 전체</option><option value="candidate">직접 페이지 열림</option><option value="manual">수동 확인 필요</option><option value="archive">마감·아카이브</option><option value="hidden">404·일반 목록·비노출</option></select>
+    </div>
+    <p className="posting-caveat">{jobMarketResearchSummary.auditDate} 기준 320개 매핑입니다. 직접 페이지가 열렸다는 사실은 현재 모집 중임을 보장하지 않으며, 비노출 권장 URL은 링크 버튼을 표시하지 않습니다.</p>
+    <div className="posting-explorer-layout">
+      <div className="posting-list">{postings.map((posting) => <button type="button" key={posting.id} className={selected?.id === posting.id ? 'selected' : ''} onClick={() => select(posting.id)}><span><CompletenessBadge posting={posting} /><PostingStatus posting={posting} /></span><strong>{posting.raw.companyName}</strong><p>{posting.raw.jobTitle}</p><small>{postingMarket(posting.id) === 'domestic' ? '국내' : '해외'} · {posting.normalized.securityDomainTitle} · {posting.normalized.representativeRole}</small></button>)}{!postings.length && <p className="empty-state-copy">필터와 일치하는 공고가 없습니다.</p>}</div>
+      <PostingDetail posting={selected} />
+    </div>
+  </div>
 }
 
 function PostingDetail({ posting }) {
   if (!posting) return null
   const { raw, normalized, source, evidence } = posting
-  const roleTitles = normalized.roleMappings.map((item) => roleById[item.roleId]?.title || item.roleId)
-  return <article className="posting-detail" aria-label={`${raw.companyName} ${raw.jobTitle} 공고 상세`}><header><div><CompletenessBadge posting={posting} /><PostingStatus posting={posting} /></div><h2>{raw.companyName}</h2><p>{raw.jobTitle}</p><small>{raw.workLocation || '근무지 미확인'}{raw.employmentType && ` · ${raw.employmentType}`}{raw.experience && ` · ${raw.experience}`}</small></header><section><h3>정규화 직무 <EvidenceBadge type="normalized" /></h3><div className="tag-list">{roleTitles.map((title) => <span key={title}>{title}</span>)}</div></section><DetailList title="주요 업무" items={raw.responsibilities} label="direct" /><DetailList title="필수 자격" items={raw.requirements} label="direct" /><DetailList title="우대사항" items={raw.preferredQualifications} label="direct" /><DetailList title="기술·도구" items={[...normalized.tools, ...normalized.platforms, ...normalized.protocols, ...normalized.frameworks]} label="direct" /><DetailList title="법·표준" items={normalized.lawsAndStandards} label="direct" /><DetailList title="대표 산출물" items={normalized.deliverables} label="inferred" /><DetailList title="협업 조직" items={normalized.partnerTeams} label="direct" /><section><h3>출처 상태</h3><dl><div><dt>출처 유형</dt><dd>개별 채용공고</dd></div><div><dt>본문 검증</dt><dd>{evidence.bodyVerified ? '공고 본문 확인' : '미확인'}</dd></div><div><dt>확인일</dt><dd>{source.checkedDate || '미확인'}</dd></div><div><dt>현재 상태</dt><dd>{source.isCurrent === true ? '모집 중 확인' : source.isCurrent === false ? '마감 확인' : '현재 상태 미확인'}</dd></div></dl>{source.postingUrl && <a className="posting-link" href={source.postingUrl} target="_blank" rel="noreferrer">공개 공고 보기<ExternalLink size={15} /></a>}</section></article>
+  const roleTitles = normalized.roleMappings.map((item) => item.roleTitle || roleById[item.roleId]?.title || item.roleId)
+  const group = postingAuditGroup(posting)
+  return <article className="posting-detail" aria-label={`${raw.companyName} ${raw.jobTitle} 공고 상세`}>
+    <header><div><CompletenessBadge posting={posting} /><PostingStatus posting={posting} /></div><h2>{raw.companyName}</h2><p>{raw.jobTitle}</p><small>{raw.workLocation || '근무지 미확인'}{raw.experience && ` · ${raw.experience}`}</small></header>
+    <section><h3>분야·대표 직무 매핑 <EvidenceBadge type="normalized" /></h3><div className="tag-list"><span>{normalized.securityDomainTitle}</span>{roleTitles.map((title) => <span key={title}>{title}</span>)}</div><dl><div><dt>대응 수준</dt><dd>{posting.audit.matchLevel}</dd></div><div><dt>매핑 근거</dt><dd>{evidence.notes}</dd></div><div><dt>URL 사용 횟수</dt><dd>{posting.audit.urlUseCount}회{posting.audit.duplicateMapping ? ' · 복수 직무 연결' : ''}</dd></div></dl></section>
+    <section><h3>URL 최종 감사 상태</h3><dl><div><dt>원 조사 상태</dt><dd>{source.originalStatus || '미확인'}</dd></div><div><dt>최종 링크 상태</dt><dd>{source.finalLinkStatus}</dd></div><div><dt>운영 권장</dt><dd>{source.operatingRecommendation}</dd></div><div><dt>최종 검증일</dt><dd>{source.checkedDate || '미확인'}</dd></div><div><dt>출처 경로</dt><dd>{source.sourceLabel || source.pageSystem}</dd></div></dl><p className="posting-verification-basis">{source.verificationBasis}</p>{source.postingUrl && <a className="posting-link" href={source.postingUrl} target="_blank" rel="noreferrer">{group === 'archive' ? '마감 공고 아카이브 보기' : '공고 페이지 열기·모집 여부 재확인'}<ExternalLink size={15} /></a>}{!source.postingUrl && <p className="posting-link-hidden">운영 권장에 따라 원 URL 링크를 표시하지 않습니다.</p>}{source.replacementTitle && <p className="posting-replacement-candidate"><strong>교체 후보</strong> {source.replacementTitle} · 재검증 전 링크 비노출</p>}</section>
+  </article>
 }
 
 function CareerGraphView({ progress, updateProgress }) {
@@ -364,33 +393,73 @@ function CareerGraphView({ progress, updateProgress }) {
 }
 
 function mapConditions(state) {
-  const selectedRoles = (state.selectedRoleIds || []).map((id) => roleById[id]).filter(Boolean)
-  const portfolioOptions = selectedRoles.flatMap((role) => role.portfolioOptions.map((item) => `${role.id}:${item}`))
+  const selectedDomainIds = (state.selectedDomainIds || []).filter((id) => researchDomainById[id])
+  const viewedRoleIds = unique((state.viewedRoleIds || []).filter((id) => auditedRoleById.has(id)))
+  const selectedRoles = unique(state.selectedRoleIds || []).map((id) => auditedRoleById.get(id)).filter(Boolean).map(personalRoleModel)
+  const availablePostingIds = new Set(selectedRoles.flatMap((role) => role.postings.map((posting) => posting.id)))
+  const selectedPostings = unique(state.selectedPostingIds || []).filter((id) => availablePostingIds.has(id)).map((id) => auditedPostingById.get(id)).filter(Boolean)
   return {
+    selectedDomainIds,
     selectedRoles,
-    portfolioOptions,
+    selectedPostings,
+    postingOptions: selectedRoles.flatMap((role) => role.postings),
     entries: [
-      { id: 'domains', label: '관심 분야', value: `${state.selectedDomainIds?.length || 0} / 2개`, done: (state.selectedDomainIds?.length || 0) >= 2 },
-      { id: 'roles-viewed', label: '세부 직무 열람', value: `${state.viewedRoleIds?.length || 0} / 4개`, done: (state.viewedRoleIds?.length || 0) >= 4 },
-      { id: 'roles-selected', label: '관심 직무', value: `${state.selectedRoleIds?.length || 0} / 2개`, done: (state.selectedRoleIds?.length || 0) >= 2 },
-      { id: 'portfolio', label: '포트폴리오 후보', value: `${state.selectedPortfolioIds?.length || 0} / 2개`, done: (state.selectedPortfolioIds?.length || 0) >= 2 },
+      { id: 'domains', label: '관심 분야', value: `${selectedDomainIds.length} / 2개`, done: selectedDomainIds.length >= 2 },
+      { id: 'roles-viewed', label: '대표 직무 열람', value: `${viewedRoleIds.length} / 4개`, done: viewedRoleIds.length >= 4 },
+      { id: 'roles-selected', label: '관심 직무', value: `${selectedRoles.length} / 2개`, done: selectedRoles.length >= 2 },
+      { id: 'postings', label: '비교할 공고', value: `${selectedPostings.length} / 2개`, done: selectedPostings.length >= 2 },
     ],
+  }
+}
+
+function personalRoleModel(auditedRole) {
+  const catalogRole = representativeRoleById.get(auditedRole.catalogRoleId) || null
+  const document = catalogRole ? researchDocumentForCatalog(catalogRole) : null
+  const group = catalogRole ? representativeRoleGroupsForDomain(catalogRole.domainId).find((item) => item.roleIds.includes(catalogRole.id)) : null
+  return {
+    ...auditedRole,
+    catalogRole,
+    document,
+    groupTitle: group?.title || '분야 대표 직무',
+    postings: postingsForAuditedRole(auditedRole.id),
   }
 }
 
 function PersonalCareerMap({ progress, updateProgress, notify, onCompleteMap }) {
   const state = progress.weekZero
-  const { entries, selectedRoles, portfolioOptions } = mapConditions(state)
+  const { entries, selectedDomainIds, selectedRoles, selectedPostings, postingOptions } = mapConditions(state)
+  const selectedRoleIds = selectedRoles.map((role) => role.id)
+  const selectedPostingIds = selectedPostings.map((posting) => posting.id)
+  const visibleRoles = auditedRepresentativeRoles.filter((role) => selectedDomainIds.includes(role.domainId) || selectedRoleIds.includes(role.id))
   const done = entries.every((item) => item.done)
-  const toggleDomain = (id) => updateWeekZero(updateProgress, { selectedDomainIds: state.selectedDomainIds.includes(id) ? state.selectedDomainIds.filter((item) => item !== id) : [...state.selectedDomainIds, id] })
-  const toggleRole = (id) => {
-    const current = state.selectedRoleIds || []
-    const next = current.includes(id) ? current.filter((item) => item !== id) : current.length >= 2 ? current : [...current, id]
-    updateWeekZero(updateProgress, { selectedRoleIds: next, viewedRoleIds: unique([...(state.viewedRoleIds || []), id]) })
+  const toggleDomain = (id) => {
+    const next = selectedDomainIds.includes(id) ? selectedDomainIds.filter((item) => item !== id) : selectedDomainIds.length >= 2 ? selectedDomainIds : [...selectedDomainIds, id]
+    updateWeekZero(updateProgress, { selectedDomainIds: next })
   }
-  const togglePortfolio = (id) => updateWeekZero(updateProgress, { selectedPortfolioIds: state.selectedPortfolioIds.includes(id) ? state.selectedPortfolioIds.filter((item) => item !== id) : state.selectedPortfolioIds.length >= 2 ? state.selectedPortfolioIds : [...state.selectedPortfolioIds, id] })
+  const markRoleViewed = (id) => updateWeekZero(updateProgress, { viewedRoleIds: unique([...(state.viewedRoleIds || []), id]) })
+  const toggleRole = (id) => {
+    const next = selectedRoleIds.includes(id) ? selectedRoleIds.filter((item) => item !== id) : selectedRoleIds.length >= 2 ? selectedRoleIds : [...selectedRoleIds, id]
+    const remainingPostingIds = new Set(next.flatMap((roleId) => postingsForAuditedRole(roleId).map((posting) => posting.id)))
+    updateWeekZero(updateProgress, {
+      selectedRoleIds: next,
+      selectedPostingIds: selectedPostingIds.filter((postingId) => remainingPostingIds.has(postingId)),
+      viewedRoleIds: unique([...(state.viewedRoleIds || []), id]),
+    })
+  }
+  const togglePosting = (id) => {
+    const next = selectedPostingIds.includes(id) ? selectedPostingIds.filter((item) => item !== id) : selectedPostingIds.length >= 2 ? selectedPostingIds : [...selectedPostingIds, id]
+    updateWeekZero(updateProgress, { selectedPostingIds: next })
+  }
   const exportMap = () => {
-    const payload = { schema: 'sectrack-week0-personal-map', version: 1, exportedAt: new Date().toISOString(), selectedDomains: state.selectedDomainIds.map((id) => domainById[id]?.title).filter(Boolean), selectedRoles: selectedRoles.map((role) => ({ title: role.title, actualWork: role.actualWork, deliverables: role.deliverables, foundations: role.foundations, relatedWeekIds: role.relatedWeekIds })), portfolioOptions: state.selectedPortfolioIds }
+    const payload = {
+      schema: 'sectrack-week0-personal-map',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      dataset: { auditDate: jobMarketResearchSummary.auditDate, mappingCount: jobMarketResearchSummary.sampleSize, uniqueUrlCount: jobMarketResearchSummary.uniqueUrlCount },
+      selectedDomains: selectedDomainIds.map((id) => researchDomainById[id]?.title).filter(Boolean),
+      selectedRoles: selectedRoles.map((role) => ({ id: role.id, title: role.title, domain: role.domainTitle, summary: role.catalogRole?.summary || '', mappedPostingCount: role.postingCount })),
+      selectedPostings: selectedPostings.map((posting) => ({ company: posting.raw.companyName, title: posting.raw.jobTitle, market: posting.source.market, finalLinkStatus: posting.source.finalLinkStatus, checkedDate: posting.source.checkedDate, url: posting.source.postingUrl })),
+    }
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }))
     const anchor = document.createElement('a')
     anchor.href = url
@@ -399,7 +468,24 @@ function PersonalCareerMap({ progress, updateProgress, notify, onCompleteMap }) 
     URL.revokeObjectURL(url)
     notify?.('나의 보안 지도 JSON을 내보냈습니다.')
   }
-  return <div className="personal-career-map"><SectionIntro kicker="MY SECURITY MAP" title="관심 직무를 두 개 고르고, 실제 업무와 산출물을 비교합니다." body="숙련도나 개인 메모를 채우는 대신, 분야·직무·업무·산출물·연결 WEEK·포트폴리오 후보를 선택합니다." /><section className="map-condition-strip" aria-label="나의 보안 지도 완료 조건">{entries.map((item) => <div key={item.id} className={item.done ? 'done' : ''}><span>{item.done && <Check size={14} />}</span><strong>{item.label}</strong><small>{item.value}</small></div>)}<b>{done ? '나의 보안 지도 완성' : '선택을 이어가는 중'}</b></section><section className="map-step"><header><span>01</span><div><h2>관심 분야 두 개 선택</h2><p>분야는 학습과 업무의 대상 범위입니다. 선택은 언제든 바꿀 수 있습니다.</p></div></header><div className="map-domain-grid">{securityDomains.map((domain) => <button type="button" key={domain.id} className={state.selectedDomainIds.includes(domain.id) ? 'selected' : ''} aria-pressed={state.selectedDomainIds.includes(domain.id)} onClick={() => toggleDomain(domain.id)}><span>{state.selectedDomainIds.includes(domain.id) && <Check size={15} />}</span><strong>{domain.title}</strong><small>{rolesForDomain(domain.id).length}개 세부 직무</small></button>)}</div></section><section className="map-step"><header><span>02</span><div><h2>세부 직무를 열고, 관심 직무 두 개 선택</h2><p>직무를 누르면 열람 기록이 남고, 최대 두 개를 비교 대상으로 선택할 수 있습니다.</p></div></header><div className="map-role-grid">{roleDetails.filter((role) => !state.selectedDomainIds.length || state.selectedDomainIds.includes(role.domainId)).map((role) => <article key={role.id}><button type="button" onClick={() => updateWeekZero(updateProgress, { viewedRoleIds: unique([...(state.viewedRoleIds || []), role.id]) })}><strong>{role.title}</strong><p>{role.actualWork.slice(0, 2).join(' · ')}</p><small>{role.evidence.label}</small></button><label><input type="checkbox" checked={state.selectedRoleIds.includes(role.id)} onChange={() => toggleRole(role.id)} disabled={!state.selectedRoleIds.includes(role.id) && state.selectedRoleIds.length >= 2} /><span>비교할 직무로 선택</span></label></article>)}</div></section><section className="map-step comparison-step"><header><span>03</span><div><h2>두 직무의 실제 업무와 산출물 비교</h2><p>표본 근거가 있는 항목과 일반 직무 설명의 경계를 함께 확인합니다.</p></div></header>{selectedRoles.length ? <div className="personal-role-comparison">{selectedRoles.map((role) => <article key={role.id}><header><span>{familyById[role.familyId]?.title}</span><h3>{role.title}</h3><b className={`role-evidence role-evidence-${role.evidence.kind}`}>{role.evidence.label}</b></header><DetailList title="실제 업무" items={role.actualWork} label="direct" /><DetailList title="대표 산출물" items={role.deliverables} label="inferred" /><DetailList title="필요한 기초" items={role.foundations} /><section><h3>연결 WEEK</h3><div className="tag-list">{role.relatedWeekIds.map((week) => <span key={week}>Week {week}</span>)}</div></section></article>)}</div> : <p className="empty-state-copy">비교할 직무를 하나 이상 선택하세요.</p>}</section><section className="map-step"><header><span>04</span><div><h2>포트폴리오 후보 두 개 선택</h2><p>각 역할의 업무와 연결되는 작은 결과물 후보입니다. 실제 공고의 직접 요구사항으로 표시하지 않습니다.</p></div></header><div className="portfolio-picker">{portfolioOptions.map((item) => <label key={item}><input type="checkbox" checked={state.selectedPortfolioIds.includes(item)} onChange={() => togglePortfolio(item)} disabled={!state.selectedPortfolioIds.includes(item) && state.selectedPortfolioIds.length >= 2} /><span>{item.split(':')[1]}</span><small>{roleById[item.split(':')[0]]?.title}</small></label>)}{!portfolioOptions.length && <p className="empty-state-copy">먼저 관심 직무를 선택하세요.</p>}</div></section><footer className="map-actions"><div><strong>{done ? '완료 조건을 모두 충족했습니다.' : '완료 조건을 채우면 실습 완료를 표시할 수 있습니다.'}</strong><p>선택 내용은 이 브라우저에 저장되며 JSON으로 내보낼 수 있습니다.</p></div><div><button className="button secondary" type="button" onClick={exportMap} disabled={!selectedRoles.length}><Download size={16} />JSON</button><button className="button primary" type="button" onClick={() => { if (done) onCompleteMap?.(); else notify?.('관심 분야 2개, 세부 직무 4개 열람, 관심 직무 2개, 포트폴리오 후보 2개를 선택하세요.') }} disabled={!done}><CheckCircle2 size={16} />완료 표시</button></div></footer></div>
+  return <div className="personal-career-map">
+    <SectionIntro kicker="MY SECURITY MAP · 2026-07-27 AUDIT" title="관심 분야와 직무를 고르면 실제 감사 공고가 함께 연결됩니다." body="WEEK 0과 같은 16개 분야·80개 대표 직무를 사용합니다. 각 대표 직무에는 엑셀에서 감사한 국내 2건과 해외 2건이 연결됩니다." />
+    <section className="map-condition-strip" aria-label="나의 보안 지도 완료 조건">{entries.map((item) => <div key={item.id} className={item.done ? 'done' : ''}><span>{item.done && <Check size={14} />}</span><strong>{item.label}</strong><small>{item.value}</small></div>)}<b>{done ? '나의 보안 지도 완성' : '선택을 이어가는 중'}</b></section>
+    <section className="map-step"><header><span>01</span><div><h2>관심 분야 두 개 선택</h2><p>채용공고 감사표와 동일한 16개 분야입니다. 최대 두 개를 선택할 수 있습니다.</p></div></header><div className="map-domain-grid">{researchDomains.map((domain) => <button type="button" key={domain.id} className={selectedDomainIds.includes(domain.id) ? 'selected' : ''} aria-pressed={selectedDomainIds.includes(domain.id)} onClick={() => toggleDomain(domain.id)} disabled={!selectedDomainIds.includes(domain.id) && selectedDomainIds.length >= 2}><span>{selectedDomainIds.includes(domain.id) && <Check size={15} />}</span><strong>{domain.title}</strong><small>감사 대표 직무 {auditedRepresentativeRoles.filter((role) => role.domainId === domain.id).length}개</small></button>)}</div></section>
+    <section className="map-step"><header><span>02</span><div><h2>대표 직무를 열고, 관심 직무 두 개 선택</h2><p>카드를 열면 열람 기록이 남습니다. 각 직무에는 공고 매핑 4건이 연결되어 있습니다.</p></div></header>{visibleRoles.length ? <div className="map-role-grid">{visibleRoles.map((role) => <article key={role.id} className={selectedRoleIds.includes(role.id) ? 'selected' : ''}><button type="button" onClick={() => markRoleViewed(role.id)}><strong>{role.title}</strong><p>{representativeRoleById.get(role.catalogRoleId)?.summary || `${role.domainTitle} 분야의 대표 직무입니다.`}</p><small>{role.domainTitle} · 국내 2건 · 해외 2건</small></button><label><input type="checkbox" checked={selectedRoleIds.includes(role.id)} onChange={() => toggleRole(role.id)} disabled={!selectedRoleIds.includes(role.id) && selectedRoleIds.length >= 2} /><span>비교할 직무로 선택</span></label></article>)}</div> : <p className="empty-state-copy">먼저 관심 분야를 하나 이상 선택하세요.</p>}</section>
+    <section className="map-step comparison-step"><header><span>03</span><div><h2>직무 설명과 공고 감사 범위를 함께 비교</h2><p>업무 설명은 직무 리서치에서, 공고 수와 링크 상태는 새 엑셀 감사표에서 가져옵니다. 엑셀에 없는 공고 본문 요구사항은 만들지 않습니다.</p></div></header>{selectedRoles.length ? <div className="personal-role-comparison">{selectedRoles.map((role) => <PersonalRoleComparison role={role} key={role.id} />)}</div> : <p className="empty-state-copy">비교할 직무를 하나 이상 선택하세요.</p>}</section>
+    <section className="map-step"><header><span>04</span><div><h2>직접 비교할 공고 매핑 두 개 선택</h2><p>선택한 두 직무에 연결된 공고만 표시합니다. 링크는 엑셀의 운영 권장에 따라 허용된 경우에만 열립니다.</p></div></header><div className="posting-picker">{postingOptions.map((posting) => <PersonalPostingOption posting={posting} checked={selectedPostingIds.includes(posting.id)} disabled={!selectedPostingIds.includes(posting.id) && selectedPostingIds.length >= 2} onToggle={() => togglePosting(posting.id)} key={posting.id} />)}{!postingOptions.length && <p className="empty-state-copy">먼저 관심 직무를 선택하세요.</p>}</div></section>
+    <footer className="map-actions"><div><strong>{done ? '완료 조건을 모두 충족했습니다.' : '완료 조건을 채우면 실습 완료를 표시할 수 있습니다.'}</strong><p>16개 분야·80개 대표 직무·320개 공고 매핑 기준이며, 선택 내용은 이 브라우저에 저장됩니다.</p></div><div><button className="button secondary" type="button" onClick={exportMap} disabled={!selectedRoles.length}><Download size={16} />JSON</button><button className="button primary" type="button" onClick={() => { if (done) onCompleteMap?.(); else notify?.('관심 분야 2개, 대표 직무 4개 열람, 관심 직무 2개, 비교할 공고 2개를 선택하세요.') }} disabled={!done}><CheckCircle2 size={16} />완료 표시</button></div></footer>
+  </div>
+}
+
+function PersonalRoleComparison({ role }) {
+  const statusCounts = role.postings.reduce((counts, posting) => ({ ...counts, [postingAuditGroup(posting)]: (counts[postingAuditGroup(posting)] || 0) + 1 }), {})
+  return <article><header><span>{role.domainTitle} · {role.groupTitle}</span><h3>{role.title}</h3><b className="role-evidence role-evidence-direct">감사 공고 {role.postingCount}개 매핑</b></header><section><h3>직무 이해</h3><p className="personal-role-summary">{role.catalogRole?.summary}</p>{role.document?.actualWork?.length ? <DetailList title="직무 리서치에서 정리한 업무" items={role.document.actualWork} /> : null}{role.document?.foundations?.length ? <DetailList title="준비할 기초" items={role.document.foundations} /> : null}</section><section><h3>URL 감사 범위</h3><dl className="personal-role-audit-stats"><div><dt>국내·해외</dt><dd>{role.domesticCount}건 · {role.internationalCount}건</dd></div><div><dt>직접 페이지 열림</dt><dd>{role.directOpenCount} / {role.postingCount}건</dd></div><div><dt>수동 확인</dt><dd>{statusCounts.manual || 0}건</dd></div><div><dt>아카이브·비노출</dt><dd>{(statusCounts.archive || 0) + (statusCounts.hidden || 0)}건</dd></div></dl></section></article>
+}
+
+function PersonalPostingOption({ posting, checked, disabled, onToggle }) {
+  return <article className={checked ? 'selected' : ''}><label><input type="checkbox" checked={checked} disabled={disabled} onChange={onToggle} /><span><strong>{posting.raw.companyName}</strong><small>{posting.raw.jobTitle}</small></span></label><div><span>{posting.source.market === 'domestic' ? '국내' : '해외'} · {posting.normalized.representativeRole}</span><PostingStatus posting={posting} /></div>{posting.source.postingUrl ? <a href={posting.source.postingUrl} target="_blank" rel="noreferrer">공고 페이지 열기·모집 여부 재확인<ExternalLink size={14} /></a> : <p>운영 권장에 따라 원 URL 링크 비노출</p>}</article>
 }
 
 function completeMapLab(updateProgress, notify) {

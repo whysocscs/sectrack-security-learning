@@ -1,4 +1,4 @@
-const laterWeekArchitectures = Object.freeze({
+const originalLaterWeekArchitectures = Object.freeze({
   6: {
     sourceModuleId: 'w7-c-values', cve: 'CVE-2021-3156', labId: 'w7-patch-review',
     caseId: 'w7-sudo-case', caseTitle: 'Sudo와 sudoedit: 높은 권한 경계의 정상 흐름',
@@ -80,6 +80,16 @@ const laterWeekArchitectures = Object.freeze({
     objectiveIndexes: [0, 1, 2], caseMechanismIds: ['w16-agent-boundaries-llamaindex-mechanism'],
   },
 })
+
+const laterWeekArchitectures = Object.freeze(Object.fromEntries(
+  Object.entries(originalLaterWeekArchitectures)
+    .filter(([weekIndex]) => Number(weekIndex) >= 11)
+    .map(([weekIndex, architecture]) => {
+      const sourceIndex = Number(weekIndex)
+      const displayIndex = sourceIndex === 15 ? 10 : sourceIndex - 6
+      return [displayIndex, sourceIndex === 14 ? { ...architecture, objectiveIndexes: [3, 4, 5] } : architecture]
+    }),
+))
 
 function question(id, title, body) {
   return { id, type: 'question', title, body }

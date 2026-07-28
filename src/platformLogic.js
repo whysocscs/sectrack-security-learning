@@ -53,6 +53,7 @@ export const initialProgress = {
     viewedRoleIds: [],
     selectedRoleIds: [],
     selectedPortfolioIds: [],
+    selectedPostingIds: [],
     view: {
       evidenceSection: 'market',
       selectedFamilyId: null,
@@ -352,6 +353,7 @@ export function mergeProgress(value, options = {}) {
       viewedRoleIds: Array.isArray(source.weekZero?.viewedRoleIds) ? source.weekZero.viewedRoleIds : [],
       selectedRoleIds: Array.isArray(source.weekZero?.selectedRoleIds) ? source.weekZero.selectedRoleIds : [],
       selectedPortfolioIds: Array.isArray(source.weekZero?.selectedPortfolioIds) ? source.weekZero.selectedPortfolioIds : [],
+      selectedPostingIds: Array.isArray(source.weekZero?.selectedPostingIds) ? source.weekZero.selectedPostingIds : [],
       view: { ...initialProgress.weekZero.view, ...(source.weekZero?.view || {}) },
     },
     roeAnswers: { ...initialProgress.roeAnswers, ...(source.roeAnswers || {}) },

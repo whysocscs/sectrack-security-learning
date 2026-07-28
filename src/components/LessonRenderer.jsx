@@ -1,5 +1,5 @@
-import { CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react'
-import { weekContent } from '../courseData.js'
+import { useState } from 'react'
+import { CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert } from 'lucide-react'
 import { getConcepts } from '../content/conceptRegistry.js'
 import {
   getLessonBlockAnchor,
@@ -56,15 +56,41 @@ function Diagram({ block }) {
   return <section className="lesson-diagram"><BlockHeading block={block} />{block.body && <p><InlineCodeText text={block.body} /></p>}<ol aria-label={block.title || '흐름도'}>{nodes.map((node, index) => <li key={`${node}-${index}`}><span>{index + 1}</span><strong>{typeof node === 'string' ? node : node.label}</strong>{index < nodes.length - 1 && <i aria-hidden="true" />}</li>)}</ol></section>
 }
 
-function Comparison({ block, anchorId }) {
-  const columns = block.columns || []
-  const tableTitle = `${block.title || '개념 비교'} 표`
-  const hintId = `${anchorId}-scroll-hint`
-  return <section className="lesson-comparison"><BlockHeading block={block} /><p className="table-scroll-hint" id={hintId}>표 전체는 좌우로 스크롤해 읽을 수 있습니다.</p><div className="lesson-table-scroll" tabIndex="0" role="region" aria-label={tableTitle} aria-describedby={hintId}><table><caption>{tableTitle}</caption><thead><tr>{columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{(block.rows || []).map((row, index) => <tr key={`${row.join('-')}-${index}`}>{row.map((cell, cellIndex) => <td key={`${cell}-${cellIndex}`}><InlineCodeText text={cell} /></td>)}</tr>)}</tbody></table></div></section>
+function publicAssetPath(src) {
+  if (/^(?:https?:|data:|blob:)/u.test(src)) return src
+  return `${import.meta.env.BASE_URL}${String(src).replace(/^\/+/, '')}`
 }
 
-function getLabTitle(labId) {
-  return Object.values(weekContent).flatMap((week) => week.labs).find((lab) => lab.id === labId)?.title || '연결된 실습 열기'
+function ImageCarousel({ block }) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const images = block.images || []
+  const image = images[activeIndex]
+  const hasMultipleImages = images.length > 1
+  const showPrevious = () => setActiveIndex((current) => (current - 1 + images.length) % images.length)
+  const showNext = () => setActiveIndex((current) => (current + 1) % images.length)
+
+  return <section className="lesson-image-carousel" aria-roledescription="이미지 슬라이드">
+    <header><BlockHeading block={block} />{block.description && <p><InlineCodeText text={block.description} /></p>}</header>
+    <figure>
+      <div className={`lesson-image-stage${hasMultipleImages ? ' has-controls' : ''}`}>
+        <img src={publicAssetPath(image.src)} alt={image.alt} width={image.width} height={image.height} loading="lazy" decoding="async" />
+        {hasMultipleImages && <>
+          <button type="button" className="carousel-arrow previous" onClick={showPrevious} aria-label={`이전 이미지, 현재 ${activeIndex + 1}번`}><ChevronLeft aria-hidden="true" /></button>
+          <button type="button" className="carousel-arrow next" onClick={showNext} aria-label={`다음 이미지, 현재 ${activeIndex + 1}번`}><ChevronRight aria-hidden="true" /></button>
+        </>}
+      </div>
+      <figcaption>
+        <span aria-live="polite">{activeIndex + 1} / {images.length}</span>
+        <p>{image.caption || image.alt}</p>
+      </figcaption>
+    </figure>
+  </section>
+}
+
+function Comparison({ block }) {
+  const columns = block.columns || []
+  const tableTitle = `${block.title || '개념 비교'} 표`
+  return <section className="lesson-comparison"><BlockHeading block={block} /><div className="lesson-table-scroll" tabIndex="0" role="region" aria-label={tableTitle}><table><caption>{tableTitle}</caption><thead><tr>{columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{(block.rows || []).map((row, index) => <tr key={`${row.join('-')}-${index}`}>{row.map((cell, cellIndex) => <td key={`${cell}-${cellIndex}`}><InlineCodeText text={cell} /></td>)}</tr>)}</tbody></table></div></section>
 }
 
 function Sources({ block }) {
@@ -247,7 +273,7 @@ function ModuleLearningMeta({ module }) {
 }
 
 function SectionJump({ moduleId, blocks, duplicateBlockIndexes, activeSectionId, onSectionNavigate, sectionHref }) {
-  const sections = blocks.map((block, index) => ({ block, index })).filter(({ block, index }) => block?.type !== 'question' && !duplicateBlockIndexes.has(index) && (block?.title || block?.type === 'checkpoint'))
+  const sections = blocks.map((block, index) => ({ block, index })).filter(({ block, index }) => !['question', 'case', 'work-context', 'practice-link'].includes(block?.type) && !duplicateBlockIndexes.has(index) && (block?.title || block?.type === 'checkpoint'))
   if (sections.length < 2) return null
   return <nav className="lesson-section-jump" aria-label="이 모듈 절 바로 가기"><span>이 모듈에서 바로 가기</span><div>{sections.map(({ block, index }, sectionIndex) => {
     const targetId = getLessonBlockAnchor(moduleId, block, index)
@@ -261,7 +287,7 @@ function ContentError({ moduleId, block, index }) {
   return <section className="lesson-content-error" role="status" aria-live="polite"><ShieldAlert size={20} /><div><h3>이 학습 항목을 표시할 수 없습니다.</h3><p>콘텐츠 구조를 확인하는 동안 다음 절로 계속할 수 있습니다. 문제가 반복되면 아래 항목 ID를 전달해 주세요.</p><code>{contentId}</code></div></section>
 }
 
-export default function LessonRenderer({ module, activeSectionId, onSectionNavigate, sectionHref, checkpointResults = {}, onCheckpoint, onOpenLab }) {
+export default function LessonRenderer({ module, activeSectionId, onSectionNavigate, sectionHref, checkpointResults = {}, onCheckpoint }) {
   const blocks = getLessonBlocks(module)
   const moduleId = module?.id || 'unknown-module'
   if (!module || !blocks.length) return <div className="lesson-blocks"><ContentError moduleId={moduleId} block={null} index={0} /></div>
@@ -281,17 +307,17 @@ export default function LessonRenderer({ module, activeSectionId, onSectionNavig
     if (block.type === 'prerequisite-check') return <section id={id} key={id} className={`lesson-question prerequisite ${block.variant ? `variant-${block.variant}` : ''}`}><span>BEFORE YOU CONTINUE</span><BlockHeading block={block} /><p><InlineCodeText text={block.body || block.prompt} /></p></section>
     if (block.type === 'explanation') return <section id={id} key={id} className={`lesson-explanation ${block.variant ? `variant-${block.variant}` : ''}`}><BlockHeading block={block} />{(block.paragraphs || [block.body]).filter(Boolean).map((paragraph, paragraphIndex) => <p key={`${id}-${paragraphIndex}`}><InlineCodeText text={paragraph} /></p>)}</section>
     if (block.type === 'diagram') return <section id={id} key={id}><Diagram block={block} /></section>
+    if (block.type === 'image-carousel') return <section id={id} key={id}><ImageCarousel block={block} /></section>
     if (block.type === 'terminal' || block.type === 'http-message' || block.type === 'code') return <section id={id} key={id} className={`lesson-transcript ${block.type}`}><header><span>{block.type === 'terminal' ? 'TERMINAL' : block.type === 'http-message' ? 'HTTP MESSAGE' : (block.language || 'CODE').toUpperCase()}</span><BlockHeading block={block} /></header><GenericCodeProvenance block={block} />{block.description && <p><InlineCodeText text={block.description} /></p>}<pre tabIndex="0" aria-label={`${block.title || '전사'} 코드 영역`}><code>{block.command || block.message || block.code || ''}{block.output ? `\n${block.output}` : ''}</code></pre>{block.annotations?.length ? <ol>{block.annotations.map((annotation, annotationIndex) => <li key={`${annotation}-${annotationIndex}`}><InlineCodeText text={annotation} /></li>)}</ol> : null}</section>
-    if (block.type === 'comparison') return <section id={id} key={id}><Comparison block={block} anchorId={id} /></section>
+    if (block.type === 'comparison') return <section id={id} key={id}><Comparison block={block} /></section>
     if (block.type === 'command-guide') return <section id={id} key={id}><CommandGuide block={block} /></section>
     if (block.type === 'timeline') return <section id={id} key={id} className="lesson-timeline"><BlockHeading block={block} /><ol>{(block.items || block.steps || []).map((item, itemIndex, items) => <li key={`${item}-${itemIndex}`}><span>{String(itemIndex + 1).padStart(2, '0')}</span><div><strong>{typeof item === 'string' ? item : item.title}</strong>{typeof item === 'object' && item.body && <p>{item.body}</p>}</div>{itemIndex < items.length - 1 && <i aria-hidden="true" />}</li>)}</ol></section>
-    if (block.type === 'case') return <section id={id} key={id} className="lesson-case"><span>사례</span><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p>{block.facts?.length ? <ul>{block.facts.map((fact) => <li key={fact}><CheckCircle2 size={15} />{fact}</li>)}</ul> : null}</section>
+    if (block.type === 'case') return null
     if (block.type === 'cve-case') return <section id={id} key={id}><CveCase block={block} /></section>
     if (block.type === 'misconception') return <section id={id} key={id} className="lesson-misconception"><BlockHeading block={block} /><ul>{(block.items || []).map((item) => <li key={item}><span>오해</span><div><InlineCodeText text={item} /></div></li>)}</ul></section>
     if (block.type === 'warning') return <section id={id} key={id} className="lesson-warning"><ShieldAlert size={19} /><div><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p></div></section>
     if (block.type === 'checkpoint') return <div id={id} key={id}><Checkpoint block={block} value={checkpointResults[block.id]} onChange={(result) => onCheckpoint?.(block.id, result)} number={questionNumber} /></div>
-    if (block.type === 'work-context') return <section id={id} key={id} className="lesson-work-context"><span>WORK CONTEXT</span><BlockHeading block={block} /><p><InlineCodeText text={block.body} /></p></section>
-    if (block.type === 'practice-link') return <section id={id} key={id} className="lesson-practice-links"><BlockHeading block={block} /><p>{block.body || '이 개념을 읽은 뒤에는 관찰 결과를 직접 기록해 보세요.'}</p><div>{(block.labIds || []).map((labId) => <button type="button" key={labId} onClick={() => onOpenLab?.(labId)}>실습 열기 · {getLabTitle(labId)}</button>)}</div></section>
+    if (block.type === 'work-context' || block.type === 'practice-link') return null
     if (block.type === 'sources') return <section id={id} key={id}><Sources block={block} /></section>
     if (block.type === 'concept-ref') return <section id={id} key={id}><ConceptReference block={block} /></section>
     if (block.type === 'evidence-board') return <section id={id} key={id}><EvidenceBoard block={block} /></section>
