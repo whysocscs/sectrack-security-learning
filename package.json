@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "lint": "eslint src test e2e scripts eslint.config.js playwright.config.js",
     "test": "node --test test/*.test.js",
+    "test:active": "node --test test/activityRecordModel.test.js test/adapters.test.js test/bundleBudget.test.js test/contentAuthoring.test.js test/mindmapData.test.js test/platformLogic.test.js test/reportSchema.test.js test/storage.test.js test/storageRecoveryContract.test.js test/weekZeroResearch.test.js",
     "test:browser": "playwright test",
     "test:browser:contracts": "playwright test e2e/lms024-contracts.spec.js --project=desktop",
     "validate:content": "node scripts/validate-content.mjs",

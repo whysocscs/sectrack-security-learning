@@ -307,7 +307,7 @@ function PostingExplorer({ progress, updateProgress }) {
 function PostingDetail({ posting }) {
   if (!posting) return null
   const { raw, normalized, source, evidence } = posting
-  const roleTitles = normalized.roleMappings.map((item) => item.roleTitle || roleById[item.roleId]?.title || item.roleId)
+  const roleTitles = normalized.roleMappings.map((item) => item.roleTitle || item.catalogRoleTitle || item.roleId)
   const group = postingAuditGroup(posting)
   return <article className="posting-detail" aria-label={`${raw.companyName} ${raw.jobTitle} 공고 상세`}>
     <header><div><CompletenessBadge posting={posting} /><PostingStatus posting={posting} /></div><h2>{raw.companyName}</h2><p>{raw.jobTitle}</p><small>{raw.workLocation || '근무지 미확인'}{raw.experience && ` · ${raw.experience}`}</small></header>
