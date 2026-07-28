@@ -19,7 +19,7 @@ export const weekZeroDefinition = Object.freeze({
     { id: 'w0-language', title: '정보보안 핵심 용어', duration: 0, summary: '30개 핵심 용어를 정의, 예시, 비교, 흔한 오해와 함께 읽습니다.' },
     { id: 'w0-domains', title: '정보보안 분야 전체 지도', duration: 0, summary: '전문 분야, 업무 기능, 세부 직무, 산업을 같은 층으로 섞지 않고 구분합니다.' },
     { id: 'w0-careers', title: '분야별 세부 직무', duration: 0, summary: '14개 상위 직무군과 세부 직무를 실제 업무·산출물·기초 역량으로 비교합니다.' },
-    { id: 'w0-evidence', title: '실제 채용공고로 직무 읽기', duration: 0, summary: '21건의 1차 표본에서 직접 확인한 사실과 SecTrack 정규화 결과를 분리해 읽습니다.' },
+    { id: 'w0-evidence', title: '실제 채용공고로 직무 읽기', duration: 0, summary: '320개 직무-공고 매핑과 290개 고유 URL의 최종 감사 결과를 분야·대표 직무별로 읽습니다.' },
   ],
   labs: [
     {

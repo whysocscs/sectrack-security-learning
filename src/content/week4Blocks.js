@@ -168,6 +168,11 @@ const baseWeek4LessonBlocks = {
   'w4-types': [
     { type: 'case', variant: 'worked-example', title: '같은 마커, 서로 다른 세 장면', body: '합성 서비스에는 검색어를 즉시 응답에 넣는 페이지, 제목을 저장했다가 목록에 다시 그리는 게시판, URL fragment를 JavaScript가 읽어 화면을 바꾸는 페이지가 있습니다. 세 페이지에 같은 고정 마커가 보였다고 해서 같은 유형이라고 판단할 수는 없습니다.', facts: ['검색 페이지는 현재 요청의 query를 같은 응답에 넣는다.', '게시판은 작성 시점과 다른 사용자의 목록 렌더링 시점 사이에 저장 단계를 둔다.', 'fragment 값은 HTTP 요청 원문에 없을 수 있고, 브라우저 코드가 실행 후 DOM에 반영할 수 있다.'] },
     { type: 'diagram', variant: 'flow', title: '세 경로는 해석 전에 갈라진다', body: '유형 이름을 외우기보다 source가 저장되는지, 서버 응답에 있는지, 브라우저 안에서 새 DOM을 만드는지를 따라가세요.', nodes: ['Reflected · query → 응답 → 렌더링', 'Stored · 작성값 → 저장소 → 재조회 → 렌더링', 'DOM-based · fragment 또는 client data → JavaScript → live DOM'] },
+    { type: 'image-carousel', title: 'XSS 유형을 흐름으로 비교하기', description: '같은 XSS라도 값이 이동하고 실행되는 경로가 다릅니다. 화살표를 눌러 세 유형을 순서대로 비교하세요.', images: [
+      { src: 'media/week02/xss-1.png', alt: '요청의 입력이 서버 응답에 반사되어 브라우저에서 해석되는 Reflected XSS 흐름 그림', caption: '1단계 · Reflected XSS: 현재 요청의 값이 응답에 반사되는 경로' },
+      { src: 'media/week02/xss-2.png', alt: '입력값이 서버에 저장된 뒤 다른 사용자의 브라우저에서 해석되는 Stored XSS 흐름 그림', caption: '2단계 · Stored XSS: 저장된 값이 나중의 화면에서 다시 출력되는 경로' },
+      { src: 'media/week02/xss-3.png', alt: '브라우저 JavaScript가 클라이언트 입력을 DOM에 넣어 해석하게 하는 DOM-based XSS 흐름 그림', caption: '3단계 · DOM-based XSS: 브라우저 내부 데이터와 DOM API로 이어지는 경로' },
+    ] },
     { type: 'explanation', variant: 'deep-dive', title: '반사, 저장, DOM 기반을 데이터의 수명으로 읽기', paragraphs: [
       '반사형 XSS에서는 현재 요청의 값이 서버 응답에 포함되는 흐름을 먼저 확인합니다. 이 경우에는 요청, 응답 원문, 값이 놓인 HTML 문법을 같은 시점의 증거로 비교할 수 있습니다. 누군가가 어떤 링크를 클릭해야 한다는 사실은 영향 조건일 수 있지만, 유형을 결정하는 유일한 기준은 아닙니다.',
       '저장형 XSS에서는 입력이 게시글, 프로필, 지원 티켓처럼 저장된 뒤 다른 화면에서 다시 출력됩니다. 저장된 값이 있다는 사실만으로 실행이 확정되는 것은 아닙니다. 작성 화면, 저장소, 조회 화면 중 어디가 해석형 출력을 사용했는지와 누가 그 화면을 보게 되는지를 분리해야 합니다.',

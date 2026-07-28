@@ -17,16 +17,14 @@ import {
   Lightbulb,
   LockKeyhole,
   Play,
-  Save,
   ShieldCheck,
   Terminal,
 } from 'lucide-react'
 import { weekContent } from '../courseData'
-import { buildXssTrace, findSensitiveData } from '../platformLogic'
+import { buildXssTrace } from '../platformLogic'
 import { recordHintUsage } from '../learningModel'
 import { isActivityRecorded } from '../learningModel'
 import { getLearningTextLength, normalizeLearningText, validateLearningText } from '../validation'
-import { evaluateActivityRecord, recordFields } from '../activityRecordModel'
 import { loadDeepGuideModules } from '../content/deepGuideLoader'
 import MindmapStudio from './MindmapStudio'
 
@@ -35,6 +33,7 @@ const supportedLabKinds = new Set([
   'mindmap', 'roe', 'baseline', 'linux-shell', 'path', 'sequence', 'permission', 'pipeline',
   'request-editor', 'http-baseline', 'tool-triangle', 'http-label', 'timeline', 'cookie',
   'source-sink', 'threat-model', 'xss-reflected', 'xss-stored', 'xss-dom', 'xss-filtering',
+  'xss-packet-classifier',
   'report-evidence', 'external', 'guided-observation',
   'patch-review',
 ])
@@ -66,9 +65,6 @@ export function LabCatalog({ progress, navigate }) {
 export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   const lab = findLab(labId)
   const state = progress.labs[labId] || {}
-  const record = progress.activityRecords[labId] || legacyActivityRecord(progress.evidence[labId])
-  const [completionErrors, setCompletionErrors] = useState({})
-  const errorSummaryRef = useRef(null)
   const labPageRef = useRef(null)
 
   useEffect(() => {
@@ -101,19 +97,12 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
   if (!lab) return <div className="page-width"><div className="empty-state"><Terminal size={24} /><strong>실습을 찾을 수 없습니다.</strong><button className="button secondary" type="button" onClick={() => navigate({ page: 'labs' })}>실습실로</button></div></div>
 
   const updateLab = (patch) => updateProgress((current) => ({ ...current, labs: { ...current.labs, [lab.id]: { ...(current.labs[lab.id] || {}), ...patch } } }))
-  const updateRecord = (patch) => updateProgress((current) => ({
-    ...current,
-    activityRecords: { ...current.activityRecords, [lab.id]: { ...(current.activityRecords[lab.id] || legacyActivityRecord(current.evidence[lab.id])), activityType: lab.activityType, ...patch, updatedAt: new Date().toISOString() } },
-    labs: isActivityRecorded(current.labs[lab.id]) ? { ...current.labs, [lab.id]: { ...current.labs[lab.id], status: 'attempted', recordChangedAt: new Date().toISOString() } } : current.labs,
-  }))
   const derivedPassed = lab.id === 'w0-map'
     ? Object.keys(progress.mindmap.statuses).length >= 10 && Object.values(progress.mindmap.notes).filter((item) => String(item).length >= 5).length >= 3 && progress.mindmap.interests.length >= 2
     : lab.id === 'w0-baseline' ? Object.keys(progress.baseline).length >= 6
       : lab.id === 'w0-roe' ? Object.keys(progress.roeAnswers).length >= roeCases.length : false
   const supportedKind = isSupportedLabKind(lab.kind)
   const validationPassed = supportedKind && Boolean(state.validationPassed || derivedPassed)
-  const recordCheck = evaluateActivityRecord(lab, record)
-  const recordReady = recordCheck.valid
   const tone = state.tone || 'teal'
 
   const complete = () => {
@@ -121,19 +110,12 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
       notify('이 실습 유형은 아직 지원되지 않아 완료 처리할 수 없습니다.')
       return
     }
-    if (!validationPassed || !recordReady) {
-      const errors = { ...recordCheck.fieldErrors, ...(!validationPassed ? { activity: lab.activityType === 'external' ? '외부 활동 자기 확인 체크리스트를 먼저 완료하세요.' : '실습 작업 영역에서 결과 확인 조건을 먼저 충족하세요.' } : {}) }
-      setCompletionErrors(errors)
-      notify(lab.activityType === 'assessment' ? '이해 확인을 먼저 완료하세요.' : '결과 확인과 필수 실습 기록을 먼저 채워주세요.')
-      window.requestAnimationFrame(() => {
-        const firstInvalidField = labPageRef.current?.querySelector('[aria-invalid="true"]')
-        ;(firstInvalidField || errorSummaryRef.current)?.focus()
-      })
+    if (!validationPassed) {
+      notify(lab.activityType === 'assessment' ? '이해 확인을 먼저 완료하세요.' : '실습 결과 확인 조건을 먼저 충족하세요.')
       return
     }
-    setCompletionErrors({})
     updateLab({ status: 'activity-recorded', recordedAt: new Date().toISOString() })
-    notify('활동 기록을 저장했습니다. 이 자동 상태는 숙련 또는 사람의 검토 승인을 뜻하지 않습니다.')
+    notify('실습 완료 상태를 저장했습니다.')
   }
 
   return (
@@ -154,9 +136,7 @@ export function LabPage({ labId, progress, updateProgress, navigate, notify }) {
         <aside className="lab-coach-column">{['practice', 'investigation'].includes(lab.activityType) && lab.hints?.length > 0 && <HintCoach lab={lab} state={state} updateLab={updateLab} updateProgress={updateProgress} />}<ResultCheck activityType={lab.activityType} passed={validationPassed} criteria={lab.successCriteria} /></aside>
       </div>
 
-      {Object.keys(completionErrors).length > 0 && <section ref={errorSummaryRef} tabIndex="-1" role="alert" className="form-error-summary"><strong>활동 기록 전 확인할 항목이 있습니다.</strong><ul>{Object.values(completionErrors).map((error) => <li key={error}>{error}</li>)}</ul></section>}
-      {lab.activityType !== 'assessment' && <ActivityRecordPanel lab={lab} record={record} updateRecord={updateRecord} hintLevel={state.hintLevel || 0} errors={completionErrors} />}
-      <footer className="lab-complete-footer"><div><strong>{!supportedKind ? '실습 유형 미지원' : isActivityRecorded(state) ? 'activity-recorded' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{!supportedKind ? '검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.' : lab.activityType === 'assessment' ? '응답 결과와 완료 상태는 별도로 저장됩니다.' : '자동 검사는 구조와 명백한 무내용만 확인하며 사람의 숙련 검토를 대신하지 않습니다.'}</p></div><button className="button primary" type="button" disabled={isActivityRecorded(state) || !supportedKind} onClick={complete}>{isActivityRecorded(state) ? <><Check size={16} />활동 기록됨</> : <>활동 기록 검증<ArrowRight size={16} /></>}</button></footer>
+      <footer className="lab-complete-footer"><div><strong>{!supportedKind ? '실습 유형 미지원' : isActivityRecorded(state) ? '실습 완료' : validationPassed ? `${resultLabel(lab.activityType)} 완료` : `${resultLabel(lab.activityType)} 전`}</strong><p>{!supportedKind ? '검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.' : '실습 안의 판별 결과만 확인하면 완료할 수 있습니다.'}</p></div><button className="button primary" type="button" disabled={isActivityRecorded(state) || !supportedKind} onClick={complete}>{isActivityRecorded(state) ? <><Check size={16} />실습 완료</> : <>완료 저장<ArrowRight size={16} /></>}</button></footer>
     </div>
   )
 }
@@ -184,6 +164,7 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
     case 'xss-stored':
     case 'xss-dom':
     case 'xss-filtering': return <XssLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
+    case 'xss-packet-classifier': return <XssPacketClassifierLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'report-evidence': return <ReportEvidenceLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'external': return <ExternalLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
     case 'guided-observation': return <GuidedObservationLab lab={lab} state={state} updateLab={updateLab} onPass={validate} />
@@ -215,35 +196,12 @@ function ResultCheck({ activityType, passed, criteria }) {
   return <section className={`validation-box ${passed ? 'passed' : ''}`}><header>{passed ? <CheckCircle2 size={18} /> : <Circle size={18} />}<strong>{passed ? `${label} 완료` : `${label} 전`}</strong></header><ul>{criteria.map((item) => <li key={item}>{item}</li>)}</ul>{activityType === 'external' && <p>체크 항목은 학습자 자기 확인이며 이 사이트가 외부 플랫폼 결과를 판정하지 않습니다.</p>}</section>
 }
 
-function ActivityRecordPanel({ lab, record, updateRecord, hintLevel, errors = {} }) {
-  const fields = recordFields[lab.activityType] || recordFields.practice
-  const warnings = findSensitiveData(fields.map((field) => record[field.id] || '').join('\n'))
-  const rubric = Array.isArray(lab.rubric) ? lab.rubric : []
-  const criteria = Array.isArray(lab.successCriteria) ? lab.successCriteria : []
-  const rubricConfirmed = Array.isArray(record.rubricConfirmed) ? record.rubricConfirmed : []
-  const criteriaConfirmed = Array.isArray(record.criteriaConfirmed) ? record.criteriaConfirmed : []
-  const toggle = (field, values, index, checked) => updateRecord({ [field]: checked ? [...new Set([...values, index])] : values.filter((value) => value !== index) })
-  return <section className="evidence-panel activity-record-panel"><header><div><span>LEARNING RECORD</span><h2>실습 기록</h2><p>{activityTypeLabels[lab.activityType]?.recordDescription}</p></div><span className="autosave"><Save size={14} />입력 시 자동 저장</span></header><section className="lab-record-contract"><div><h3>제출 구조</h3><ul>{(lab.submissionSchema || fields.map((field) => field.label)).map((item) => <li key={typeof item === 'string' ? item : item.id}>{typeof item === 'string' ? item : item.label}</li>)}</ul></div><div><h3>판정 범위</h3><p>{lab.activityType === 'external' ? '외부 결과는 추적하지 않습니다. 아래 항목은 학습자의 자기 보고이며 사람의 검토 전에는 승인 상태가 아닙니다.' : '작업 영역 결과는 기계 확인하고, 서술과 rubric은 구조·자기 확인만 합니다. 의미의 정확성은 사람이 검토합니다.'}</p></div></section>{warnings.length > 0 && <div className="redaction-warning"><AlertTriangle size={17} /><span><strong>마스킹이 필요한 값이 보입니다.</strong><small>{warnings.map((item) => item.label).join(', ')}</small></span></div>}<div className="activity-record-fields">{fields.map((field) => { const errorId = `${lab.id}-${field.id}-error`; const minimum = field.minLength || (field.id === 'blocked' ? 3 : 12); return <label key={field.id}><span>{field.label}{field.required && <em>필수 · 공백 제외 {minimum}자 이상</em>}</span><textarea required={field.required} minLength={field.required ? minimum : undefined} aria-invalid={Boolean(errors[field.id])} aria-describedby={errors[field.id] ? errorId : undefined} rows={field.rows || 4} value={record[field.id] || ''} onChange={(event) => updateRecord({ [field.id]: event.target.value })} placeholder={field.placeholder} />{errors[field.id] && <small className="field-error" id={errorId}>{errors[field.id]}</small>}{field.required && <small>{getLearningTextLength(record[field.id])} / {minimum}자</small>}</label> })}</div>{hintLevel > 0 && <p className="hint-usage-note"><Lightbulb size={15} />이 활동에서 {hintLevel}단계 힌트를 열었습니다. 힌트 사용은 감점이 아니며 복습 위치로만 기록됩니다.</p>}<fieldset className="record-rubric"><legend>성공 조건 자기 확인</legend>{criteria.map((item, index) => <label key={item}><input type="checkbox" checked={criteriaConfirmed.includes(index)} onChange={(event) => toggle('criteriaConfirmed', criteriaConfirmed, index, event.target.checked)} /><span>{item}<small>{lab.activityType === 'external' ? '학습자 자기 보고' : '작업 결과와 기록을 대조하는 자기 확인'}</small></span></label>)}{errors.criteriaConfirmed && <p className="field-error">{errors.criteriaConfirmed}</p>}</fieldset><fieldset className="record-rubric"><legend>Rubric 구조 검토</legend>{rubric.map((item, index) => <label key={item}><input type="checkbox" checked={rubricConfirmed.includes(index)} onChange={(event) => toggle('rubricConfirmed', rubricConfirmed, index, event.target.checked)} /><span>{item}<small>자동 의미 채점 아님 · 사람 검토 전 structure-ready</small></span></label>)}{errors.rubricConfirmed && <p className="field-error">{errors.rubricConfirmed}</p>}</fieldset><div className="record-confirmations">{lab.activityType === 'external' && <label><input type="checkbox" checked={Boolean(record.scopeConfirmed)} onChange={(event) => updateRecord({ scopeConfirmed: event.target.checked })} /><span>공식 제공기관이 지정한 대상·계정·기법 범위만 사용했습니다.</span></label>}{lab.activityType === 'simulation' && <label><input type="checkbox" checked={Boolean(record.resetConfirmed)} onChange={(event) => updateRecord({ resetConfirmed: event.target.checked })} /><span>실험 상태를 초기화하고 기준선으로 돌아왔습니다.</span></label>}<label><input type="checkbox" checked={Boolean(record.masked)} onChange={(event) => updateRecord({ masked: event.target.checked })} /><span>비밀번호, Cookie, Authorization, API Key와 개인정보를 `[REDACTED]`로 처리했습니다.</span></label>{errors.confirmations && <p className="field-error">{errors.confirmations}</p>}</div></section>
-}
-
 const activityTypeLabels = {
   practice: { kicker: 'PRACTICE', recordDescription: '수행 순서, 관찰 결과와 원리를 기록하고 다시 시도할 때 확인할 점을 남깁니다.' },
   investigation: { kicker: 'INVESTIGATION', recordDescription: '처음 가설과 실제 관찰을 분리하고 결과 차이와 결론을 기록합니다.' },
   simulation: { kicker: 'SIMULATION', recordDescription: '예상, 바꾼 상태, 실제 변화와 초기화 여부를 기록합니다.' },
   external: { kicker: 'OFFICIAL EXTERNAL ACTIVITY', recordDescription: '외부 플랫폼의 범위, 목표, 사용 도구, 원리와 결과를 본인이 확인해 기록합니다.' },
   assessment: { kicker: 'ASSESSMENT', recordDescription: '' },
-}
-
-function legacyActivityRecord(evidence = {}) {
-  if (!evidence || typeof evidence !== 'object') return {}
-  return {
-    procedure: evidence.commands || '',
-    observation: evidence.observation || '',
-    explanation: evidence.explanation || '',
-    conclusion: evidence.explanation || '',
-    masked: Boolean(evidence.masked),
-    migratedFromEvidence: Boolean(evidence.commands || evidence.observation || evidence.explanation),
-  }
 }
 
 function resultLabel(activityType) {
@@ -561,6 +519,128 @@ function ThreatModelLab({ state, updateLab, onPass }) {
   return <section className="threat-model-lab"><header><span>MINI THREAT MODEL</span><h2>로컬 검색 페이지</h2><p>취약점 이름부터 고르지 않고 자산과 데이터 흐름에서 공격 표면을 찾습니다.</p></header><div className="threat-diagram"><span>브라우저<small>q, Cookie</small></span><ArrowRight size={18} /><span>검색 API<small>인증·입력 처리</small></span><ArrowRight size={18} /><span>Database<small>문서·권한</small></span></div>{threatFields.map(([id, label, placeholder], index) => <label key={id}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{label}</strong><textarea rows="3" value={fields[id] || ''} onChange={(event) => update(id, event.target.value)} placeholder={placeholder} /></div></label>)}</section>
 }
 
+const xssPacketLabData = {
+  reflected: {
+    kicker: 'REFLECTED XSS · HTTP REQUEST/RESPONSE',
+    title: '현재 요청의 값이 같은 응답에 반사되는 지점 찾기',
+    description: '요청 query와 바로 이어지는 HTTP 응답을 비교해 브라우저가 값을 텍스트와 HTML 중 무엇으로 해석하는지 확인합니다.',
+    exampleTitle: 'Reflected XSS가 발생하는 한 요청',
+    examplePanels: [
+      { label: '01 · HTTP REQUEST', content: 'GET /search?q=%3Cimg%20src%3Dx%20onerror%3D%22document.body.dataset.training%3Dtriggered%22%3E HTTP/1.1\nHost: training.local\nAccept: text/html\nCookie: training_session=[REDACTED]\nUser-Agent: TrainingBrowser/1.0' },
+      { label: '02 · HTTP RESPONSE', content: 'HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\nCache-Control: no-store\n\n<div id="result">\n  검색어: <img src=x onerror="document.body.dataset.training=triggered">\n</div>' },
+    ],
+    triggerCode: 'result.innerHTML = `검색어: ${query}`',
+    triggerBody: 'Source인 query가 HTML을 해석하는 Sink인 innerHTML로 들어갑니다. 응답의 요소와 이벤트 속성이 일반 글자가 아니라 HTML 문법으로 파싱되는 순간이 실패 지점입니다.',
+    trace: [
+      ['Source', '요청 query parameter `q`'],
+      ['Transform', 'URL decoding과 검색 결과 문장 결합'],
+      ['Sink', '`innerHTML`에 문자열 전달'],
+      ['Browser interpretation', 'HTML parser가 요소와 이벤트 속성으로 해석'],
+    ],
+    cases: [
+      { id: 'plain-search', label: '패킷 A', answer: 'normal', packet: 'GET /search?q=week02 HTTP/1.1\nHost: training.local\nAccept: text/html\nCookie: training_session=[REDACTED]\n\nHTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<div id="result">검색어: week02</div>', reason: '입력값이 일반 텍스트로 표시되고 새 HTML 요소나 실행 속성이 만들어지지 않습니다.' },
+      { id: 'encoded-markup', label: '패킷 B', answer: 'normal', packet: 'GET /search?q=%3Cb%3Eweek02%3C%2Fb%3E HTTP/1.1\nHost: training.local\nAccept: text/html\n\nHTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<div id="result">검색어: &lt;b&gt;week02&lt;/b&gt;</div>', reason: '요청에는 HTML 문법 문자가 있지만 응답에서 엔티티로 인코딩되어 화면의 텍스트로 남습니다.' },
+      { id: 'reflected-handler', label: '패킷 C', answer: 'malicious', packet: 'GET /search?q=%3Cimg%20src%3Dx%20onerror%3D%22document.body.dataset.training%3Dtriggered%22%3E HTTP/1.1\nHost: training.local\nAccept: text/html\nCookie: training_session=[REDACTED]\n\nHTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<div id="result">검색어: <img src=x onerror="document.body.dataset.training=triggered"></div>', reason: 'query 값이 응답 HTML에 그대로 반사되어 브라우저가 `img` 요소와 이벤트 처리 속성으로 해석할 수 있습니다.' },
+    ],
+  },
+  stored: {
+    kicker: 'STORED XSS · WRITE/READ FLOW',
+    title: '저장 요청과 나중의 조회 응답 사이에서 XSS 지점 찾기',
+    description: '작성자의 저장 요청과 피해자의 조회 요청을 분리하고, 저장된 값이 최종 응답에서 어떤 문맥으로 출력되는지 확인합니다.',
+    exampleTitle: '저장된 댓글이 나중의 화면에서 실행 문맥이 되는 흐름',
+    examplePanels: [
+      { label: '01 · SAVE REQUEST', content: 'POST /api/comments HTTP/1.1\nHost: training.local\nContent-Type: application/json\nCookie: training_session=[REDACTED]\n\n{"body":"<img src=x onerror=\\"document.body.dataset.training=triggered\\">"}' },
+      { label: '02 · SAVE RESPONSE', content: 'HTTP/1.1 201 Created\nContent-Type: application/json\n\n{"commentId":42,"status":"saved"}' },
+      { label: '03 · LATER VIEW RESPONSE', content: 'GET /posts/7 HTTP/1.1\nHost: training.local\nCookie: training_session=[REDACTED]\n\nHTTP/1.1 200 OK\nContent-Type: text/html\n\n<li class="comment"><img src=x onerror="document.body.dataset.training=triggered"></li>' },
+    ],
+    triggerCode: 'commentList.insertAdjacentHTML("beforeend", storedComment.body)',
+    triggerBody: '저장 자체가 실행을 만들지는 않습니다. 나중의 조회에서 DB의 comment.body가 HTML Sink로 들어가고 피해자 브라우저가 요소와 이벤트 속성으로 해석하는 순간 Stored XSS가 성립합니다.',
+    trace: [
+      ['Source', '댓글 작성 요청의 JSON `body`'],
+      ['Storage', '서버 DB의 comment record'],
+      ['Sink', '조회 화면의 `insertAdjacentHTML`'],
+      ['Victim browser', '나중의 방문에서 저장값을 HTML로 해석'],
+    ],
+    cases: [
+      { id: 'stored-plain', label: '패킷 A', answer: 'normal', packet: 'POST /api/comments HTTP/1.1\nContent-Type: application/json\n\n{"body":"좋은 설명입니다."}\n\nGET /posts/7 HTTP/1.1\n\nHTTP/1.1 200 OK\nContent-Type: text/html\n\n<li class="comment">좋은 설명입니다.</li>', reason: '저장된 일반 문장이 조회 화면에서도 텍스트로 표시되며 실행 가능한 HTML 문법이 만들어지지 않습니다.' },
+      { id: 'stored-encoded', label: '패킷 B', answer: 'normal', packet: 'POST /api/comments HTTP/1.1\nContent-Type: application/json\n\n{"body":"<b>중요</b>"}\n\nGET /posts/7 HTTP/1.1\n\nHTTP/1.1 200 OK\nContent-Type: text/html\n\n<li class="comment">&lt;b&gt;중요&lt;/b&gt;</li>', reason: '저장값에 태그 모양이 있어도 조회 응답에서 출력 인코딩되어 일반 텍스트로 남습니다.' },
+      { id: 'stored-handler', label: '패킷 C', answer: 'malicious', packet: 'POST /api/comments HTTP/1.1\nContent-Type: application/json\nCookie: training_session=[REDACTED]\n\n{"body":"<img src=x onerror=\\"document.body.dataset.training=triggered\\">"}\n\nGET /posts/7 HTTP/1.1\nCookie: victim_session=[REDACTED]\n\nHTTP/1.1 200 OK\nContent-Type: text/html\n\n<li class="comment"><img src=x onerror="document.body.dataset.training=triggered"></li>', reason: '작성자의 값이 저장됐다가 다른 조회 응답에 인코딩 없이 포함되어 피해자 브라우저의 HTML 문맥에서 해석됩니다.' },
+    ],
+  },
+  dom: {
+    kicker: 'DOM-BASED XSS · CLIENT-SIDE FLOW',
+    title: 'HTTP 응답 밖의 브라우저 Source와 DOM Sink 찾기',
+    description: 'fragment가 서버 요청에 보이지 않는다는 점과, 응답을 받은 뒤 클라이언트 JavaScript가 live DOM을 바꾸는 과정을 분리합니다.',
+    exampleTitle: '서버 응답은 고정이지만 실행 후 DOM이 달라지는 흐름',
+    examplePanels: [
+      { label: '01 · ADDRESS/REQUEST', content: 'Browser URL:\nhttps://training.local/preview#%3Cimg%20src%3Dx%20onerror%3D%22document.body.dataset.training%3Dtriggered%22%3E\n\nHTTP request:\nGET /preview HTTP/1.1\nHost: training.local\n\n#fragment는 요청에 포함되지 않음' },
+      { label: '02 · HTTP RESPONSE', content: 'HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<div id="preview"></div>\n<script src="/static/preview.js"></script>' },
+      { label: '03 · CLIENT CODE/LIVE DOM', content: 'const value = decodeURIComponent(location.hash.slice(1));\npreview.innerHTML = value;\n\nLive DOM:\n<div id="preview"><img src="x" onerror="document.body.dataset.training=triggered"></div>' },
+    ],
+    triggerCode: 'preview.innerHTML = decodeURIComponent(location.hash.slice(1))',
+    triggerBody: '서버 응답 원문에는 fragment 값이 없습니다. 브라우저의 location.hash가 Source가 되고 innerHTML이 Sink가 되어, 실행 후 live DOM에서 요소와 이벤트 속성이 만들어지는 순간이 실패 지점입니다.',
+    trace: [
+      ['Browser Source', '`location.hash`의 fragment 값'],
+      ['Transform', '`decodeURIComponent`로 문자열 변환'],
+      ['DOM Sink', '`preview.innerHTML`에 전달'],
+      ['Live DOM', '브라우저가 새 요소와 이벤트 속성을 생성'],
+    ],
+    cases: [
+      { id: 'dom-text', label: '흐름 A', answer: 'normal', packet: 'Browser URL: https://training.local/preview#week02\n\nGET /preview HTTP/1.1\nHost: training.local\n\nHTTP/1.1 200 OK\n\n<div id="preview"></div>\n<script>preview.textContent = decodeURIComponent(location.hash.slice(1))</script>\n\nLive DOM: <div id="preview">week02</div>', reason: 'fragment 값은 브라우저에서 읽지만 textContent에 전달되어 텍스트 노드로만 만들어집니다.' },
+      { id: 'dom-api-text', label: '흐름 B', answer: 'normal', packet: 'Browser URL: https://training.local/profile?name=%3Cb%3Ekim%3C%2Fb%3E\n\nHTTP/1.1 200 OK\n\n<span id="name"></span>\n<script>name.append(document.createTextNode(new URLSearchParams(location.search).get("name")))</script>\n\nLive DOM: <span id="name">&lt;b&gt;kim&lt;/b&gt;</span>', reason: '외부 값이 createTextNode를 거쳐 텍스트 노드가 되므로 태그 모양이 HTML 요소로 해석되지 않습니다.' },
+      { id: 'dom-inner-html', label: '흐름 C', answer: 'malicious', packet: 'Browser URL: https://training.local/preview#%3Cimg%20src%3Dx%20onerror%3D%22document.body.dataset.training%3Dtriggered%22%3E\n\nGET /preview HTTP/1.1\nHost: training.local\n\nHTTP/1.1 200 OK\n\n<div id="preview"></div><script src="preview.js"></script>\n\npreview.js: preview.innerHTML = decodeURIComponent(location.hash.slice(1))\nLive DOM: <div id="preview"><img src="x" onerror="document.body.dataset.training=triggered"></div>', reason: 'HTTP 응답 원문에는 값이 없지만 location.hash가 innerHTML로 들어가 live DOM에서 실행 문맥이 만들어집니다.' },
+    ],
+  },
+}
+
+function XssPacketClassifierLab({ lab, state, updateLab, onPass }) {
+  const packetLab = xssPacketLabData[lab.packetVariant] || xssPacketLabData.reflected
+  const xssPacketCases = packetLab.cases
+  const answers = state.packetAnswers || {}
+  const checked = Boolean(state.packetChecked)
+  const answeredAll = xssPacketCases.every((packet) => answers[packet.id])
+  const score = xssPacketCases.filter((packet) => answers[packet.id] === packet.answer).length
+  const choose = (packetId, value) => updateLab({
+    packetAnswers: { ...answers, [packetId]: value },
+    packetChecked: false,
+    packetOutcome: null,
+    validationPassed: false,
+    validation: null,
+    validatedAt: null,
+  })
+  const verify = () => {
+    const passed = answeredAll && score === xssPacketCases.length
+    updateLab({ packetChecked: true, packetOutcome: passed ? 'passed' : 'retry', packetCheckedAt: new Date().toISOString() })
+    if (passed) onPass({ score, total: xssPacketCases.length, classified: xssPacketCases.map((packet) => packet.id) })
+  }
+
+  return <section className="xss-packet-lab">
+    <header><div><span>TRAINING-ONLY · {packetLab.kicker}</span><h2>{packetLab.title}</h2><p>{packetLab.description}</p></div><ShieldCheck size={24} /></header>
+    <section className="xss-packet-example">
+      <header><span>WORKED EXAMPLE</span><h3>{packetLab.exampleTitle}</h3><p>아래 문자열은 실행하지 않는 정적 교육 자료이며 Cookie 값은 마스킹했습니다.</p></header>
+      <div className="xss-packet-grid">
+        {packetLab.examplePanels.map((panel) => <article key={panel.label}><span>{panel.label}</span><pre><code>{panel.content}</code></pre></article>)}
+      </div>
+      <div className="xss-trigger-line"><strong>터지는 지점</strong><code>{packetLab.triggerCode}</code><p>{packetLab.triggerBody}</p></div>
+      <ol className="xss-packet-trace">{packetLab.trace.map(([label, body], index) => <li key={label}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{label}</strong><p>{body}</p></div></li>)}</ol>
+    </section>
+    <fieldset className="xss-packet-test">
+      <legend>패킷 판별 테스트 · 정상 2개, 악성 1개</legend>
+      <p>요청 문자열만 보고 판단하지 말고 응답에서 값이 텍스트로 남았는지 HTML 문법으로 해석되는지 확인하세요.</p>
+      {xssPacketCases.map((packet) => {
+        const correct = answers[packet.id] === packet.answer
+        return <article className={checked ? (correct ? 'correct' : 'wrong') : ''} key={packet.id}>
+          <header><strong>{packet.label}</strong>{checked && <span>{correct ? <><Check size={14} />판단 일치</> : <><AlertTriangle size={14} />다시 확인</>}</span>}</header>
+          <pre><code>{packet.packet}</code></pre>
+          <div><label><input type="radio" name={`${packet.id}-classification`} checked={answers[packet.id] === 'normal'} onChange={() => choose(packet.id, 'normal')} /><span>정상</span></label><label><input type="radio" name={`${packet.id}-classification`} checked={answers[packet.id] === 'malicious'} onChange={() => choose(packet.id, 'malicious')} /><span>악성</span></label></div>
+          {checked && <p>{packet.reason}</p>}
+        </article>
+      })}
+      <footer><p aria-live="polite">{checked ? `${score} / ${xssPacketCases.length} · ${score === xssPacketCases.length ? '모든 패킷을 정확히 판별했습니다.' : '응답의 출력 문맥을 다시 확인하세요.'}` : '세 패킷을 모두 분류한 뒤 결과를 확인하세요.'}</p><button className="button primary" type="button" disabled={!answeredAll} onClick={verify}>판별 결과 확인<CheckCircle2 size={16} /></button></footer>
+    </fieldset>
+  </section>
+}
+
 const xssData = {
   'xss-reflected': {
     title: '검색어 반사', sourceLabel: 'GET query q', request: 'GET /search?q=UNIQUE_MARKER HTTP/1.1\nHost: training.local', vulnerable: 'return `<section>검색 결과: ${q}</section>`;', fixed: 'return <section>검색 결과: {q}</section>; // auto-escape', response: '<section>검색 결과: UNIQUE_MARKER</section>', preview: '검색 결과: UNIQUE_MARKER', transform: '요청 파싱 → 템플릿 렌더링', note: '현재 요청의 q가 같은 응답에 포함됩니다.',
@@ -874,16 +954,16 @@ function ReportEvidenceLab({ lab, state, updateLab, onPass }) {
 
 function ExternalLab({ lab, state, updateLab, onPass }) {
   const isBandit = lab.id.includes('bandit')
-  const [confirmed, setConfirmed] = useState(state.confirmed || { scope: false, masked: false, record: false })
-  const update = (id, checked) => { const next = { ...confirmed, [id]: checked }; setConfirmed(next); updateLab({ confirmed: next }); if (Object.values(next).every(Boolean)) onPass({ manualChecklist: true }) }
+  const [confirmed, setConfirmed] = useState(state.confirmed || { scope: false, masked: false })
+  const update = (id, checked) => { const next = { ...confirmed, [id]: checked }; setConfirmed(next); updateLab({ confirmed: next }); if (next.scope && next.masked) onPass({ manualChecklist: true }) }
   const links = lab.externalLinks || [{ label: '공식 Bandit 열기', url: 'https://overthewire.org/wargames/bandit/' }]
-  return <section className="external-lab"><header><ExternalLink size={20} /><div><span>OFFICIAL TRAINING PLATFORM</span><h2>{isBandit ? 'OverTheWire Bandit' : lab.title}</h2><p>외부 계정이 필요할 수 있습니다. 이 사이트는 외부 서버에 요청을 보내거나 정답·결과를 가져오지 않습니다.</p></div></header><div className="external-meta"><div><small>제공 기관</small><strong>{lab.provider || 'OverTheWire'}</strong></div><div><small>경로</small><strong>{lab.path === 'extension' ? '심화' : '필수 핵심'}</strong></div><div><small>외부 계정</small><strong>{isBandit ? '제공 계정 사용' : '플랫폼별 확인'}</strong></div></div><div className="external-link-row">{links.map((link) => <a className="button primary" href={link.url} target="_blank" rel="noreferrer" key={link.url}>{link.label}<ExternalLink size={16} /></a>)}</div><section><h3>플랫폼 내부 완료 확인</h3><label><input type="checkbox" checked={confirmed.scope} onChange={(event) => update('scope', event.target.checked)} /><span>제공 기관이 지정한 Lab·호스트·계정과 문제 범위만 사용했습니다.</span></label><label><input type="checkbox" checked={confirmed.masked} onChange={(event) => update('masked', event.target.checked)} /><span>비밀번호, Cookie와 자격 증명을 `[REDACTED]`로 처리했습니다.</span></label><label><input type="checkbox" checked={confirmed.record} onChange={(event) => update('record', event.target.checked)} /><span>{isBandit ? '레벨별 목표·명령·원리·막힌 지점·힌트 사용·결과 기록' : 'Lab별 Source·Transform·Sink·Context·수정 방향'}을 실습 기록에 정리했습니다.</span></label><p>이 체크는 외부 결과 판정이 아니라 학습자 자기 확인입니다.</p></section></section>
+  return <section className="external-lab"><header><ExternalLink size={20} /><div><span>OFFICIAL TRAINING PLATFORM</span><h2>{isBandit ? 'OverTheWire Bandit' : lab.title}</h2><p>외부 계정이 필요할 수 있습니다. 이 사이트는 외부 서버에 요청을 보내거나 정답·결과를 가져오지 않습니다.</p></div></header><div className="external-meta"><div><small>제공 기관</small><strong>{lab.provider || 'OverTheWire'}</strong></div><div><small>경로</small><strong>{lab.path === 'extension' ? '심화' : '필수 핵심'}</strong></div><div><small>외부 계정</small><strong>{isBandit ? '제공 계정 사용' : '플랫폼별 확인'}</strong></div></div><div className="external-link-row">{links.map((link) => <a className="button primary" href={link.url} target="_blank" rel="noreferrer" key={link.url}>{link.label}<ExternalLink size={16} /></a>)}</div><section><h3>플랫폼 내부 완료 확인</h3><label><input type="checkbox" checked={confirmed.scope} onChange={(event) => update('scope', event.target.checked)} /><span>제공 기관이 지정한 Lab·호스트·계정과 문제 범위만 사용했습니다.</span></label><label><input type="checkbox" checked={confirmed.masked} onChange={(event) => update('masked', event.target.checked)} /><span>비밀번호, Cookie와 자격 증명을 `[REDACTED]`로 처리했습니다.</span></label><p>이 체크는 외부 결과 판정이 아니라 학습자 자기 확인입니다.</p></section></section>
 }
 
 function UnsupportedLab() { return <section className="generic-lab" role="status"><AlertTriangle size={24} /><h2>이 실습 유형은 아직 지원되지 않습니다.</h2><p>검증과 완료 처리는 지원되는 실습 유형에서만 가능합니다.</p></section> }
 
 function Status({ state, text }) {
-  const labels = { not_started: '미시작', attempted: '시도함', 'in-progress': '진행 중', completed: '활동 기록됨', 'activity-recorded': '활동 기록됨' }
+  const labels = { not_started: '미시작', attempted: '시도함', 'in-progress': '진행 중', completed: '완료', 'activity-recorded': '완료' }
   return <span className={`lab-status lab-status-${state}`}><i />{text || labels[state] || state}</span>
 }
 

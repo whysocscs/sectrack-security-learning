@@ -2,7 +2,7 @@
 // modules that teach it. courseData expands these stable mappings into concrete
 // lab/checkpoint and quiz evidence IDs; the content contract verifies every
 // reference and rejects objectives with a missing evidence layer.
-export const objectiveModuleAlignment = Object.freeze({
+const originalObjectiveModuleAlignment = Object.freeze({
   0: [
     ['w0-language'],
     ['w0-domains', 'w0-careers'],
@@ -20,10 +20,11 @@ export const objectiveModuleAlignment = Object.freeze({
     ['w2-curl'],
   ],
   2: [
-    ['w3-flow', 'w3-url-dns'],
-    ['w3-encoding-body', 'w3-http', 'w3-headers'],
-    ['w3-session', 'w3-auth-origin'],
-    ['w3-browser-runtime', 'w3-dom'],
+    ['w3-url-dns'],
+    ['w3-flow'],
+    ['w3-session'],
+    ['w3-dom'],
+    ['w3-auth-origin'],
   ],
   3: [
     ['w4-nature', 'w4-types', 'w4-taint', 'w4-context', 'w4-impact'],
@@ -55,4 +56,44 @@ export const objectiveModuleAlignment = Object.freeze({
   13: [['w14-fuzzing-model'], ['w14-crash-triage'], ['w14-minimize-retest']],
   14: [['w15-shared-responsibility'], ['w15-iam-least-privilege'], ['w15-isolated-cloudgoat']],
   15: [['w16-agent-boundaries'], ['w16-agent-controls'], ['w16-final-threat-model']],
+})
+
+export const objectiveModuleAlignment = Object.freeze({
+  ...Object.fromEntries(Object.entries(originalObjectiveModuleAlignment)
+    .filter(([weekIndex]) => Number(weekIndex) <= 2 || Number(weekIndex) >= 11)
+    .map(([weekIndex, mappings]) => {
+      const sourceIndex = Number(weekIndex)
+      if (sourceIndex <= 2) return [sourceIndex, mappings]
+      return [sourceIndex === 15 ? 10 : sourceIndex - 6, mappings]
+    })),
+  3: [
+    ['w7-c-values', 'w7-build-flow', 'w7-memory-layout'],
+    ['w8-instruction-flow', 'w8-stack-frame', 'w8-calling-convention'],
+    ['w9-debugger-flow', 'w9-bytes-io', 'w9-local-driver'],
+  ],
+  4: [
+    ['w10-bounds'],
+    ['w10-mitigations'],
+    ['w10-retest', 'w11-ai-claims', 'w11-local-triage', 'w11-retest'],
+  ],
+  7: [
+    ['w14-fuzzing-model'],
+    ['w14-crash-triage'],
+    ['w14-minimize-retest'],
+    ['w7-web3-foundations'],
+    ['w7-smart-contract-fuzzing'],
+  ],
+  8: [
+    ['w8-supply-chain-flow'],
+    ['w8-sbom-provenance'],
+    ['w8-cicd-controls'],
+    ['w15-shared-responsibility'],
+    ['w15-iam-least-privilege'],
+    ['w15-isolated-cloudgoat'],
+  ],
+  9: [
+    ['w9-ot-foundations'],
+    ['w9-ot-architecture'],
+    ['w9-ot-monitoring'],
+  ],
 })

@@ -3,19 +3,26 @@ import { applyLoadedModuleArchitecture } from './curriculumArchitecture.js'
 import { applyContentOverrides } from './contentOverrides.js'
 
 const guideLoaders = Object.freeze({
-  3: () => import('./week3DeepDive.js').then((module) => ({ kind: 'block-map', build: module.buildWeek3DeepGuide })),
-  4: () => import('./week4SqlDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek4SqlGuide })),
-  5: () => import('./week5CsrfDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek5CsrfGuide })),
-  6: () => import('./week6MemoryDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek6MemoryGuide })),
-  7: () => import('./week7AssemblyDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek7AssemblyGuide })),
-  8: () => import('./week8DebuggerDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek8DebuggerGuide })),
-  9: () => import('./week9MemorySafetyDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek9MemorySafetyGuide })),
-  10: () => import('./week10AiVerificationDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek10AiVerificationGuide })),
-  11: () => import('./week11CryptoForensicsDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek11CryptoForensicsGuide })),
-  12: () => import('./week12NetworkDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek12NetworkGuide })),
-  13: () => import('./week13FuzzingDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek13FuzzingGuide })),
-  14: () => import('./week14CloudIamDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek14CloudIamGuide })),
-  15: () => import('./week15AgentSecurityDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek15AgentSecurityGuide })),
+  3: () => Promise.all([
+    import('./week6MemoryDeepDive.js'),
+    import('./week7AssemblyDeepDive.js'),
+    import('./week8DebuggerDeepDive.js'),
+  ]).then(([memory, assembly, debuggerGuide]) => ({
+    kind: 'modules',
+    build: (modules) => debuggerGuide.buildWeek8DebuggerGuide(assembly.buildWeek7AssemblyGuide(memory.buildWeek6MemoryGuide(modules))),
+  })),
+  4: () => Promise.all([
+    import('./week9MemorySafetyDeepDive.js'),
+    import('./week10AiVerificationDeepDive.js'),
+  ]).then(([memorySafety, aiVerification]) => ({
+    kind: 'modules',
+    build: (modules) => aiVerification.buildWeek10AiVerificationGuide(memorySafety.buildWeek9MemorySafetyGuide(modules)),
+  })),
+  5: () => import('./week11CryptoForensicsDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek11CryptoForensicsGuide })),
+  6: () => import('./week12NetworkDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek12NetworkGuide })),
+  7: () => import('./week13FuzzingDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek13FuzzingGuide })),
+  8: () => import('./week14CloudIamDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek14CloudIamGuide })),
+  10: () => import('./week15AgentSecurityDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek15AgentSecurityGuide })),
 })
 
 const moduleCache = new Map()

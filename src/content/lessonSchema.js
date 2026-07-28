@@ -5,6 +5,7 @@ export const LESSON_BLOCK_TYPES = Object.freeze([
   'prerequisite-check',
   'explanation',
   'diagram',
+  'image-carousel',
   'terminal',
   'http-message',
   'code',
@@ -167,6 +168,12 @@ export function validateLessonBlock(candidate, index = 0) {
   if (block.type === 'diagram') {
     const nodes = block.nodes || block.items
     if (!Array.isArray(nodes) || !nodes.length || nodes.some((node) => !hasDisplayItem(node))) errors.push(`${prefix} diagram에는 문자열 또는 label을 가진 nodes가 필요합니다.`)
+  }
+  if (block.type === 'image-carousel') {
+    if (!Array.isArray(block.images) || !block.images.length || block.images.some((item) => (
+      !isRecord(item) || !hasText(item.src) || !hasText(item.alt)
+      || (item.caption !== undefined && !hasText(item.caption))
+    ))) errors.push(`${prefix} image-carousel에는 src와 alt를 가진 images가 필요합니다.`)
   }
   if (genericCodeBlockTypeSet.has(block.type)) {
     const artifact = block.command || block.message || block.code
