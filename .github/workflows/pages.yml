@@ -27,8 +27,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Check source and tests
-        run: npm run lint && npm run test
+      - name: Check source and active curriculum tests
+        run: npm run lint && npm run test:active
       - name: Build for GitHub Pages
         run: npm run build -- --base=/sectrack-security-learning/
       - name: Configure Pages
