@@ -4,7 +4,7 @@ export const weekZeroDefinition = Object.freeze({
   title: '정보보안 핵심 용어와 분야·직무 지도',
   summary: '현업에서 자주 사용하는 보안 용어를 익히고, 정보보안의 주요 분야와 세부 직무를 실제 업무와 산출물을 기준으로 살펴봅니다.',
   objectives: [
-    '보안 핵심 용어 30개의 관계와 흔한 오해를 구분한다.',
+    '보안 핵심 용어를 7개 분류로 나누고 공식 출처와 실제 사례를 연결한다.',
     '전문 분야, 업무 기능, 세부 직무, 산업을 서로 다른 층으로 읽는다.',
     '공고 직접 확인, 본문 기반 추론, SecTrack 정규화, 직무 일반 설명을 구분한다.',
     '관심 분야와 직무를 선택하고 연결되는 학습 주차를 확인한다.',
@@ -16,7 +16,7 @@ export const weekZeroDefinition = Object.freeze({
   hideModuleProgress: true,
   disableWeeklyRecord: true,
   modules: [
-    { id: 'w0-language', title: '정보보안 핵심 용어', duration: 0, summary: '30개 핵심 용어를 정의, 예시, 비교, 흔한 오해와 함께 읽습니다.' },
+    { id: 'w0-language', title: '보안 용어', duration: 0, summary: '핵심 용어를 7개 분류로 나누고 공식 정의, 한국어 설명, 실제 사례를 함께 읽습니다.' },
     { id: 'w0-domains', title: '정보보안 분야 전체 지도', duration: 0, summary: '전문 분야, 업무 기능, 세부 직무, 산업을 같은 층으로 섞지 않고 구분합니다.' },
     { id: 'w0-careers', title: '분야별 세부 직무', duration: 0, summary: '14개 상위 직무군과 세부 직무를 실제 업무·산출물·기초 역량으로 비교합니다.' },
     { id: 'w0-evidence', title: '실제 채용공고로 직무 읽기', duration: 0, summary: '320개 직무-공고 매핑과 290개 고유 URL의 최종 감사 결과를 분야·대표 직무별로 읽습니다.' },

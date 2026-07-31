@@ -653,7 +653,7 @@ function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
 }
 
 function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify }) {
-  const supportedTabs = new Set(['overview', 'glossary', 'careers', 'map', 'quiz', 'concepts', 'labs'])
+  const supportedTabs = new Set(['glossary', 'careers', 'map', 'quiz', 'concepts', 'labs'])
   const moduleDestinations = {
     'w0-language': { tab: 'glossary' },
     'w0-domains': { tab: 'careers', section: 'domains' },
@@ -662,8 +662,8 @@ function WeekZeroPage({ route, week, progress, updateProgress, navigate, notify 
   }
   const moduleDestination = route.tab === 'concepts' ? moduleDestinations[route.moduleId] : null
   const legacyTab = route.tab === 'concepts' ? moduleDestination?.tab || 'glossary' : route.tab === 'labs' ? 'map' : route.tab
-  const tab = supportedTabs.has(route.tab || 'overview') ? legacyTab || 'overview' : 'overview'
-  const tabs = [['overview', '이번 주'], ['glossary', '보안 용어'], ['careers', '분야·직무 지도'], ['map', '나의 보안 지도'], ['quiz', '이해 확인']]
+  const tab = supportedTabs.has(route.tab) ? legacyTab || 'glossary' : 'glossary'
+  const tabs = [['glossary', '보안 용어'], ['careers', '분야·직무 지도'], ['map', '나의 보안 지도'], ['quiz', '이해 확인']]
   const mapCompleted = isActivityRecorded(progress.labs['w0-map'])
   const quizScore = progress.quizScores[0]?.percent
   const openTab = (next) => navigate({ page: 'week', week: 0, tab: next })
