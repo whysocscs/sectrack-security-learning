@@ -47,15 +47,30 @@ test('page navigation and local view selectors use current-page or pressed state
   await expect(contexts.getByRole('button', { name: 'JS Data' })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('Week 0 glossary opens directly with seven source-backed term groups', async ({ page }) => {
+test('Week 0 glossary opens directly with five source-backed term groups', async ({ page }) => {
   await open(page, '#/learn/week/0/glossary')
   const weekZeroNavigation = page.getByRole('navigation', { name: 'Week 0 학습 메뉴' })
   await expect(weekZeroNavigation.getByRole('button', { name: '이번 주', exact: true })).toHaveCount(0)
-  await expect(page.locator('.glossary-category-toggles > section')).toHaveCount(7)
+  await expect(page.locator('.glossary-category-toggles > section')).toHaveCount(5)
   await expect(page.locator('.glossary-detail h2')).toHaveText('자산')
-  await expect(page.locator('.glossary-detail section > h3')).toHaveText(['설명', '조금 더 명확하게'])
+  await expect(page.locator('.glossary-detail section > h3')).toHaveText('설명')
+  await expect(page.locator('.glossary-detail')).not.toContainText('한국어:')
+  await expect(page.locator('.glossary-case-study > span')).toHaveText('예시)')
   await expect(page.getByText('Threat', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: '보안 용어 검색' })).toBeVisible()
+
+  await page.getByRole('textbox', { name: '보안 용어 검색' }).fill('Fuzzing')
+  await page.getByRole('button', { name: /Fuzzing/ }).last().click()
+  await expect(page.locator('.glossary-figure img')).toBeVisible()
+  await expect(page.locator('.glossary-figure img')).toHaveJSProperty('naturalWidth', 1448)
+})
+
+test('Week 0 field and role map opens on domains without a market overview', async ({ page }) => {
+  await open(page, '#/learn/week/0/concepts/w0-domains')
+  const navigation = page.getByRole('navigation', { name: '직무 근거 탐색 보기' })
+  await expect(navigation.getByRole('button', { name: '시장 개요', exact: true })).toHaveCount(0)
+  await expect(navigation.getByRole('button', { name: '분야', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('heading', { name: '분야 하나를 열면 해당 직무군과 역할이 이어집니다.' })).toBeVisible()
 })
 
 test('Week 1 to 2 learning routes load their intended readers', async ({ page }) => {

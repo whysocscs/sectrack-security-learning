@@ -55,7 +55,7 @@ export const initialProgress = {
     selectedPortfolioIds: [],
     selectedPostingIds: [],
     view: {
-      evidenceSection: 'market',
+      evidenceSection: 'domains',
       selectedFamilyId: null,
       selectedRoleId: null,
       selectedPostingId: null,

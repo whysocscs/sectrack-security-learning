@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {
-  ArrowRight,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -13,7 +12,6 @@ import {
   GitBranch,
   Search,
   ShieldCheck,
-  UsersRound,
 } from 'lucide-react'
 import {
   glossaryCategories,
@@ -44,7 +42,6 @@ import {
 import { completenessLabels, evidenceTypeLabels } from '../../data/week0/sources.js'
 
 const evidenceSections = [
-  ['market', '시장 개요'],
   ['domains', '분야'],
   ['roles', '세부 직무'],
   ['postings', '채용공고 320건'],
@@ -130,8 +127,18 @@ function GlossarySourceLink({ source }) {
   return <a className="glossary-source-link" href={source.url} target="_blank" rel="noreferrer">출처: {source.label}<ExternalLink size={14} /></a>
 }
 
+function GlossaryTableCell({ cell }) {
+  if (cell && typeof cell === 'object' && cell.url) {
+    return <a className="glossary-table-link" href={cell.url} target="_blank" rel="noreferrer">{cell.text}<ExternalLink size={13} /></a>
+  }
+  return cell
+}
+
 function GlossaryTable({ table, label }) {
-  return <div className="glossary-table-scroll" role="region" aria-label={label} tabIndex="0"><table><thead><tr>{table.headers.map((header) => <th scope="col" key={header}>{header}</th>)}</tr></thead><tbody>{table.rows.map((row) => <tr key={row.join('-')}>{row.map((cell, index) => <td key={`${index}-${cell}`}>{cell}</td>)}</tr>)}</tbody></table></div>
+  return <div className="glossary-table-scroll" role="region" aria-label={label} tabIndex="0"><table><thead><tr>{table.headers.map((header) => <th scope="col" key={header}>{header}</th>)}</tr></thead><tbody>{table.rows.map((row) => {
+    const rowKey = row.map((cell) => typeof cell === 'object' ? cell.text : cell).join('-')
+    return <tr key={rowKey}>{row.map((cell, index) => <td key={`${index}-${typeof cell === 'object' ? cell.text : cell}`}><GlossaryTableCell cell={cell} /></td>)}</tr>
+  })}</tbody></table></div>
 }
 
 function GlossaryCaseStudy({ study }) {
@@ -139,21 +146,44 @@ function GlossaryCaseStudy({ study }) {
   const summary = study.emphasis
     ? study.summary.split(study.emphasis).map((part, index, parts) => <span key={`${part}-${index}`}>{part}{index < parts.length - 1 && <strong>{study.emphasis}</strong>}</span>)
     : study.summary
-  return <aside className="glossary-case-study"><span>{study.label}</span><h3>{study.title}</h3><p>{summary}</p><a href={study.url} target="_blank" rel="noreferrer">{study.sourceLabel} 원문 보기<ExternalLink size={14} /></a></aside>
+  return <aside className="glossary-case-study"><span>{study.label}</span><h3>{study.title}</h3><blockquote><p>{study.excerpt}</p></blockquote><p>{summary}</p><a href={study.url} target="_blank" rel="noreferrer">{study.sourceLabel} 원문 보기<ExternalLink size={14} /></a></aside>
 }
 
 function GlossaryDefinition({ term: selected }) {
-  return <div className="glossary-official-definition"><p lang="en">{selected.definitionEnglish}</p><p><span>한국어</span>{selected.definitionKorean}</p><GlossarySourceLink source={selected.sources[0]} />{selected.additionalDefinitions?.map((definition) => <blockquote key={definition.attribution}><p lang="en">{definition.english}</p><p>{definition.korean}</p><cite>{definition.attribution}</cite></blockquote>)}</div>
+  return <div className="glossary-official-definition"><p lang="en">{selected.definitionEnglish}</p><p>{selected.definitionKorean}</p><GlossarySourceLink source={selected.sources[0]} />{selected.additionalDefinitions?.map((definition) => <blockquote key={definition.attribution}><p lang="en">{definition.english}</p><p>{definition.korean}</p><cite>{definition.attribution}</cite></blockquote>)}</div>
 }
 
-function GlossaryClarification({ term: selected, selectTerm }) {
+function GlossaryGroupedSections({ sections }) {
+  if (!sections) return null
+  return <div className="glossary-subsections">{sections.map((section) => <div key={section.title}><h4>{section.title}</h4>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>)}</div>
+}
+
+function GlossarySourceNotes({ notes }) {
+  if (!notes) return null
+  return <div className="glossary-source-notes">{notes.map((note) => <article key={note.source.url}><p>{note.text}</p><GlossarySourceLink source={note.source} /></article>)}</div>
+}
+
+function GlossaryAssignment({ assignment }) {
+  if (!assignment) return null
+  return <aside className="glossary-assignment"><h4>{assignment.title}</h4><p>{assignment.prompt}</p><strong>반드시 포함할 내용</strong><ol>{assignment.requirements.map((requirement) => <li key={requirement}>{requirement}</li>)}</ol></aside>
+}
+
+function GlossaryExplanation({ term: selected, selectTerm }) {
   return <>
-    <p>{selected.explanation}</p>
+    {selected.id === 'attack-surface' && <GlossaryCaseStudy study={selected.caseStudy} />}
+    <GlossaryDefinition term={selected} />
+    <div className="glossary-prose"><p>{selected.explanation}</p>{selected.detailParagraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
+    {selected.image && <figure className="glossary-figure"><img src={selected.image.src} alt={selected.image.alt} /><figcaption>{selected.image.caption}</figcaption></figure>}
+    <GlossaryGroupedSections sections={selected.groupedSections} />
+    <GlossarySourceNotes notes={selected.sourceNotes} />
     {selected.exampleTable && <GlossaryTable table={selected.exampleTable} label={`${selected.title} 유형별 실제 예시`} />}
     {selected.caseStudy && selected.id !== 'attack-surface' && <GlossaryCaseStudy study={selected.caseStudy} />}
+    {selected.comparisonIntro && <p className="glossary-comparison-intro">{selected.comparisonIntro}</p>}
     {selected.comparisonTable && <GlossaryTable table={selected.comparisonTable} label={`${selected.title} 관련 용어 비교`} />}
     {selected.connectionTable && <GlossaryTable table={selected.connectionTable} label="CIA Triad와 CVSS 영향 지표 연결" />}
+    {selected.caseTable && <GlossaryTable table={selected.caseTable} label="CIA와 CVSS 영향 조합별 취약점 사례" />}
     {selected.note && <p className="glossary-note">{selected.note}</p>}
+    <GlossaryAssignment assignment={selected.assignment} />
     {selected.nextTermIds && <div className="glossary-next-terms"><strong>공식 정의를 차례로 확인하기</strong><div>{selected.nextTermIds.map((id) => { const target = securityGlossary.find((item) => item.id === id); return <button type="button" key={id} onClick={() => selectTerm(target)}>{target.title}<ChevronRight size={14} /></button> })}</div></div>}
     {selected.secondarySources?.map((source) => <GlossarySourceLink key={source.url} source={source} />)}
   </>
@@ -164,7 +194,7 @@ function SecurityGlossary() {
   const [selectedId, setSelectedId] = useState('asset')
   const [openCategories, setOpenCategories] = useState(() => new Set(['foundation']))
   const normalized = query.trim().toLocaleLowerCase('ko-KR')
-  const matches = (item) => !normalized || [item.title, item.englishName, item.koreanName, item.definitionEnglish, item.definitionKorean, item.explanation].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)
+  const matches = (item) => !normalized || [item.title, item.englishName, item.koreanName, item.definitionEnglish, item.definitionKorean, item.explanation, ...item.detailParagraphs].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)
   const visible = securityGlossary.filter(matches)
   const selected = securityGlossary.find((item) => item.id === selectedId) || securityGlossary[0]
   const selectTerm = (term) => {
@@ -189,10 +219,8 @@ function SecurityGlossary() {
         })}</div>
       </aside>
       <article className="glossary-detail">
-        <header><span>{glossaryCategories.find((item) => item.id === selected.category)?.label}</span><h2>{selected.title}</h2><div><span lang="en">{selected.englishName}</span><span>한국어: {selected.koreanName}</span></div></header>
-        {selected.id === 'attack-surface' && <GlossaryCaseStudy study={selected.caseStudy} />}
-        <section><h3>설명</h3><GlossaryDefinition term={selected} /></section>
-        <section><h3>조금 더 명확하게</h3><GlossaryClarification term={selected} selectTerm={selectTerm} /></section>
+        <header><span>{glossaryCategories.find((item) => item.id === selected.category)?.label}</span><h2>{selected.title}</h2><div><span lang="en">{selected.englishName}</span></div></header>
+        <section><h3>설명</h3><GlossaryExplanation term={selected} selectTerm={selectTerm} /></section>
       </article>
     </div>
   </div>
@@ -201,7 +229,7 @@ function SecurityGlossary() {
 function CareerEvidenceExplorer({ moduleId, initialSection, progress, updateProgress, navigate }) {
   const view = progress.weekZero.view || {}
   const requestedSection = evidenceSections.some(([id]) => id === initialSection) ? initialSection : null
-  const savedSection = evidenceSections.some(([id]) => id === view.evidenceSection) ? view.evidenceSection : 'market'
+  const savedSection = evidenceSections.some(([id]) => id === view.evidenceSection) ? view.evidenceSection : 'domains'
   const [section, setSection] = useState(requestedSection || savedSection)
   const moduleTitles = {
     'w0-domains': '정보보안 분야 전체 지도',
@@ -216,24 +244,10 @@ function CareerEvidenceExplorer({ moduleId, initialSection, progress, updateProg
     <SectionIntro kicker="CAREER EVIDENCE EXPLORER" title={moduleTitles[moduleId] || '분야에서 직무군으로, 직무군에서 실제 역할로 내려가는 직무 지도'} body={`${researchDomains.length}개 전문 분야와 ${representativeRoleCatalog.length}개 역할을 직무군으로 묶고, 근거가 충분한 역할만 상세 문서와 공고·공식 체계 근거로 확장합니다.`} />
     <section className="market-caveat"><ShieldCheck size={20} /><div><strong>전문 분야 {researchDomains.length}개 · 대표 역할 {representativeRoleCatalog.length}개 · 상세 근거 카드 {researchRoles.length}개</strong><p>대표 역할은 운영자가 제공한 분야·직무군 목록입니다. 독립 공고·공식 직무 체계 근거가 충분한 역할만 상세 문서로 확장하며, 공개 URL이 보존되지 않은 인용에는 링크를 만들지 않습니다.</p></div></section>
     <nav className="career-evidence-tabs" aria-label="직무 근거 탐색 보기">{evidenceSections.map(([id, label]) => <button type="button" aria-pressed={section === id} className={section === id ? 'active' : ''} key={id} onClick={() => setSectionState(id)}>{id === 'graph' && <GitBranch size={15} />}{label}</button>)}</nav>
-    {section === 'market' && <MarketOverview onOpenRoles={() => setSectionState('roles')} />}
     {section === 'domains' && <DomainExplorer progress={progress} updateProgress={updateProgress} onOpenRole={() => setSectionState('roles')} />}
     {section === 'roles' && <RoleExplorer progress={progress} updateProgress={updateProgress} navigate={navigate} />}
     {section === 'postings' && <PostingExplorer progress={progress} updateProgress={updateProgress} />}
     {section === 'graph' && <CareerGraphView progress={progress} updateProgress={updateProgress} />}
-  </div>
-}
-
-function MarketOverview({ onOpenRoles }) {
-  return <div className="market-overview">
-    <section className="market-stats" aria-label="직무 지도 개요"><div><small>전문 분야</small><strong>{researchDomains.length}<span>개</span></strong></div><div><small>감사 대상 대표 직무</small><strong>{jobMarketResearchSummary.representativeRoleCount}<span>개</span></strong></div><div><small>직무-공고 매핑</small><strong>{jobMarketResearchSummary.sampleSize}<span>개</span></strong></div><div><small>고유 공고 URL</small><strong>{jobMarketResearchSummary.uniqueUrlCount}<span>개</span></strong></div></section>
-    <section className="competency-frequency"><header><div><span>HOW TO READ THIS MAP</span><h2>역할 수가 아니라 근거 강도를 먼저 봅니다.</h2><p>대표 역할은 운영자가 정한 분야별 직무군 목록입니다. 상세 카드에만 실제 공고 확인, 공식 직무 체계, 공식·산업 자료의 근거 상태를 표시합니다.</p></div><button type="button" onClick={onOpenRoles}>세부 직무 읽기<ArrowRight size={15} /></button></header><div>{[
-      { id: 'jobPosting', label: researchEvidenceLabels.jobPosting, count: researchRoles.filter((role) => role.evidence.level === 'jobPosting').length, description: '보고서가 공고 원문 확인으로 분류한 상세 역할입니다.' },
-      { id: 'officialFramework', label: researchEvidenceLabels.officialFramework, count: researchRoles.filter((role) => role.evidence.level === 'officialFramework').length, description: 'NIST NICE 같은 공식 체계의 역할 정의가 근거입니다.' },
-      { id: 'industryResearch', label: researchEvidenceLabels.industryResearch, count: researchRoles.filter((role) => role.evidence.level === 'industryResearch').length, description: '공식·산업 자료로 업무 실체를 확인한 역할입니다.' },
-    ].map((item) => <article key={item.id}><div><strong>{item.label}</strong><span>{item.count}개</span></div><i style={{ width: `${Math.max(22, (item.count / researchRoles.length) * 100)}%` }} /><p>{item.description}</p></article>)}</div></section>
-    <section className="industry-insights"><header><span>DATASET INSIGHTS</span><h2>매핑 수와 URL 검증 상태를 구분해 읽습니다.</h2></header><div>{jobMarketResearchSummary.industryInsights.map((item) => <article key={item.id}><strong>{item.title}</strong><p>{item.body}</p></article>)}</div></section>
-    <section className="market-next"><UsersRound size={20} /><div><strong>URL이 열렸다는 사실과 현재 모집 중이라는 판단은 다릅니다.</strong><p>지원 또는 학습 근거로 사용할 때는 최종 링크 상태와 검증일을 읽고, 직접 열린 공고도 현재 접수 여부를 다시 확인하세요.</p></div><button className="button primary" type="button" onClick={onOpenRoles}>세부 직무 비교<ArrowRight size={16} /></button></section>
   </div>
 }
 

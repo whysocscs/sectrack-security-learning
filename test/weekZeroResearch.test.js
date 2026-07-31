@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { securityGlossary } from '../src/data/week0/glossary.js'
+import { glossaryCaseStudies, glossaryCategories, securityGlossary } from '../src/data/week0/glossary.js'
 import {
   auditedRepresentativeRoles,
   calculateContentCompletenessScore,
@@ -13,16 +13,39 @@ import { jobFamilies, roleDetails, rolesForFamily, securityDomains } from '../sr
 import { allowedSharedRepresentativeRoleTitles, representativeRoleCatalog, representativeRoleGroups, representativeRolesForDomain, researchDomainById, researchDomains, researchRoleById, researchRoles } from '../src/data/week0/careerResearch.js'
 import { mergeProgress } from '../src/platformLogic.js'
 
-test('Week 0 glossary contains the requested research-backed terms without Threat', () => {
-  assert.equal(securityGlossary.length, 29)
-  assert.equal(new Set(securityGlossary.map((term) => term.id)).size, 29)
-  assert.equal(securityGlossary.some((term) => term.id === 'threat'), false)
+test('Week 0 glossary keeps the requested five groups and combines related terms', () => {
+  assert.equal(glossaryCategories.length, 5)
+  assert.equal(securityGlossary.length, 17)
+  assert.equal(new Set(securityGlossary.map((term) => term.id)).size, 17)
+  for (const removedId of ['threat', 'cce', 'cvss', 'one-day', 'patch', 'privilege-escalation', 'lateral-movement', 'authentication', 'authorization', 'least-privilege', 'firewall', 'ids-ips', 'edr']) {
+    assert.equal(securityGlossary.some((term) => term.id === removedId), false, `${removedId} is not a separate glossary page`)
+  }
   for (const term of securityGlossary) {
     assert.ok(term.definitionEnglish)
     assert.ok(term.definitionKorean)
     assert.ok(term.explanation)
+    assert.ok(term.detailParagraphs.length >= 2, `${term.id} has a sustained explanation`)
+    assert.ok([term.definitionKorean, term.explanation, ...term.detailParagraphs].join(' ').length >= 350, `${term.id} is explained beyond a short summary`)
     assert.ok(term.sources[0]?.url)
   }
+  for (const study of Object.values(glossaryCaseStudies)) {
+    assert.equal(study.label, '예시)')
+    assert.ok(study.excerpt)
+    assert.ok(study.summary.length >= 150)
+  }
+  const cia = securityGlossary.find((term) => term.id === 'cia')
+  const zeroDay = securityGlossary.find((term) => term.id === 'zero-day')
+  const cve = securityGlossary.find((term) => term.id === 'cve')
+  const cwe = securityGlossary.find((term) => term.id === 'cwe')
+  const fuzzing = securityGlossary.find((term) => term.id === 'fuzzing')
+  assert.equal(cia.caseTable.rows.length, 7)
+  assert.deepEqual(zeroDay.groupedSections.map((section) => section.title), ['Zero-day', 'Patch', 'One-day · N-day'])
+  assert.equal(cve.comparisonTable.rows.length, 9)
+  assert.equal(cve.sourceNotes.length, 3)
+  assert.equal(cwe.comparisonTable.rows.length, 5)
+  assert.equal(fuzzing.image.src, '/media/fuzzing-overview.png')
+  assert.ok(securityGlossary.find((term) => term.id === 'malware').assignment)
+  assert.ok(securityGlossary.find((term) => term.id === 'c2').assignment)
 })
 
 test('Week 0 separates 12 domains, 14 job families, Cloud/IAM roles, and DFIR roles', () => {
