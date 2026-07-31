@@ -13,13 +13,15 @@ import { jobFamilies, roleDetails, rolesForFamily, securityDomains } from '../sr
 import { allowedSharedRepresentativeRoleTitles, representativeRoleCatalog, representativeRoleGroups, representativeRolesForDomain, researchDomainById, researchDomains, researchRoleById, researchRoles } from '../src/data/week0/careerResearch.js'
 import { mergeProgress } from '../src/platformLogic.js'
 
-test('Week 0 glossary contains the 30 research-backed concepts with misconceptions', () => {
-  assert.equal(securityGlossary.length, 30)
-  assert.equal(new Set(securityGlossary.map((term) => term.id)).size, 30)
+test('Week 0 glossary contains the requested research-backed terms without Threat', () => {
+  assert.equal(securityGlossary.length, 29)
+  assert.equal(new Set(securityGlossary.map((term) => term.id)).size, 29)
+  assert.equal(securityGlossary.some((term) => term.id === 'threat'), false)
   for (const term of securityGlossary) {
-    assert.ok(term.simpleDefinition)
-    assert.ok(term.preciseDefinition)
-    assert.ok(term.misconception)
+    assert.ok(term.definitionEnglish)
+    assert.ok(term.definitionKorean)
+    assert.ok(term.explanation)
+    assert.ok(term.sources[0]?.url)
   }
 })
 

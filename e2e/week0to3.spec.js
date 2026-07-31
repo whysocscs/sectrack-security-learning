@@ -47,11 +47,18 @@ test('page navigation and local view selectors use current-page or pressed state
   await expect(contexts.getByRole('button', { name: 'JS Data' })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('Week 0 to 2 learning routes load their intended reader or workspace', async ({ page }) => {
+test('Week 0 glossary opens directly with seven source-backed term groups', async ({ page }) => {
   await open(page, '#/learn/week/0/glossary')
-  await expect(page.getByRole('heading', { name: '정보보안 핵심 용어', exact: true })).toBeVisible()
+  const weekZeroNavigation = page.getByRole('navigation', { name: 'Week 0 학습 메뉴' })
+  await expect(weekZeroNavigation.getByRole('button', { name: '이번 주', exact: true })).toHaveCount(0)
+  await expect(page.locator('.glossary-category-toggles > section')).toHaveCount(7)
+  await expect(page.locator('.glossary-detail h2')).toHaveText('자산')
+  await expect(page.locator('.glossary-detail section > h3')).toHaveText(['설명', '조금 더 명확하게'])
+  await expect(page.getByText('Threat', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: '보안 용어 검색' })).toBeVisible()
+})
 
+test('Week 1 to 2 learning routes load their intended readers', async ({ page }) => {
   for (const [week, moduleId, heading] of [
     [1, 'w1-navigation', '파일·탐색·텍스트·형식 관찰 명령'],
     [1, 'w1-permission', '사용자·그룹·소유권과 권한'],

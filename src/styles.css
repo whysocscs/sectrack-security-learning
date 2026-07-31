@@ -38,7 +38,7 @@ button { color: inherit; }
 button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) { min-height: 44px; }
 a { color: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 5px #fff; }
-.map-search:focus-within, .terminal-body:focus-within, .glossary-toolbar > label:focus-within, .role-filter-bar > label:focus-within, .posting-filter-bar > label:focus-within, .research-role-toolbar label:focus-within { outline: 3px solid var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 5px #fff; }
+.map-search:focus-within, .terminal-body:focus-within, .glossary-search:focus-within, .role-filter-bar > label:focus-within, .posting-filter-bar > label:focus-within, .research-role-toolbar label:focus-within { outline: 3px solid var(--focus-ring); outline-offset: 2px; box-shadow: 0 0 0 5px #fff; }
 code, pre { font-family: var(--mono); }
 pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 img { display: block; max-width: 100%; }
@@ -2055,23 +2055,65 @@ img { display: block; max-width: 100%; }
 .glossary-toolbar > div { display: flex; gap: 4px; overflow-x: auto; }
 .glossary-toolbar button { min-height: 34px; padding: 0 10px; color: var(--muted); background: #fff; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: .8125rem; }
 .glossary-toolbar button.active { color: #075f62; background: #eaf4f3; border-color: #74aaa8; }
-.glossary-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); align-items: start; gap: 28px; }
-.glossary-list { max-height: 680px; overflow-y: auto; border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border); }
-.glossary-list > button { width: 100%; min-height: 64px; display: grid; grid-template-columns: 30px 1fr; align-items: center; column-gap: 8px; padding: 10px 8px; text-align: left; background: #fff; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; }
-.glossary-list > button:hover, .glossary-list > button.active { background: #f0f6f5; }
-.glossary-list > button.active { box-shadow: inset 3px 0 var(--accent); }
-.glossary-list > button > span { color: var(--accent-dark); font: 800 .75rem var(--mono); }
-.glossary-list strong { font-size: .875rem; }
-.glossary-list small { grid-column: 2; color: var(--faint); font-size: .6875rem; }
-.glossary-detail { padding: 26px 30px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); }
-.glossary-detail > span { color: var(--accent-dark); font: 800 .75rem var(--mono); }
-.glossary-detail > h2 { margin: 8px 0 0; font-size: 1.65rem; }
-.glossary-detail > small { color: var(--faint); }
-.glossary-detail section { padding: 18px 0; border-bottom: 1px solid var(--border); }
+.glossary-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); align-items: start; gap: 28px; }
+.glossary-navigation { min-width: 0; }
+.glossary-search { min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 11px; background: #fff; border: 1px solid var(--border-strong); border-radius: 4px; }
+.glossary-search svg { flex: 0 0 auto; color: var(--muted); }
+.glossary-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; }
+.glossary-category-toggles { margin-top: 12px; border-top: 1px solid var(--border-strong); }
+.glossary-category-toggles > section { border-bottom: 1px solid var(--border); }
+.glossary-category-toggles > section > button { width: 100%; min-height: 54px; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto 18px; gap: 8px; align-items: center; padding: 9px 8px; color: var(--text); text-align: left; background: #f7f9f8; border: 0; cursor: pointer; }
+.glossary-category-toggles > section > button:hover { background: #edf5f4; }
+.glossary-category-toggles > section > button > span { color: var(--accent-dark); font: 800 .72rem var(--mono); }
+.glossary-category-toggles > section > button strong { font-size: .8125rem; line-height: 1.35; }
+.glossary-category-toggles > section > button small { color: var(--faint); font-size: .6875rem; }
+.glossary-category-toggles > section > button svg { color: var(--muted); transition: transform .16s ease; }
+.glossary-category-toggles > section > button[aria-expanded="true"] svg { transform: rotate(180deg); }
+.glossary-category-toggles > section > div { border-top: 1px solid var(--border); }
+.glossary-category-toggles > section > div > button { width: 100%; min-height: 54px; display: grid; gap: 3px; padding: 9px 12px 9px 36px; text-align: left; background: #fff; border: 0; border-bottom: 1px solid #edf0ee; cursor: pointer; }
+.glossary-category-toggles > section > div > button:last-of-type { border-bottom: 0; }
+.glossary-category-toggles > section > div > button:hover, .glossary-category-toggles > section > div > button.active { background: #f0f6f5; }
+.glossary-category-toggles > section > div > button.active { box-shadow: inset 3px 0 var(--accent); }
+.glossary-category-toggles > section > div > button strong { font-size: .8125rem; }
+.glossary-category-toggles > section > div > button small { color: var(--faint); font-size: .6875rem; line-height: 1.35; }
+.glossary-category-toggles > section > div > p { margin: 0; padding: 14px; color: var(--muted); font-size: .75rem; }
+.glossary-detail { min-width: 0; padding: 26px 30px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); }
+.glossary-detail > header { padding-bottom: 20px; border-bottom: 1px solid var(--border-strong); }
+.glossary-detail > header > span { color: var(--accent-dark); font: 800 .75rem var(--mono); }
+.glossary-detail > header h2 { margin: 8px 0 10px; font-size: 1.65rem; }
+.glossary-detail > header > div { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: .8125rem; }
+.glossary-detail > header > div span:first-child { color: #253a3e; font-weight: 750; }
+.glossary-detail section { padding: 22px 0; border-bottom: 1px solid var(--border); }
 .glossary-detail section:last-child { border-bottom: 0; }
-.glossary-detail h3, .posting-detail h3, .week0-role-detail h3, .personal-role-comparison h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; font-size: .875rem; }
-.glossary-detail p { margin: 0; color: #364147; line-height: 1.7; }
-.glossary-misconception { padding-left: 14px !important; border-left: 3px solid #bd7b28; }
+.glossary-detail h3, .posting-detail h3, .week0-role-detail h3, .personal-role-comparison h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: .9rem; }
+.glossary-detail p { margin: 0; color: #364147; line-height: 1.75; }
+.glossary-official-definition { display: grid; gap: 8px; }
+.glossary-official-definition > p:first-child { color: #1f3034; font-size: 1rem; font-weight: 700; }
+.glossary-official-definition > p:nth-child(2) { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 8px; }
+.glossary-official-definition > p:nth-child(2) span { color: var(--accent-dark); font-size: .75rem; font-weight: 800; }
+.glossary-official-definition blockquote { margin: 10px 0 0; padding: 13px 15px; background: #f6f8f7; border-left: 3px solid #83aaa7; }
+.glossary-official-definition blockquote p + p { margin-top: 4px; }
+.glossary-official-definition cite { display: block; margin-top: 6px; color: var(--faint); font-size: .72rem; font-style: normal; }
+.glossary-source-link { width: max-content; max-width: 100%; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; color: #075f62; font-size: .75rem; font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.glossary-source-link svg { flex: 0 0 auto; }
+.glossary-case-study { margin: 20px 0 2px; padding: 18px; background: #f3f7f6; border: 1px solid #bdd2cf; border-left: 4px solid var(--accent); }
+.glossary-case-study > span { color: var(--accent-dark); font: 800 .7rem var(--mono); }
+.glossary-case-study h3 { margin: 6px 0 9px; font-size: 1rem; }
+.glossary-case-study p { font-size: .875rem; }
+.glossary-case-study p strong { color: #153f42; }
+.glossary-case-study a { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; color: #075f62; font-size: .75rem; font-weight: 750; }
+.glossary-table-scroll { max-width: 100%; margin-top: 18px; overflow-x: auto; border: 1px solid var(--border); }
+.glossary-table-scroll:focus { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.glossary-table-scroll table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: .8rem; }
+.glossary-table-scroll th, .glossary-table-scroll td { padding: 11px 12px; text-align: left; vertical-align: top; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); line-height: 1.55; }
+.glossary-table-scroll th:last-child, .glossary-table-scroll td:last-child { border-right: 0; }
+.glossary-table-scroll tbody tr:last-child td { border-bottom: 0; }
+.glossary-table-scroll th { color: #294143; background: #eef4f3; font-size: .75rem; }
+.glossary-note { margin-top: 16px !important; padding: 13px 14px; color: #314b4d !important; background: #eef7f6; border: 1px solid #bddbd7; font-size: .8125rem; }
+.glossary-next-terms { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.glossary-next-terms > strong { font-size: .8125rem; }
+.glossary-next-terms > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.glossary-next-terms button { min-height: 32px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px; color: #075f62; background: #edf6f5; border: 1px solid #bad4d1; border-radius: 3px; cursor: pointer; font-weight: 750; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-list > span, .tag-list > button { min-height: 28px; padding: 4px 8px; color: #3c5657; background: #edf3f2; border: 1px solid #c8dbd8; border-radius: 3px; font-size: .75rem; }
 .tag-list > button { cursor: pointer; }
@@ -2209,7 +2251,7 @@ img { display: block; max-width: 100%; }
 
 @media (forced-colors: active) {
   button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible, [tabindex]:focus-visible,
-  .map-search:focus-within, .terminal-body:focus-within, .glossary-toolbar > label:focus-within, .role-filter-bar > label:focus-within, .posting-filter-bar > label:focus-within, .research-role-toolbar label:focus-within {
+  .map-search:focus-within, .terminal-body:focus-within, .glossary-search:focus-within, .role-filter-bar > label:focus-within, .posting-filter-bar > label:focus-within, .research-role-toolbar label:focus-within {
     outline: 3px solid Highlight;
     box-shadow: none;
   }

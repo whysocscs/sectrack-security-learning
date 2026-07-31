@@ -3,23 +3,22 @@ import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {
   ArrowRight,
-  BarChart3,
-  BookOpen,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Download,
   ExternalLink,
-  FileSearch,
   Filter,
   GitBranch,
-  Layers3,
   Search,
   ShieldCheck,
-  Target,
   UsersRound,
 } from 'lucide-react'
-import { cveCweCvssFlow, glossaryCategories, securityGlossary } from '../../data/week0/glossary.js'
+import {
+  glossaryCategories,
+  securityGlossary,
+} from '../../data/week0/glossary.js'
 import {
   auditedRepresentativeRoles,
   jobMarketResearchSummary,
@@ -101,9 +100,8 @@ function SectionIntro({ kicker, title, body, action }) {
   return <header className="week0-section-intro"><span>{kicker}</span><div><h2>{title}</h2><p>{body}</p></div>{action}</header>
 }
 
-export default function WeekZeroWorkspace({ activeTab = 'overview', moduleId, initialCareerSection, progress, updateProgress, navigate, notify, showPageHeader = false, onTabChange, onCompleteMap }) {
+export default function WeekZeroWorkspace({ activeTab = 'glossary', moduleId, initialCareerSection, progress, updateProgress, navigate, notify, showPageHeader = false, onTabChange, onCompleteMap }) {
   const pageTabs = [
-    ['overview', '이번 주'],
     ['glossary', '보안 용어'],
     ['careers', '분야·직무 지도'],
     ['map', '나의 보안 지도'],
@@ -115,7 +113,7 @@ export default function WeekZeroWorkspace({ activeTab = 'overview', moduleId, in
     if (activeTab === 'careers') return <CareerEvidenceExplorer key={initialCareerSection || 'saved-view'} moduleId={moduleId} initialSection={initialCareerSection} progress={progress} updateProgress={updateProgress} navigate={navigate} />
     if (activeTab === 'map') return <PersonalCareerMap progress={progress} updateProgress={updateProgress} notify={notify} onCompleteMap={onCompleteMap} />
     if (activeTab === 'quiz') return null
-    return <WeekZeroOverview openTab={setTab} />
+    return <SecurityGlossary />
   }
   return <div className="week0-workspace">
     {showPageHeader && <header className="week0-page-header"><span>WEEK 00 · SECURITY FIELD GUIDE</span><h2>정보보안 핵심 용어와 분야·직무 지도</h2><p>용어를 읽고, 분야와 직무를 구분하고, 실제 공고 표본의 근거 범위를 확인한 뒤 나의 보안 지도를 만듭니다.</p><nav className="week0-page-tabs" aria-label="Week 0 탐색 메뉴">{pageTabs.map(([id, label]) => <button type="button" key={id} className={activeTab === id ? 'active' : ''} aria-current={activeTab === id ? 'page' : undefined} onClick={() => setTab(id)}>{label}</button>)}</nav></header>}
@@ -128,39 +126,75 @@ export function WeekZeroExplorerPage({ progress, updateProgress, navigate, notif
   return <div className="page-width"><WeekZeroWorkspace activeTab={activeTab} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} showPageHeader onTabChange={setActiveTab} onCompleteMap={() => completeMapLab(updateProgress, notify)} /></div>
 }
 
-function WeekZeroOverview({ openTab }) {
-  return <div className="week0-overview">
-    <SectionIntro kicker="WEEK 00 · ORIENTATION" title="용어에서 실제 업무까지, 같은 층으로 섞지 않고 읽기" body="전문 분야는 무엇을 다루는지, 세부 직무는 어떤 책임을 맡는지, 실제 공고는 어떤 업무를 적었는지를 각각 구분합니다." />
-    <section className="week0-learning-flow" aria-label="Week 0 학습 순서">
-      {[
-        ['01', '보안 용어', '자산·위협·취약점부터 CVE·CWE·CVSS와 방어 통제까지 읽습니다.', 'glossary', BookOpen],
-        ['02', '분야·직무', '전문 분야, 업무 기능, 세부 직무, 산업을 분리해 비교합니다.', 'careers', Layers3],
-        ['03', '공고 근거', '직접 확인한 사실과 SecTrack 정규화, 일반 설명을 구분합니다.', 'careers', FileSearch],
-        ['04', '나의 보안 지도', '관심 직무와 대표 산출물, 연결 WEEK, 포트폴리오 후보를 저장합니다.', 'map', Target],
-      ].map(([number, title, body, target, Icon]) => <button type="button" key={number} onClick={() => openTab(target)}><span>{number}</span><Icon size={19} /><div><strong>{title}</strong><p>{body}</p></div><ChevronRight size={17} /></button>)}
-    </section>
-    <section className="research-caveat" aria-label="채용 표본 해석 주의"><BarChart3 size={21} /><div><strong>{jobMarketResearchSummary.sampleSize}개 매핑·{jobMarketResearchSummary.uniqueUrlCount}개 고유 URL 최종 감사 자료입니다.</strong><p>{jobMarketResearchSummary.caveat}</p></div></section>
-    <div className="week0-layer-grid">
-      <article><span>전문 분야</span><strong>웹·클라우드·DFIR·암호처럼 무엇을 다루는가</strong><p>기술과 시스템의 범위입니다.</p></article>
-      <article><span>업무 기능</span><strong>기획·설계·진단·탐지·대응·감사처럼 무엇을 하는가</strong><p>조직에서 맡는 행동과 책임입니다.</p></article>
-      <article><span>세부 직무</span><strong>IAM Engineer·SOC Tier2·DFIR Investigator처럼 어떤 역할인가</strong><p>실제 업무와 산출물로 비교합니다.</p></article>
-      <article><span>산업</span><strong>금융·SaaS·OT·자동차처럼 어떤 제약 안에서 하는가</strong><p>보호 자산과 운영 우선순위가 달라집니다.</p></article>
-    </div>
-  </div>
+function GlossarySourceLink({ source }) {
+  return <a className="glossary-source-link" href={source.url} target="_blank" rel="noreferrer">출처: {source.label}<ExternalLink size={14} /></a>
+}
+
+function GlossaryTable({ table, label }) {
+  return <div className="glossary-table-scroll" role="region" aria-label={label} tabIndex="0"><table><thead><tr>{table.headers.map((header) => <th scope="col" key={header}>{header}</th>)}</tr></thead><tbody>{table.rows.map((row) => <tr key={row.join('-')}>{row.map((cell, index) => <td key={`${index}-${cell}`}>{cell}</td>)}</tr>)}</tbody></table></div>
+}
+
+function GlossaryCaseStudy({ study }) {
+  if (!study) return null
+  const summary = study.emphasis
+    ? study.summary.split(study.emphasis).map((part, index, parts) => <span key={`${part}-${index}`}>{part}{index < parts.length - 1 && <strong>{study.emphasis}</strong>}</span>)
+    : study.summary
+  return <aside className="glossary-case-study"><span>{study.label}</span><h3>{study.title}</h3><p>{summary}</p><a href={study.url} target="_blank" rel="noreferrer">{study.sourceLabel} 원문 보기<ExternalLink size={14} /></a></aside>
+}
+
+function GlossaryDefinition({ term: selected }) {
+  return <div className="glossary-official-definition"><p lang="en">{selected.definitionEnglish}</p><p><span>한국어</span>{selected.definitionKorean}</p><GlossarySourceLink source={selected.sources[0]} />{selected.additionalDefinitions?.map((definition) => <blockquote key={definition.attribution}><p lang="en">{definition.english}</p><p>{definition.korean}</p><cite>{definition.attribution}</cite></blockquote>)}</div>
+}
+
+function GlossaryClarification({ term: selected, selectTerm }) {
+  return <>
+    <p>{selected.explanation}</p>
+    {selected.exampleTable && <GlossaryTable table={selected.exampleTable} label={`${selected.title} 유형별 실제 예시`} />}
+    {selected.caseStudy && selected.id !== 'attack-surface' && <GlossaryCaseStudy study={selected.caseStudy} />}
+    {selected.comparisonTable && <GlossaryTable table={selected.comparisonTable} label={`${selected.title} 관련 용어 비교`} />}
+    {selected.connectionTable && <GlossaryTable table={selected.connectionTable} label="CIA Triad와 CVSS 영향 지표 연결" />}
+    {selected.note && <p className="glossary-note">{selected.note}</p>}
+    {selected.nextTermIds && <div className="glossary-next-terms"><strong>공식 정의를 차례로 확인하기</strong><div>{selected.nextTermIds.map((id) => { const target = securityGlossary.find((item) => item.id === id); return <button type="button" key={id} onClick={() => selectTerm(target)}>{target.title}<ChevronRight size={14} /></button> })}</div></div>}
+    {selected.secondarySources?.map((source) => <GlossarySourceLink key={source.url} source={source} />)}
+  </>
 }
 
 function SecurityGlossary() {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('all')
   const [selectedId, setSelectedId] = useState('asset')
+  const [openCategories, setOpenCategories] = useState(() => new Set(['foundation']))
   const normalized = query.trim().toLocaleLowerCase('ko-KR')
-  const visible = securityGlossary.filter((item) => (category === 'all' || item.category === category) && (!normalized || [item.title, item.englishName, item.simpleDefinition, item.preciseDefinition, item.example, item.misconception].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)))
-  const selected = securityGlossary.find((item) => item.id === selectedId) || visible[0] || securityGlossary[0]
+  const matches = (item) => !normalized || [item.title, item.englishName, item.koreanName, item.definitionEnglish, item.definitionKorean, item.explanation].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)
+  const visible = securityGlossary.filter(matches)
+  const selected = securityGlossary.find((item) => item.id === selectedId) || securityGlossary[0]
+  const selectTerm = (term) => {
+    if (!term) return
+    setSelectedId(term.id)
+    setOpenCategories((current) => new Set([...current, term.category]))
+  }
+  const toggleCategory = (id) => setOpenCategories((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
   return <div className="week0-glossary">
-    <SectionIntro kicker="SECURITY GLOSSARY · 30 TERMS" title="정보보안 핵심 용어" body="정의와 함께 헷갈리는 경계를 읽습니다. CVE·CWE·CVSS가 각각 무엇을 가리키는지, CVSS가 조직의 최종 위험과 왜 다른지처럼 실제 업무에서 혼동하기 쉬운 지점을 함께 확인합니다." />
-    <section className="cve-flow" aria-label="CWE CVE CVSS와 조직 위험 평가의 관계"><h3>CWE · CVE · CVSS를 한 흐름으로 보기</h3><ol>{cveCweCvssFlow.map(([title, body], index) => <li key={title}><span>{index + 1}</span><div><strong>{title}</strong>{body && <p>{body}</p>}</div>{index < cveCweCvssFlow.length - 1 && <i aria-hidden="true" />}</li>)}</ol></section>
-    <div className="glossary-toolbar"><label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="CVE, 권한, 공격, 탐지 검색" aria-label="보안 용어 검색" /></label><div role="group" aria-label="용어 분류">{glossaryCategories.map((item) => <button type="button" key={item.id} className={category === item.id ? 'active' : ''} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.label}</button>)}</div></div>
-    <div className="glossary-layout"><div className="glossary-list" aria-label="보안 용어 목록">{visible.map((item, index) => <button type="button" key={item.id} className={selected.id === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.title}</strong><small>{item.englishName}</small></button>)}{!visible.length && <p>검색 결과가 없습니다.</p>}</div><article className="glossary-detail"><span>{glossaryCategories.find((item) => item.id === selected.category)?.label}</span><h2>{selected.title}</h2><small>{selected.englishName}</small><section><h3>쉬운 설명</h3><p>{selected.simpleDefinition}</p></section><section><h3>조금 더 정확히</h3><p>{selected.preciseDefinition}</p></section><section><h3>예시</h3><p>{selected.example}</p></section><section className="glossary-misconception"><h3>흔한 오해</h3><p>{selected.misconception}</p></section><section><h3>함께 비교할 용어</h3><div className="tag-list">{selected.compareWith.map((id) => <button type="button" key={id} onClick={() => setSelectedId(id)}>{securityGlossary.find((item) => item.id === id)?.title || id}</button>)}</div></section><section><h3>연결 WEEK</h3><div className="tag-list">{selected.relatedWeekIds.map((week) => <span key={week}>Week {week}</span>)}</div></section></article></div>
+    <div className="glossary-layout">
+      <aside className="glossary-navigation" aria-label="보안 용어 분류와 검색">
+        <label className="glossary-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="CVE, 권한, 공격, 탐지 검색" aria-label="보안 용어 검색" /></label>
+        <div className="glossary-category-toggles">{glossaryCategories.map((category, categoryIndex) => {
+          const terms = visible.filter((item) => item.category === category.id)
+          const expanded = Boolean(normalized) || openCategories.has(category.id)
+          return <section key={category.id}><button type="button" aria-expanded={expanded} aria-controls={`glossary-category-${category.id}`} onClick={() => toggleCategory(category.id)}><span>{String(categoryIndex + 1).padStart(2, '0')}</span><strong>{category.label}</strong><small>{terms.length}개</small><ChevronDown size={16} /></button><div id={`glossary-category-${category.id}`} hidden={!expanded}>{terms.map((item) => <button type="button" key={item.id} className={selected.id === item.id ? 'active' : ''} aria-current={selected.id === item.id ? 'true' : undefined} onClick={() => selectTerm(item)}><strong>{item.title}</strong><small lang="en">{item.englishName}</small></button>)}{!terms.length && <p>검색 결과가 없습니다.</p>}</div></section>
+        })}</div>
+      </aside>
+      <article className="glossary-detail">
+        <header><span>{glossaryCategories.find((item) => item.id === selected.category)?.label}</span><h2>{selected.title}</h2><div><span lang="en">{selected.englishName}</span><span>한국어: {selected.koreanName}</span></div></header>
+        {selected.id === 'attack-surface' && <GlossaryCaseStudy study={selected.caseStudy} />}
+        <section><h3>설명</h3><GlossaryDefinition term={selected} /></section>
+        <section><h3>조금 더 명확하게</h3><GlossaryClarification term={selected} selectTerm={selectTerm} /></section>
+      </article>
+    </div>
   </div>
 }
 
