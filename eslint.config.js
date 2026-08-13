@@ -34,7 +34,14 @@ export default [
     },
   },
   {
-    files: ['test/**/*.js', 'e2e/**/*.js', '*.{config,setup}.js'],
+    files: [
+      'test/**/*.js',
+      'e2e/**/*.js',
+      'scripts/generate-week0-job-posting-audit.mjs',
+      'scripts/research-week0-existing-job-postings.mjs',
+      'scripts/validate-week0-all-role-job-postings.mjs',
+      '*.{config,setup}.js',
+    ],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

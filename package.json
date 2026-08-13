@@ -11,6 +11,8 @@
     "test:browser": "playwright test",
     "test:browser:contracts": "playwright test e2e/lms024-contracts.spec.js --project=desktop",
     "validate:content": "node scripts/validate-content.mjs",
+    "validate:week0-jobs": "node scripts/validate-week0-all-role-job-postings.mjs",
+    "generate:week0-job-audit": "node scripts/generate-week0-job-posting-audit.mjs",
     "build": "vite build",
     "budget:initial": "node scripts/check-initial-bundle-budget.mjs",
     "build:budget": "npm run build && npm run budget:initial",
