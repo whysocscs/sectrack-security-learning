@@ -40,19 +40,15 @@ import {
   validateReport,
 } from './platformLogic'
 import {
-  exportRawRecovery,
   exportProgress,
   importProgress,
   loadProgress,
-  replaceFromRecovery,
-  resetAfterRecovery,
   saveProgress,
 } from './storage'
 import LessonRenderer from './components/LessonRenderer'
 import { getConcepts } from './content/conceptRegistry'
 import { getLessonBlockAnchor, getLessonBlocks } from './content/lessonSchema'
 import { loadDeepGuideModules, supportsDeepGuide } from './content/deepGuideLoader'
-import { applyPageTextOverrides } from './content/pageTextOverrides'
 import { buildLocalLearningInsights } from './adapters/analytics'
 import { getLocalLearningGuidance } from './adapters/feedback'
 import {
@@ -73,8 +69,6 @@ const ReportsPage = React.lazy(() => import('./components/Reports').then((module
 const ReportEditor = React.lazy(() => import('./components/Reports').then((module) => ({ default: module.ReportEditor })))
 const WeekZeroWorkspace = React.lazy(() => import('./components/week0/WeekZeroWorkspace').then((module) => ({ default: module.default })))
 const WeekZeroExplorerPage = React.lazy(() => import('./components/week0/WeekZeroWorkspace').then((module) => ({ default: module.WeekZeroExplorerPage })))
-const ContentAuthoringPanel = import.meta.env.DEV ? React.lazy(() => import('./components/ContentAuthoringPanel')) : null
-
 const regularWeekCount = Object.values(weekContent).filter((week) => week.index > 0).length
 
 const navItems = [
@@ -173,18 +167,10 @@ export default function App() {
   const [route, setRoute] = useState(() => parseHash(window.location.hash))
   const [initialLoad] = useState(readInitialProgress)
   const [progress, setProgress] = useState(() => initialLoad.progress || mergeProgress())
-  const [storageState, setStorageState] = useState(() => ({
-    source: initialLoad.source,
-    canPersist: initialLoad.canPersist,
-    warning: initialLoad.warning,
-    recoveryRequired: initialLoad.recoveryRequired,
-  }))
+  const [canPersist, setCanPersist] = useState(() => initialLoad.canPersist)
   const [menuOpen, setMenuOpen] = useState(false)
   const [toast, setToast] = useState('')
-  const [recoveryExported, setRecoveryExported] = useState(false)
-  const [recoveryConfirmed, setRecoveryConfirmed] = useState(false)
   const menuButtonRef = useRef(null)
-  const recoveryImportRef = useRef(null)
   const closeMenu = useCallback(() => setMenuOpen(false), [])
 
   useEffect(() => {
@@ -195,13 +181,13 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!storageState.canPersist) return
+    if (!canPersist) return
     const result = saveProgress(progress)
     if (!result.ok) {
-      setStorageState({ source: result.source, canPersist: false, warning: result.warning, recoveryRequired: result.recoveryRequired })
+      setCanPersist(false)
       setToast(result.warning?.message || '변경 내용을 저장하지 못했습니다.')
     }
-  }, [progress, storageState.canPersist])
+  }, [progress, canPersist])
 
   useEffect(() => {
     document.documentElement.style.setProperty('--app-font-scale', `${progress.settings.fontScale}%`)
@@ -235,22 +221,11 @@ export default function App() {
     ? `Week ${String(currentWeek.index).padStart(2, '0')} · ${activeModule?.title || currentWeek.title}`
     : roadmapWeek ? `Week ${String(roadmapWeek.index).padStart(2, '0')} · ${roadmapWeek.title}` : meta[0]
   const routeFocusKey = `${route.page}:${route.week ?? ''}:${route.tab ?? ''}:${route.moduleId ?? ''}:${route.labId ?? ''}:${route.reportId ?? ''}`
-  const authoringRouteKey = window.location.hash || '#/'
 
   useEffect(() => {
     document.title = `${pageTitle} · SecTrack`
     document.getElementById('main-content')?.focus({ preventScroll: true })
   }, [pageTitle, routeFocusKey])
-
-  useEffect(() => {
-    const root = document.getElementById('root')
-    if (!root) return undefined
-    const apply = () => applyPageTextOverrides(root, authoringRouteKey)
-    apply()
-    const observer = new MutationObserver(apply)
-    observer.observe(root, { childList: true, characterData: true, subtree: true })
-    return () => observer.disconnect()
-  }, [authoringRouteKey, routeFocusKey])
 
   const setSidebarMode = (sidebarMode) => updateProgress((current) => ({ ...current, settings: { ...current.settings, sidebarMode } }))
 
@@ -272,54 +247,11 @@ export default function App() {
       const result = importProgress(String(reader.result || ''))
       if (result.ok) {
         setProgress(result.progress)
-        setStorageState({ source: result.source, canPersist: true, warning: null, recoveryRequired: false })
+        setCanPersist(true)
         setToast('전체 학습 데이터를 가져왔습니다.')
       } else setToast(`${result.warning?.message || '가져오기 파일을 확인할 수 없습니다.'} 기존 데이터는 변경하지 않았습니다.`)
     }
     reader.readAsText(file)
-  }
-
-  const exportRecoveryData = () => {
-    const result = exportRawRecovery()
-    if (!result.ok) { setToast(result.warning?.message || '보존된 원본 데이터를 내보내지 못했습니다.'); return }
-    const url = URL.createObjectURL(new Blob([result.text], { type: 'application/json;charset=utf-8' }))
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `sectrack-recovery-${result.backupSource || storageState.source || 'data'}.json`
-    anchor.click()
-    URL.revokeObjectURL(url)
-    setRecoveryExported(true)
-    setToast('저장 원본을 변경하지 않고 내보냈습니다.')
-  }
-
-  const applyRecoveryResult = (result, successMessage) => {
-    if (!result.ok) {
-      setToast(`${result.warning?.message || '복구 작업을 완료하지 못했습니다.'} 기존 원본은 변경하지 않았습니다.`)
-      return
-    }
-    setProgress(result.progress)
-    setStorageState({ source: result.source, canPersist: true, warning: null, recoveryRequired: false })
-    setRecoveryExported(false)
-    setRecoveryConfirmed(false)
-    setToast(successMessage)
-  }
-
-  const replaceRecoveryData = (file) => {
-    if (!recoveryExported || !recoveryConfirmed) { setToast('먼저 원본을 내보낸 뒤 백업 안내를 확인해 주세요.'); return }
-    const reader = new FileReader()
-    reader.onload = () => applyRecoveryResult(
-      replaceFromRecovery(String(reader.result || ''), { confirmed: true }),
-      '검증된 데이터로 교체했습니다. 자동 저장을 다시 시작합니다.',
-    )
-    reader.readAsText(file)
-  }
-
-  const resetRecoveryData = () => {
-    if (!recoveryExported || !recoveryConfirmed) { setToast('먼저 원본을 내보낸 뒤 백업 안내를 확인해 주세요.'); return }
-    applyRecoveryResult(
-      resetAfterRecovery({ confirmed: true }),
-      '기존 원본을 복구 백업에 보존하고 새 학습 기록으로 초기화했습니다.',
-    )
   }
 
   return (
@@ -340,38 +272,6 @@ export default function App() {
           routeKey={routeFocusKey}
         />
         <main className="main-content" id="main-content" tabIndex="-1">
-          {storageState.warning && (
-            <section className="storage-recovery" role="alert" aria-labelledby="storage-recovery-title">
-              <AlertTriangle size={20} aria-hidden="true" />
-              <div>
-                <strong id="storage-recovery-title">자동 저장을 중지했습니다.</strong>
-                <p>{storageState.warning.message} 기존 원본은 덮어쓰지 않았습니다.</p>
-                {storageState.recoveryRequired && (
-                  <>
-                    <ol>
-                      <li>먼저 원본을 내보내 별도 위치에 보관합니다.</li>
-                      <li>검증된 SecTrack 내보내기 파일로 교체하거나 새 기록으로 초기화합니다.</li>
-                      <li>교체·초기화 전 원본은 브라우저의 별도 복구 백업 키에도 보존됩니다.</li>
-                    </ol>
-                    <label>
-                      <input type="checkbox" disabled={!recoveryExported} checked={recoveryConfirmed} onChange={(event) => setRecoveryConfirmed(event.target.checked)} />
-                      원본을 먼저 보관해야 하며 교체 또는 초기화 뒤 자동 저장이 재개됨을 확인했습니다.
-                    </label>
-                  </>
-                )}
-              </div>
-              <div className="data-settings">
-                <button type="button" onClick={exportRecoveryData}>원본 데이터 내보내기</button>
-                {storageState.recoveryRequired && (
-                  <>
-                    <button type="button" disabled={!recoveryExported || !recoveryConfirmed} onClick={() => recoveryImportRef.current?.click()}>검증된 파일로 교체</button>
-                    <input ref={recoveryImportRef} hidden type="file" accept="application/json" onChange={(event) => { if (event.target.files?.[0]) replaceRecoveryData(event.target.files[0]); event.target.value = '' }} />
-                    <button type="button" disabled={!recoveryExported || !recoveryConfirmed} onClick={resetRecoveryData}>새 기록으로 초기화</button>
-                  </>
-                )}
-              </div>
-            </section>
-          )}
           <RouteErrorBoundary key={routeFocusKey} onRecover={() => navigate({ page: 'learn' })}>
             <React.Suspense fallback={<section className="empty-state" role="status"><BookOpen size={24} /><strong>화면을 불러오는 중입니다.</strong><p>저장된 학습 기록은 그대로 유지됩니다.</p></section>}>
             {route.page === 'home' && <HomePage progress={progress} navigate={navigate} />}
@@ -394,7 +294,6 @@ export default function App() {
           </RouteErrorBoundary>
         </main>
       </div>
-      {ContentAuthoringPanel && <React.Suspense fallback={null}><ContentAuthoringPanel routeKey={authoringRouteKey} /></React.Suspense>}
       {toast && <div className="toast" role="status"><CheckCircle2 size={17} />{toast}</div>}
     </div>
   )

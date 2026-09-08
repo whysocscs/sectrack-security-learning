@@ -150,12 +150,6 @@ img { display: block; max-width: 100%; }
 .document-section { padding: 22px 0; border-top: 1px solid var(--border); }
 .document-section:first-child { border-top: 0; padding-top: 0; }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 100; display: flex; align-items: center; gap: 9px; max-width: min(420px, calc(100vw - 32px)); padding: 12px 16px; color: #fff; background: #1d282d; border: 1px solid #36464d; border-radius: 6px; box-shadow: 0 8px 24px rgba(23, 26, 31, .16); font-size: .9375rem; }
-.storage-recovery { width: min(1240px, 100%); display: flex; align-items: center; gap: 12px; margin: 0 auto 22px; padding: 14px; color: #70420f; background: var(--warning-soft); border: 1px solid #d9ad72; border-radius: var(--radius); }
-.storage-recovery > svg { flex: 0 0 auto; }
-.storage-recovery > div { flex: 1; }
-.storage-recovery strong { display: block; }
-.storage-recovery p { margin: 3px 0 0; font-size: .875rem; line-height: 1.5; }
-.storage-recovery button { padding: 0 12px; background: #fff; border: 1px solid #d9ad72; border-radius: 5px; cursor: pointer; font-size: .875rem; font-weight: 700; }
 .rail-empty { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.55; }
 
 /* Home */

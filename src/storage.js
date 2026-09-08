@@ -4,6 +4,7 @@ export const STORAGE_SCHEMA_VERSION = 3
 export const STORAGE_KEY = 'sectrack-orchestrator-v3'
 export const LEGACY_STORAGE_KEY = 'sectrack-orchestrator-v2'
 export const LEGACY_BACKUP_KEY = 'sectrack-orchestrator-v2-backup'
+export const V3_MIGRATION_BACKUP_KEY = 'sectrack-orchestrator-v3-unmarked-backup'
 export const RECOVERY_BACKUP_KEY = 'sectrack-orchestrator-recovery-backup'
 export const DEFAULT_APP_VERSION = '0.1.0'
 
@@ -172,12 +173,7 @@ function validateEnvelope(envelope, limits) {
 }
 
 function validateLearningPlanMarker(envelope) {
-  if (!Object.hasOwn(envelope.data, 'learningPlanVersion')) {
-    return warning(
-      'missing-learning-plan-version',
-      'v3 저장 데이터에 학습 계획 버전 표지가 없습니다. 원본을 보존했으며 명시적으로 복구하기 전까지 자동 저장을 중지해야 합니다.',
-    )
-  }
+  if (!Object.hasOwn(envelope.data, 'learningPlanVersion')) return null
   if (envelope.data.learningPlanVersion !== CURRENT_LEARNING_PLAN_VERSION) {
     return warning(
       'unsupported-learning-plan-version',
@@ -191,6 +187,7 @@ function normalizeEnvelope(envelope, limits) {
   const issue = validateEnvelope(envelope, limits)
   if (issue) return { ok: false, warning: issue }
 
+  const missingLearningPlanMarker = !Object.hasOwn(envelope.data, 'learningPlanVersion')
   const markerIssue = validateLearningPlanMarker(envelope)
   if (markerIssue) {
     return {
@@ -216,7 +213,7 @@ function normalizeEnvelope(envelope, limits) {
   if (utf8ByteLength(text) > limits.maxInputBytes) {
     return { ok: false, warning: warning('input-too-large', `데이터는 ${limits.maxInputBytes}바이트를 넘을 수 없습니다.`) }
   }
-  return { ok: true, envelope: normalized, progress, text }
+  return { ok: true, envelope: normalized, progress, text, migrated: missingLearningPlanMarker }
 }
 
 function parseEnvelopeText(raw, limits) {
@@ -358,6 +355,27 @@ function ensureLegacyBackup(storage, raw) {
   return { ok: true }
 }
 
+function ensureV3MigrationBackup(storage, raw) {
+  const existingBackup = readItem(storage, V3_MIGRATION_BACKUP_KEY)
+  if (!existingBackup.ok) return existingBackup
+  if (existingBackup.value !== null && existingBackup.value !== raw) {
+    return {
+      ok: false,
+      warning: warning('v3-migration-backup-conflict', '기존 v3 이관 백업이 현재 원본과 달라서 저장을 중지했습니다.'),
+    }
+  }
+  if (existingBackup.value === null) {
+    const written = writeItem(storage, V3_MIGRATION_BACKUP_KEY, raw)
+    if (!written.ok) return written
+    const verified = readItem(storage, V3_MIGRATION_BACKUP_KEY)
+    if (!verified.ok) return verified
+    if (verified.value !== raw) {
+      return { ok: false, warning: warning('v3-migration-backup-failed', '기존 v3 원본의 정확한 이관 백업을 확인하지 못했습니다.') }
+    }
+  }
+  return { ok: true }
+}
+
 function ensureRecoveryBackup(storage, raw) {
   const existingBackup = readItem(storage, RECOVERY_BACKUP_KEY)
   if (!existingBackup.ok) return existingBackup
@@ -441,9 +459,12 @@ function preflightWrite(storage, limits) {
   if (!current.ok) return current
   if (current.value !== null) {
     const parsed = parseEnvelopeText(current.value, limits)
-    return parsed.ok
-      ? { ok: true, migrated: false }
-      : { ok: false, recoveryRequired: true, warning: storedRecoveryWarning('v3', parsed) }
+    if (!parsed.ok) return { ok: false, recoveryRequired: true, warning: storedRecoveryWarning('v3', parsed) }
+    if (!parsed.migrated) return { ok: true, migrated: false }
+    const backup = ensureV3MigrationBackup(storage, current.value)
+    return backup.ok
+      ? { ok: true, migrated: true }
+      : { ok: false, recoveryRequired: false, warning: backup.warning }
   }
 
   const legacy = readItem(storage, LEGACY_STORAGE_KEY)
@@ -487,12 +508,18 @@ export function createStorageAdapter(options = {}) {
           { recoveryRequired: true, envelope: parsed.envelope },
         )
       }
+      if (parsed.migrated) {
+        const backup = ensureV3MigrationBackup(storage, current.value)
+        if (!backup.ok) return operationFailure('v3', backup.warning, parsed.progress)
+        const written = writeItem(storage, STORAGE_KEY, parsed.text)
+        if (!written.ok) return operationFailure('v3', written.warning, parsed.progress)
+      }
       return {
         ok: true,
         progress: parsed.progress,
         envelope: parsed.envelope,
         source: 'v3',
-        migrated: false,
+        migrated: parsed.migrated,
         canPersist: true,
         recoveryRequired: false,
         warning: null,

@@ -12,23 +12,29 @@ test('learning roadmap renders from its direct hash route', async ({ page }) => 
   await expect(page.locator('.roadmap-item').filter({ hasText: '보안 기초·Linux·도구' })).toBeVisible()
 })
 
-test('local page editor is available on Week 0 glossary and previews selected text without saving', async ({ page }) => {
+test('local page editor is not included in the learner app', async ({ page }) => {
   await open(page, '#/learn/week/0/glossary')
-  await page.getByRole('button', { name: '페이지 편집', exact: true }).click()
-  const editor = page.getByRole('dialog', { name: '화면 문구 직접 수정' })
-  await expect(editor).toBeVisible()
-  const glossaryTitle = page.locator('.glossary-detail h2')
-  const originalTitle = await glossaryTitle.textContent()
-  await glossaryTitle.click()
-  const text = editor.getByLabel('수정 문구')
-  await text.fill('화면에서 확인하는 보안 용어')
-  await expect(glossaryTitle).toHaveText('화면에서 확인하는 보안 용어')
-  await editor.getByRole('button', { name: '입력 취소' }).click()
-  await expect(glossaryTitle).toHaveText(originalTitle)
+  await expect(page.getByRole('button', { name: '페이지 편집', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('dialog', { name: '화면 문구 직접 수정' })).toHaveCount(0)
+})
 
-  await editor.getByRole('button', { name: '페이지 편집 패널 닫기' }).click()
-  await open(page, '#/')
-  await expect(page.getByRole('button', { name: '페이지 편집', exact: true })).toBeVisible()
+test('unmarked v3 data resumes persistence without the recovery screen', async ({ page }) => {
+  await page.addInitScript(({ key, value }) => window.localStorage.setItem(key, value), {
+    key: 'sectrack-orchestrator-v3',
+    value: JSON.stringify({
+      schemaVersion: 3,
+      generatedAt: '2026-07-15T00:00:00.000Z',
+      appVersion: 'browser-test',
+      data: { modulesRead: { 'w1-shell': true } },
+    }),
+  })
+
+  await open(page, '#/learn')
+  await expect(page.getByText('자동 저장을 중지했습니다.', { exact: true })).toHaveCount(0)
+  const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('sectrack-orchestrator-v3')))
+  expect(stored.data.learningPlanVersion).toBe(1)
+  expect(stored.data.modulesRead['w1-shell']).toBe(true)
+  expect(await page.evaluate(() => window.localStorage.getItem('sectrack-orchestrator-v3-unmarked-backup'))).not.toBeNull()
 })
 
 test('page navigation and local view selectors use current-page or pressed states instead of incomplete tabs', async ({ page }) => {

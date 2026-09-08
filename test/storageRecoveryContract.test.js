@@ -6,6 +6,7 @@ import {
   RECOVERY_BACKUP_KEY,
   STORAGE_KEY,
   STORAGE_SCHEMA_VERSION,
+  V3_MIGRATION_BACKUP_KEY,
   createStorageAdapter,
 } from '../src/storage.js'
 
@@ -49,14 +50,9 @@ test('fresh storage writes a marked v3 envelope and loads it without changing le
   assert.equal(reloaded.progress.reports.sample.status, 'draft')
 })
 
-test('corrupt, unmarked, and future v3 values are preserved and block automatic overwrite', () => {
+test('corrupt and future v3 values are preserved and block automatic overwrite', () => {
   const cases = [
     ['corrupt JSON', '{not-json', 'malformed-v3'],
-    [
-      'unmarked learning plan',
-      JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION, generatedAt: '2026-07-15T00:00:00.000Z', appVersion: 'unmarked', data: {} }),
-      'missing-learning-plan-version',
-    ],
     ['future schema marker', JSON.stringify({ schemaVersion: STORAGE_SCHEMA_VERSION + 1, generatedAt: '2026-07-15T00:00:00.000Z', appVersion: 'future', data: {} }), 'malformed-v3'],
   ]
 
@@ -74,6 +70,25 @@ test('corrupt, unmarked, and future v3 values are preserved and block automatic 
     assert.equal(save.canPersist, false, label)
     assert.equal(storage.getItem(STORAGE_KEY), raw, `${label} must remain byte-for-byte intact`)
   }
+})
+
+test('unmarked v3 data is backed up once and upgraded for normal persistence', () => {
+  const raw = JSON.stringify({
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    generatedAt: '2026-07-15T00:00:00.000Z',
+    appVersion: 'unmarked',
+    data: { modulesRead: { 'w1-shell': true } },
+  })
+  const storage = memoryStorage({ [STORAGE_KEY]: raw })
+  const loaded = adapterFor(storage).load()
+
+  assert.equal(loaded.ok, true)
+  assert.equal(loaded.migrated, true)
+  assert.equal(loaded.canPersist, true)
+  assert.equal(storage.getItem(V3_MIGRATION_BACKUP_KEY), raw)
+  const upgraded = JSON.parse(storage.getItem(STORAGE_KEY))
+  assert.equal(upgraded.data.learningPlanVersion, 1)
+  assert.equal(upgraded.data.modulesRead['w1-shell'], true)
 })
 
 test('legacy v2 migration creates an exact backup before a marked v3 value', () => {

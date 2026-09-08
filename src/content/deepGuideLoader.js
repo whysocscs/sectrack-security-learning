@@ -1,6 +1,5 @@
 import { enrichCveLearningDossiers } from './cveLearningDossiers.js'
 import { applyLoadedModuleArchitecture } from './curriculumArchitecture.js'
-import { applyContentOverrides } from './contentOverrides.js'
 
 const guideLoaders = Object.freeze({
   3: () => Promise.all([
@@ -37,10 +36,10 @@ export function loadDeepGuideModules(weekIndex, baseModules = []) {
   if (moduleCache.has(weekIndex)) return moduleCache.get(weekIndex)
 
   const pending = load().then(({ kind, build }) => {
-    if (kind === 'modules') return applyContentOverrides(applyLoadedModuleArchitecture(weekIndex, enrichCveLearningDossiers(build(baseModules))))
+    if (kind === 'modules') return applyLoadedModuleArchitecture(weekIndex, enrichCveLearningDossiers(build(baseModules)))
     const baseBlocks = Object.fromEntries(baseModules.map((module) => [module.id, module.blocks]))
     const blocksByModule = build(baseBlocks)
-    return applyContentOverrides(applyLoadedModuleArchitecture(weekIndex, enrichCveLearningDossiers(baseModules.map((module) => ({ ...module, blocks: blocksByModule[module.id] || module.blocks })))))
+    return applyLoadedModuleArchitecture(weekIndex, enrichCveLearningDossiers(baseModules.map((module) => ({ ...module, blocks: blocksByModule[module.id] || module.blocks }))))
   }).catch((error) => {
     moduleCache.delete(weekIndex)
     throw error

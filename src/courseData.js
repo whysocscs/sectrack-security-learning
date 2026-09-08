@@ -9,7 +9,6 @@ import { week5to10Content, week5to10Quizzes } from './data/curriculum/week5to10.
 import { week11to16Content, week11to16Quizzes } from './data/curriculum/week11to16.js'
 import { objectiveModuleAlignment } from './objectiveAlignment.js'
 import { applyBaseModuleArchitecture, getSupplementalLabs } from './content/curriculumArchitecture.js'
-import { applyContentOverrides } from './content/contentOverrides.js'
 import { applySystemIntroWeekDesign } from './content/systemIntroSessions.js'
 import { web3FuzzingLab, web3FuzzingModules, web3FuzzingQuizQuestions } from './content/week7Web3Blocks.js'
 import { supplyChainLab, supplyChainModules, supplyChainQuizQuestions } from './content/week8SupplyChainBlocks.js'
@@ -96,7 +95,7 @@ function normalizeWeek(week) {
     ? [...normalizedModules].sort((left, right) => week4CveFirstModuleOrder.indexOf(left.id) - week4CveFirstModuleOrder.indexOf(right.id))
     : normalizedModules
   const architectedModules = week.disableArchitecture ? orderedModules : applyBaseModuleArchitecture(week.index, orderedModules)
-  const modules = applyContentOverrides(architectedModules).map((module) => {
+  const modules = architectedModules.map((module) => {
     const sessionIndex = week.sessions?.findIndex((session) => session.moduleIds.includes(module.id)) ?? -1
     const session = sessionIndex >= 0 ? week.sessions[sessionIndex] : null
     return session ? { ...module, sessionId: session.id, sessionNumber: sessionIndex + 1, sessionTitle: session.title } : module
