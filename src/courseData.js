@@ -450,7 +450,7 @@ function applyFuzzingWeb3Design(week, index) {
     ...week,
     title: 'Fuzzing·Web3·블록체인 보안',
     summary: '로컬 Fuzzing과 Crash Triage를 스마트 컨트랙트의 상태·호출 순서·Invariant 검증으로 확장합니다.',
-    prerequisites: ['W03 리버싱 입문', 'W04 PWN 입문', '로컬·합성 대상만 사용하는 안전 범위'],
+    prerequisites: ['C·메모리·실행 흐름 기초', '로컬·합성 대상만 사용하는 안전 범위'],
     objectives: [
       ...(week.objectives || []),
       'Web3 애플리케이션의 지갑·RPC·스마트 컨트랙트·체인 상태 경계를 구분한다.',
@@ -548,8 +548,8 @@ function mergeSystemWeeks(weeks, id) {
   }
 }
 
-const reversingIntroWeek = mergeSystemWeeks([baseLaterWeekContent[7], baseLaterWeekContent[8], baseLaterWeekContent[9]], 'reversing-intro')
-const pwnIntroWeek = mergeSystemWeeks([baseLaterWeekContent[10], baseLaterWeekContent[11]], 'pwn-intro')
+const reversingIntroWeek = { ...mergeSystemWeeks([baseLaterWeekContent[7], baseLaterWeekContent[8], baseLaterWeekContent[9]], 'reversing-intro'), hidden: true }
+const pwnIntroWeek = { ...mergeSystemWeeks([baseLaterWeekContent[10], baseLaterWeekContent[11]], 'pwn-intro'), hidden: true }
 const curriculumDefinitions = [
   weekZeroDefinition,
   reindexWeek(mergedWeekOne, 1),
@@ -563,14 +563,18 @@ const curriculumDefinitions = [
   reindexWeek(baseLaterWeekContent[16], 10),
 ].sort((left, right) => left.index - right.index)
 
-const definitionsWithNext = curriculumDefinitions.map((week, index, weeks) => ({
-  ...week,
-  next: weeks[index + 1] ? `Week ${weeks[index + 1].index} · ${weeks[index + 1].title}` : '과정 마무리 · 학습 기록과 복습',
-}))
+const definitionsWithNext = curriculumDefinitions.map((week, index, weeks) => {
+  const nextVisibleWeek = weeks.slice(index + 1).find((candidate) => !candidate.hidden)
+  return {
+    ...week,
+    next: nextVisibleWeek ? `Week ${nextVisibleWeek.index} · ${nextVisibleWeek.title}` : '과정 마무리 · 학습 기록과 복습',
+  }
+})
 
 export const weekContent = Object.fromEntries(definitionsWithNext.map((week) => [week.index, normalizeWeek(week)]))
+export const visibleWeekContent = Object.fromEntries(Object.entries(weekContent).filter(([, week]) => !week.hidden))
 
-export const roadmap = Object.values(weekContent).map((week) => ({
+export const roadmap = Object.values(visibleWeekContent).map((week) => ({
   id: week.id,
   index: week.index,
   title: week.title,

@@ -37,6 +37,17 @@ test('unmarked v3 data resumes persistence without the recovery screen', async (
   expect(await page.evaluate(() => window.localStorage.getItem('sectrack-orchestrator-v3-unmarked-backup'))).not.toBeNull()
 })
 
+test('reversing and PWN introductory tracks are hidden from the learner flow', async ({ page }) => {
+  await open(page, '#/learn')
+  await expect(page.getByText('리버싱 입문: 바이너리 구조와 실행 흐름', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('PWN 입문: 메모리 손상에서 재시험까지', { exact: true })).toHaveCount(0)
+
+  await open(page, '#/learn/week/3')
+  await expect(page.getByText('요청한 페이지를 찾을 수 없습니다.', { exact: true })).toBeVisible()
+  await open(page, '#/learn/week/4')
+  await expect(page.getByText('요청한 페이지를 찾을 수 없습니다.', { exact: true })).toBeVisible()
+})
+
 test('page navigation and local view selectors use current-page or pressed states instead of incomplete tabs', async ({ page }) => {
   await open(page, '#/learn/week/4')
   const weekNavigation = page.getByRole('navigation', { name: '주차 학습 메뉴' })

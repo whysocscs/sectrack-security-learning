@@ -28,7 +28,7 @@ import {
   UserRoundCheck,
   X,
 } from 'lucide-react'
-import { masteryLabels, officialResources, quizzes, quizRules, roadmap, weekContent } from './courseData'
+import { masteryLabels, officialResources, quizzes, quizRules, roadmap, visibleWeekContent } from './courseData'
 import { industryDomains, jobCaptures, kisaRoles, workLanes } from './weekZeroData'
 import { completedExampleReport, emptyReport, publicReportResources } from './reportData'
 import {
@@ -69,7 +69,7 @@ const ReportsPage = React.lazy(() => import('./components/Reports').then((module
 const ReportEditor = React.lazy(() => import('./components/Reports').then((module) => ({ default: module.ReportEditor })))
 const WeekZeroWorkspace = React.lazy(() => import('./components/week0/WeekZeroWorkspace').then((module) => ({ default: module.default })))
 const WeekZeroExplorerPage = React.lazy(() => import('./components/week0/WeekZeroWorkspace').then((module) => ({ default: module.WeekZeroExplorerPage })))
-const regularWeekCount = Object.values(weekContent).filter((week) => week.index > 0).length
+const regularWeekCount = Object.values(visibleWeekContent).filter((week) => week.index > 0).length
 
 const navItems = [
   { page: 'home', label: '홈', icon: BookOpen },
@@ -98,7 +98,7 @@ const pageMeta = {
 }
 
 function getAvailableWeeks() {
-  return Object.values(weekContent).sort((left, right) => left.index - right.index)
+  return Object.values(visibleWeekContent).sort((left, right) => left.index - right.index)
 }
 
 function getRecordableWeeks(weeks) {
@@ -116,7 +116,7 @@ function getRoadmapItems() {
   const roadmapByIndex = new Map(roadmap.map((item) => [item.index, item]))
   const indexes = new Set([...roadmapByIndex.keys(), ...getAvailableWeeks().map((week) => week.index)])
   return [...indexes].sort((left, right) => left - right).map((index) => {
-    const contentWeek = weekContent[index]
+    const contentWeek = visibleWeekContent[index]
     const roadmapWeek = roadmapByIndex.get(index)
     if (!contentWeek) return roadmapWeek
     return {
@@ -212,7 +212,7 @@ export default function App() {
   }
 
   const meta = pageMeta[route.page] || pageMeta['not-found']
-  const currentWeek = route.page === 'week' ? weekContent[route.week] : null
+  const currentWeek = route.page === 'week' ? visibleWeekContent[route.week] : null
   const roadmapWeek = route.page === 'week' ? roadmap.find((item) => item.index === route.week) : null
   const invalidModule = Boolean(currentWeek && route.moduleId && !currentWeek.modules.some((module) => module.id === route.moduleId))
   const validReport = route.page !== 'report-editor' || route.reportId === 'local-xss-draft' || route.reportId === completedExampleReport.id || Boolean(progress.reports[route.reportId])
@@ -405,7 +405,7 @@ function HomePage({ progress, navigate }) {
   const weeks = getAvailableWeeks()
   const recordableWeeks = getRecordableWeeks(weeks)
   const next = getNextTask(weeks, progress)
-  const week = weekContent[next.week]
+  const week = visibleWeekContent[next.week]
   const progressValues = weeks.map((item) => calculateWeekProgress(item, progress))
   const submitted = recordableWeeks.filter((item) => getWeeklyRecordState(progress, item.index) === 'evidence-ready').length
   const reviewed = Object.values(progress.conceptMastery).filter((value) => ['apply', 'reproduce'].includes(value)).length
@@ -458,7 +458,6 @@ function RoadmapPage({ progress, navigate }) {
   const phases = [
     { id: 'foundation', label: 'FOUNDATION', title: 'Linux 기초', matches: (index) => index === 1 },
     { id: 'web', label: 'WEB', title: '웹 요청과 브라우저 보안', matches: (index) => index === 2 },
-    { id: 'system', label: 'REVERSING · PWN', title: '리버싱과 PWN 입문', matches: (index) => index >= 3 && index <= 4 },
     { id: 'blue', label: 'BLUE TEAM', title: '암호·포렌식·네트워크 관제', matches: (index) => index >= 5 && index <= 6 },
     { id: 'applied', label: 'APPLIED SECURITY', title: '분야 확장과 종합', matches: (index) => index >= 7 },
   ]
@@ -466,10 +465,10 @@ function RoadmapPage({ progress, navigate }) {
     <div className="page-width roadmap-page">
       {orientation && <div className="orientation-row">
         <span className="orientation-label">사전 준비</span>
-        <RoadmapItem item={orientation} progress={weekContent[orientation.index] ? calculateWeekProgress(weekContent[orientation.index], progress) : 0} navigate={navigate} />
+        <RoadmapItem item={orientation} progress={visibleWeekContent[orientation.index] ? calculateWeekProgress(visibleWeekContent[orientation.index], progress) : 0} navigate={navigate} />
       </div>}
       <div className="roadmap-divider"><span>정규 {formalWeeks.length}주 과정</span></div>
-      {phases.map((phase) => { const items = formalWeeks.filter((item) => phase.matches(item.index)); return items.length ? <section className="roadmap-phase" key={phase.id}><header><span>{phase.label}</span><h2>{phase.title}</h2></header><div className="roadmap-path">{items.map((item) => <RoadmapItem key={item.id} item={item} progress={weekContent[item.index] ? calculateWeekProgress(weekContent[item.index], progress) : 0} navigate={navigate} />)}</div></section> : null })}
+      {phases.map((phase) => { const items = formalWeeks.filter((item) => phase.matches(item.index)); return items.length ? <section className="roadmap-phase" key={phase.id}><header><span>{phase.label}</span><h2>{phase.title}</h2></header><div className="roadmap-path">{items.map((item) => <RoadmapItem key={item.id} item={item} progress={visibleWeekContent[item.index] ? calculateWeekProgress(visibleWeekContent[item.index], progress) : 0} navigate={navigate} />)}</div></section> : null })}
     </div>
   )
 }
@@ -884,7 +883,7 @@ function InsightsPage({ progress }) {
   const draft = progress.reports['local-xss-draft'] || emptyReport
   const reportChecks = validateReport(draft)
   const missing = reportChecks.filter((item) => !item.pass)
-  const insights = buildLocalLearningInsights(progress, weekContent)
+  const insights = buildLocalLearningInsights(progress, visibleWeekContent)
   return (
     <div className="page-width admin-page">
       <section className="admin-strip"><div><span>진행 중인 실습</span><strong>{insights.attemptedLabs}개</strong></div><div><span>저장한 개념 메모</span><strong>{insights.moduleNoteCount}개</strong></div><div><span>Finding 보완 항목</span><strong>{missing.length}개</strong></div></section>
@@ -909,7 +908,7 @@ function Status({ text, tone = 'muted' }) { return <span className={`status stat
 function EmptyState({ icon: Icon, title, text, action, onAction }) { return <div className="empty-state"><Icon size={24} /><strong>{title}</strong>{text && <p>{text}</p>}{action && <button className="button secondary" type="button" onClick={onAction}>{action}</button>}</div> }
 
 function getModuleMeta(id) {
-  for (const week of Object.values(weekContent)) {
+  for (const week of Object.values(visibleWeekContent)) {
     const module = week.modules.find((item) => item.id === id)
     if (module) return { ...module, week: week.index }
   }
