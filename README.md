@@ -11,6 +11,20 @@ npm run dev
 
 기본 개발 주소는 `http://localhost:5173/`입니다.
 
+## Windows 한 번에 설치
+
+Windows PowerShell에서는 [`install.ps1`](./install.ps1)이 Git, Node.js LTS와 npm을 확인하고, 없으면 `winget`으로 설치한 뒤 저장소 clone과 `npm ci`까지 처리합니다. 기존 파일이 있는 폴더는 덮어쓰지 않습니다.
+
+아래 명령은 설치 스크립트를 임시 폴더에 내려받아 실행하고, 설치가 끝난 뒤 개발 서버를 시작합니다.
+
+```powershell
+$installer = Join-Path $env:TEMP 'install-sectrack.ps1'
+Invoke-WebRequest 'https://raw.githubusercontent.com/whysocscs/sectrack-security-learning/main/install.ps1' -OutFile $installer
+powershell.exe -ExecutionPolicy Bypass -File $installer -Start
+```
+
+기본 설치 경로는 `C:\Users\<사용자>\SecTrack`입니다. 다른 빈 폴더를 쓰려면 마지막 명령에 `-Destination 'D:\projects\SecTrack'`을 추가합니다. `winget`이 없거나 조직 정책으로 설치가 차단되면 Git과 Node.js LTS를 먼저 설치한 뒤 같은 명령을 다시 실행합니다.
+
 ## 로컬 UI 콘텐츠 편집
 
 `npm run dev`로 연 모든 페이지의 우측 아래에 `페이지 편집` 버튼이 나타납니다. 버튼을 누른 뒤 기존 화면에서 바꿀 문구를 직접 선택하면 패널 입력값이 즉시 원래 화면에 미리 보이며, `코드에 저장`을 누르면 경로·화면 위치·원문과 함께 `src/content/localContentOverrides.json`에 기록됩니다. Week 0 보안 용어처럼 선택에 따라 내용이 바뀌는 화면은 원문까지 일치할 때만 해당 수정이 적용됩니다.
