@@ -17,8 +17,6 @@ const guideLoaders = Object.freeze({
     kind: 'modules',
     build: (modules) => aiVerification.buildWeek10AiVerificationGuide(memorySafety.buildWeek9MemorySafetyGuide(modules)),
   })),
-  5: () => import('./week11CryptoForensicsDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek11CryptoForensicsGuide })),
-  6: () => import('./week12NetworkDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek12NetworkGuide })),
   7: () => import('./week13FuzzingDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek13FuzzingGuide })),
   8: () => import('./week14CloudIamDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek14CloudIamGuide })),
   10: () => import('./week15AgentSecurityDeepDive.js').then((module) => ({ kind: 'modules', build: module.buildWeek15AgentSecurityGuide })),

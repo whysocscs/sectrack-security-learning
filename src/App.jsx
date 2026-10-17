@@ -127,7 +127,7 @@ function getRoadmapItems() {
       summary: contentWeek.summary,
       deliverable: contentWeek.deliverable || contentWeek.deliverables?.[0] || roadmapWeek?.deliverable || '학습 결과 정리',
       keyConcepts: contentWeek.keyConcepts || roadmapWeek?.keyConcepts || contentWeek.modules.slice(0, 3).map((module) => module.title),
-      status: roadmapWeek?.status === 'current' ? 'current' : 'available',
+      status: contentWeek.notTaught ? 'not-taught' : roadmapWeek?.status === 'current' ? 'current' : 'available',
     }
   }).filter(Boolean)
 }
@@ -430,11 +430,10 @@ function HomePage({ progress, navigate }) {
         <SectionTitle title={`${formatWeekRange(weeks)} 학습 흐름`} description="완료 표시와 개념 숙련도는 별도로 기록됩니다." action="전체 로드맵" onAction={() => navigate({ page: 'learn' })} />
         <div className="week-progress-list">
           {weeks.map((item, index) => (
-            <button type="button" key={item.id} onClick={() => navigate({ page: 'week', week: item.index })}>
+            <button type="button" key={item.id} className={item.notTaught ? 'not-taught' : ''} onClick={() => navigate({ page: 'week', week: item.index })}>
               <span className="week-index">{String(item.index).padStart(2, '0')}</span>
-              <span className="week-list-copy"><strong>{item.title}</strong><small>{item.modules.length}개 개념 · {item.labs.length}개 실습</small></span>
-              <ProgressBar value={progressValues[index]} />
-              <b>{progressValues[index]}%</b><ChevronRight size={17} />
+              <span className="week-list-copy"><strong>{item.title}</strong><small>{item.notTaught ? '별도 수업 없음' : `${item.modules.length}개 개념 · ${item.labs.length}개 실습`}</small></span>
+              {item.notTaught ? <span className="week-break-label">수업 미진행</span> : <><ProgressBar value={progressValues[index]} /><b>{progressValues[index]}%</b></>}<ChevronRight size={17} />
             </button>
           ))}
         </div>
@@ -456,9 +455,9 @@ function RoadmapPage({ progress, navigate }) {
   const orientation = roadmapItems.find((item) => item.index === 0)
   const formalWeeks = roadmapItems.filter((item) => item.index !== 0)
   const phases = [
-    { id: 'foundation', label: 'FOUNDATION', title: 'Linux 기초', matches: (index) => index === 1 },
-    { id: 'web', label: 'WEB', title: '웹 요청과 브라우저 보안', matches: (index) => index === 2 },
-    { id: 'blue', label: 'BLUE TEAM', title: '암호·포렌식·네트워크 관제', matches: (index) => index >= 5 && index <= 6 },
+    { id: 'orientation', label: 'ORIENTATION', title: '보안 분야와 학습 방향', matches: (index) => index === 1 },
+    { id: 'break', label: 'NO CLASS', title: '수업 미진행', matches: (index) => index === 2 },
+    { id: 'blue', label: 'DFIR · DETECTION', title: 'Case 001 분석과 네트워크 침해 탐지', matches: (index) => index >= 5 && index <= 6 },
     { id: 'applied', label: 'APPLIED SECURITY', title: '분야 확장과 종합', matches: (index) => index >= 7 },
   ]
   return (
@@ -475,13 +474,29 @@ function RoadmapPage({ progress, navigate }) {
 
 function RoadmapItem({ item, progress, navigate }) {
   const preview = item.status === 'preview'
+  const notTaught = item.status === 'not-taught'
   return (
-    <button type="button" className={`roadmap-item ${preview ? 'preview' : ''}`} onClick={() => navigate({ page: 'week', week: item.index, tab: 'overview' })}>
-      <span className="roadmap-node">{preview ? <FileText size={15} /> : progress === 100 ? <Check size={17} /> : String(item.index).padStart(2, '0')}</span>
-      <span className="roadmap-copy"><small>{item.index === 0 ? 'ORIENTATION · 필수 핵심' : `WEEK ${String(item.index).padStart(2, '0')} · 필수 핵심`}</small><strong>{item.title}</strong><p>{item.summary}</p><span className="concept-tags">{item.keyConcepts.map((tag) => <em key={tag}>{tag}</em>)}</span></span>
-      <span className="roadmap-deliverable"><small>대표 산출물</small><strong>{item.deliverable}</strong>{preview ? <span>미리보기</span> : <ProgressBar value={progress} />}</span>
+    <button type="button" className={`roadmap-item ${preview ? 'preview' : ''} ${notTaught ? 'not-taught' : ''}`} onClick={() => navigate({ page: 'week', week: item.index, tab: 'overview' })}>
+      <span className="roadmap-node">{preview || notTaught ? <FileText size={15} /> : progress === 100 ? <Check size={17} /> : String(item.index).padStart(2, '0')}</span>
+      <span className="roadmap-copy"><small>{item.index === 0 ? 'PRE-COURSE · 분야·직무 지도' : notTaught ? `WEEK ${String(item.index).padStart(2, '0')} · 수업 미진행` : `WEEK ${String(item.index).padStart(2, '0')} · 필수 핵심`}</small><strong>{item.title}</strong><p>{item.summary}</p>{!notTaught && <span className="concept-tags">{item.keyConcepts.map((tag) => <em key={tag}>{tag}</em>)}</span>}</span>
+      <span className="roadmap-deliverable"><small>{notTaught ? '수업 기록' : '대표 산출물'}</small><strong>{item.deliverable}</strong>{preview ? <span>미리보기</span> : notTaught ? <span>콘텐츠 없음</span> : <ProgressBar value={progress} />}</span>
       <ChevronRight size={18} />
     </button>
+  )
+}
+
+function NotTaughtWeekPage({ week, navigate }) {
+  return (
+    <div className="page-width week-break-page">
+      <button className="back-link" type="button" onClick={() => navigate({ page: 'learn' })}><ArrowLeft size={16} />학습 로드맵</button>
+      <section>
+        <span>WEEK {String(week.index).padStart(2, '0')} · NO CLASS</span>
+        <FileText size={30} aria-hidden="true" />
+        <h2>{week.title}</h2>
+        <p>{week.summary}</p>
+        <strong>강의자료·과제·이해 확인 없음</strong>
+      </section>
+    </div>
   )
 }
 
@@ -519,6 +534,7 @@ function WeekPage({ week, route, progress, updateProgress, navigate, notify }) {
     })
     return () => { active = false }
   }, [guideAttempt, tab, week.index, week.modules])
+  if (week.notTaught) return <NotTaughtWeekPage week={week} navigate={navigate} />
   if (week.index === 0) return <WeekZeroPage route={route} week={week} progress={progress} updateProgress={updateProgress} navigate={navigate} notify={notify} />
   const renderedWeek = guideState.weekIndex === week.index && guideState.status === 'ready' ? { ...week, modules: guideState.modules } : week
   const openTab = (nextTab, moduleId) => navigate({ page: 'week', week: week.index, tab: nextTab, ...(moduleId ? { moduleId } : {}) })
@@ -873,7 +889,7 @@ function ProgressPage({ progress, navigate }) {
   return (
     <div className="page-width progress-page">
       <section className="progress-summary"><div><small>읽기 진행</small><strong>{weeks.flatMap((week) => week.hideModuleProgress ? [] : week.modules).filter((module) => progress.modulesRead[module.id]).length}<span> / {weeks.reduce((sum, week) => sum + (week.hideModuleProgress ? 0 : week.modules.length), 0)}</span></strong></div><div><small>활동 기록</small><strong>{Object.values(progress.labs).filter(isActivityRecorded).length}<span> / {weeks.reduce((sum, week) => sum + week.labs.length, 0)}</span></strong></div><div><small>evidence-ready 주차</small><strong>{submittedWeeks}<span> / {recordableWeeks.length}</span></strong></div></section>
-      <section className="document-section"><SectionTitle title="주차별 진행" description="읽기 진행, 활동 기록, quiz-passed, evidence-ready를 별도 상태로 표시합니다. 자동 상태는 숙련 또는 검토 승인을 뜻하지 않습니다." /><div className="progress-week-table"><div><span>주차</span><span>개념</span><span>실습</span><span>이해 확인</span><span>주차 정리</span><span>진행</span></div>{weeks.map((week) => { const breakdown = calculateProgressBreakdown(week, progress); const value = breakdown.percent; const recordState = getWeeklyRecordState(progress, week.index); return <button type="button" key={week.id} onClick={() => navigate({ page: 'week', week: week.index, tab: 'overview' })}><strong>W{String(week.index).padStart(2, '0')} · {week.title}</strong><span>{week.hideModuleProgress ? '탐색형' : `${breakdown.reading.completed}/${breakdown.reading.total}`}</span><span>{breakdown.activityCompletions.completed}/{breakdown.activityCompletions.total}</span><span>{breakdown.understandingCheck.passed ? 'quiz-passed' : breakdown.understandingCheck.attempted ? '재시도 필요' : '미응시'}</span><span>{recordState === 'evidence-ready' ? 'evidence-ready' : recordState === 'activity-recorded' ? '기록됨' : recordState === 'draft' ? '초안' : '미작성'}</span><span><ProgressBar value={value} /><b>{value}%</b></span></button>})}</div></section>
+      <section className="document-section"><SectionTitle title="주차별 진행" description="읽기 진행, 활동 기록, quiz-passed, evidence-ready를 별도 상태로 표시합니다. 자동 상태는 숙련 또는 검토 승인을 뜻하지 않습니다." /><div className="progress-week-table"><div><span>주차</span><span>개념</span><span>실습</span><span>이해 확인</span><span>주차 정리</span><span>진행</span></div>{weeks.map((week) => { const breakdown = calculateProgressBreakdown(week, progress); const value = breakdown.percent; const recordState = getWeeklyRecordState(progress, week.index); return <button type="button" key={week.id} className={week.notTaught ? 'not-taught' : ''} onClick={() => navigate({ page: 'week', week: week.index, tab: 'overview' })}><strong>W{String(week.index).padStart(2, '0')} · {week.title}</strong>{week.notTaught ? <><span>수업 없음</span><span>수업 없음</span><span>해당 없음</span><span>해당 없음</span><span><b>수업 미진행</b></span></> : <><span>{week.hideModuleProgress ? '탐색형' : `${breakdown.reading.completed}/${breakdown.reading.total}`}</span><span>{breakdown.activityCompletions.completed}/{breakdown.activityCompletions.total}</span><span>{breakdown.understandingCheck.passed ? 'quiz-passed' : breakdown.understandingCheck.attempted ? '재시도 필요' : '미응시'}</span><span>{recordState === 'evidence-ready' ? 'evidence-ready' : recordState === 'activity-recorded' ? '기록됨' : recordState === 'draft' ? '초안' : '미작성'}</span><span><ProgressBar value={value} /><b>{value}%</b></span></>}</button>})}</div></section>
       <section className="document-section"><SectionTitle title="개념 자기평가와 근거" description="읽음·퀴즈 근거·본인의 자기 설명·사람의 검토 승인은 서로 다른 상태입니다." />{masteryEntries.length ? <div className="mastery-list">{masteryEntries.map(([id, level]) => { const evidence = progress.conceptEvidence[id] || {}; return <div key={id}><span><strong>{getConceptTitle(id) || '직무 지도 또는 이전 과정 개념'}</strong><small>퀴즈 근거 {evidence.quizResults?.length || 0}개 · 자기 설명 {String(evidence.selfExplanation?.text || '').trim() ? '기록' : '미기록'} · 확신도 {progress.confidence[id] || progress.mindmap?.confidence?.[id] || '미기록'} · 사람 검토 미연결</small></span><Status text={`자기평가 · ${masteryLabels[level] || level}`} tone="progress" /></div> })}</div> : <EmptyState icon={BookMarked} title="아직 자기평가 근거가 없습니다." text="개념 모듈에서 자기 설명·확신도·현재 수준을 기록하세요. 이 상태는 자동 채점이나 교수자 승인이 아닙니다." />}</section>
     </div>
   )
