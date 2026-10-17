@@ -7,6 +7,7 @@ import {
   STORAGE_KEY,
   STORAGE_LIMITS,
   STORAGE_SCHEMA_VERSION,
+  V3_MIGRATION_BACKUP_KEY,
   createStorageAdapter,
 } from '../src/storage.js'
 
@@ -164,7 +165,7 @@ test('malformed v3 stays untouched and blocks default autosaves', () => {
   assert.deepEqual(storage.operations, [])
 })
 
-test('marker-less valid v3 is preserved byte-exact and enters recovery without remapping Week 03', () => {
+test('marker-less valid v3 is backed up exactly and normalized without remapping Week 03', () => {
   const raw = `  ${JSON.stringify({
     schemaVersion: STORAGE_SCHEMA_VERSION,
     generatedAt: FIXED_TIME,
@@ -180,25 +181,29 @@ test('marker-less valid v3 is preserved byte-exact and enters recovery without r
   const adapter = createAdapter(storage)
 
   const loaded = adapter.load()
-  const saved = adapter.save({ quizScores: { 2: { percent: 100 } } })
-  const exported = adapter.exportRawRecovery()
+  const saved = adapter.save({
+    ...loaded.progress,
+    quizScores: { ...loaded.progress.quizScores, 2: { percent: 100 } },
+  })
 
-  assert.equal(loaded.ok, false)
-  assert.equal(loaded.warning.code, 'missing-learning-plan-version')
-  assert.equal(loaded.recoveryRequired, true)
-  assert.equal(loaded.canPersist, false)
+  assert.equal(loaded.ok, true)
+  assert.equal(loaded.migrated, true)
+  assert.equal(loaded.recoveryRequired, false)
+  assert.equal(loaded.canPersist, true)
   assert.equal(loaded.progress.quizScores[3].percent, 80)
   assert.equal(loaded.progress.quizScores[2], undefined)
   assert.deepEqual(loaded.progress.evidence['week-3'], { command: 'http' })
   assert.deepEqual(loaded.progress.submissions['week-3'], { status: 'recorded' })
   assert.deepEqual(loaded.progress.futureData, { nested: ['kept'] })
-  assert.equal(saved.ok, false)
-  assert.equal(saved.recoveryRequired, true)
-  assert.equal(exported.ok, true)
-  assert.equal(exported.text, raw)
-  assert.equal(exported.backupSource, 'v3')
-  assert.equal(storage.getItem(STORAGE_KEY), raw)
-  assert.deepEqual(storage.operations, [])
+  assert.equal(saved.ok, true)
+  assert.equal(storage.getItem(V3_MIGRATION_BACKUP_KEY), raw)
+  const stored = JSON.parse(storage.getItem(STORAGE_KEY))
+  assert.equal(stored.data.learningPlanVersion, 1)
+  assert.equal(stored.data.quizScores[3].percent, 80)
+  assert.equal(stored.data.quizScores[2].percent, 100)
+  assert.deepEqual(stored.data.evidence['week-3'], { command: 'http' })
+  assert.deepEqual(stored.data.futureData, { nested: ['kept'] })
+  assert.deepEqual(storage.operations.map(({ key }) => key), [V3_MIGRATION_BACKUP_KEY, STORAGE_KEY, STORAGE_KEY])
 })
 
 test('partial v3 data is merged with defaults without dropping unknown data', () => {

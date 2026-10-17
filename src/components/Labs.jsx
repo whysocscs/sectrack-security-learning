@@ -20,7 +20,7 @@ import {
   ShieldCheck,
   Terminal,
 } from 'lucide-react'
-import { weekContent } from '../courseData'
+import { visibleWeekContent } from '../courseData'
 import { buildXssTrace } from '../platformLogic'
 import { recordHintUsage } from '../learningModel'
 import { isActivityRecorded } from '../learningModel'
@@ -28,7 +28,7 @@ import { getLearningTextLength, normalizeLearningText, validateLearningText } fr
 import { loadDeepGuideModules } from '../content/deepGuideLoader'
 import MindmapStudio from './MindmapStudio'
 
-const allLabs = Object.values(weekContent).flatMap((week) => week.labs.map((lab) => ({ ...lab, weekTitle: week.title })))
+const allLabs = Object.values(visibleWeekContent).flatMap((week) => week.labs.map((lab) => ({ ...lab, weekTitle: week.title })))
 const supportedLabKinds = new Set([
   'mindmap', 'roe', 'baseline', 'linux-shell', 'path', 'sequence', 'permission', 'pipeline',
   'request-editor', 'http-baseline', 'tool-triangle', 'http-label', 'timeline', 'cookie',
@@ -174,9 +174,9 @@ function LabWorkArea({ lab, state, updateLab, progress, updateProgress, notify }
 }
 
 function LabPrerequisite({ item, navigate }) {
-  const module = Object.values(weekContent).flatMap((week) => week.modules || []).find((candidate) => candidate.id === item)
+  const module = Object.values(visibleWeekContent).flatMap((week) => week.modules || []).find((candidate) => candidate.id === item)
   if (!module) return <li>{item}</li>
-  const week = Object.values(weekContent).find((candidate) => candidate.modules?.some((entry) => entry.id === item))
+  const week = Object.values(visibleWeekContent).find((candidate) => candidate.modules?.some((entry) => entry.id === item))
   return <li><button className="lab-prerequisite-link" type="button" onClick={() => navigate({ page: 'week', week: week.index, tab: 'concepts', moduleId: module.id })}>{module.title}</button></li>
 }
 
@@ -856,7 +856,7 @@ function PatchReviewLab({ lab, state, updateLab, onPass }) {
   const [loadState, setLoadState] = useState({ status: 'loading', patch: null, lineage: null })
   useEffect(() => {
     let active = true
-    const week = weekContent[lab.week]
+    const week = visibleWeekContent[lab.week]
     if (!week) {
       setLoadState({ status: 'error', patch: null, lineage: null })
       return () => { active = false }

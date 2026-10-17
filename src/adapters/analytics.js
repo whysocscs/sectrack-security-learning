@@ -5,7 +5,7 @@
 export function buildLocalLearningInsights(progress, weeks) {
   const allWeeks = Object.values(weeks)
   const allLabs = allWeeks.flatMap((week) => week.labs.map((lab) => ({ ...lab, week: week.index })))
-  const labEntries = Object.entries(progress.labs || {})
+  const labEntries = Object.entries(progress.labs || {}).filter(([labId]) => allLabs.some((lab) => lab.id === labId))
   const friction = new Map()
 
   for (const [labId, state] of labEntries) {

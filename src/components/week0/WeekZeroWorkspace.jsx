@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {
@@ -47,6 +47,8 @@ const evidenceSections = [
   ['postings', '채용공고 320건'],
   ['graph', '관계도'],
 ]
+
+const RolePostingResearch = lazy(() => import('./RolePostingResearch.jsx'))
 
 function updateWeekZero(updateProgress, patch) {
   updateProgress((current) => ({
@@ -254,7 +256,7 @@ function CareerEvidenceExplorer({ moduleId, initialSection, progress, updateProg
 function DomainExplorer({ progress, updateProgress, onOpenRole }) {
   const view = progress.weekZero.view || {}
   const openDomain = (domainId) => {
-    updateWeekZero(updateProgress, { view: { ...view, researchDomainId: domainId, researchRoleId: representativeRolesForDomain(domainId)[0]?.id || null } })
+    updateWeekZero(updateProgress, { view: { ...view, researchDomainId: domainId, researchRoleGroupId: null, researchRoleId: representativeRolesForDomain(domainId)[0]?.id || null } })
     onOpenRole()
   }
   return <section className="domain-explorer"><header><div><span>SECURITY DOMAINS · {researchDomains.length} FIELDS</span><h2>분야 하나를 열면 해당 직무군과 역할이 이어집니다.</h2><p>이 목록은 채용 수요의 순위가 아니라, 운영자가 제공한 분야별 역할 구조입니다.</p></div><span>{researchDomains.length}개 분야</span></header><div>{researchDomains.map((domain) => { const roles = representativeRolesForDomain(domain.id); return <article key={domain.id} className={view.researchDomainId === domain.id ? 'selected' : ''}><button type="button" aria-pressed={view.researchDomainId === domain.id} onClick={() => openDomain(domain.id)}><span>{view.researchDomainId === domain.id ? <Check size={16} /> : null}</span><strong>{domain.shortTitle}</strong></button><p>{domain.description}</p><small>대표 역할 {roles.slice(0, 3).map((role) => role.title).join(' · ')}</small><footer><div className="tag-list">{domain.learningAxes.slice(0, 3).map((axis) => <span key={axis}>{axis}</span>)}</div><button type="button" onClick={() => openDomain(domain.id)}>직무 {roles.length}개 보기<ChevronRight size={15} /></button></footer></article>})}</div></section>
@@ -264,15 +266,51 @@ function RoleExplorer({ progress, updateProgress }) {
   const view = progress.weekZero.view || {}
   const [query, setQuery] = useState('')
   const domainId = researchDomainById[view.researchDomainId] ? view.researchDomainId : 'governance'
+  const roleGroups = representativeRoleGroupsForDomain(domainId)
+  const roleGroupId = roleGroups.some((group) => group.id === view.researchRoleGroupId) ? view.researchRoleGroupId : 'all'
+  const selectedGroup = roleGroups.find((group) => group.id === roleGroupId) || null
+  const selectedGroupRoleIds = selectedGroup ? new Set(selectedGroup.roleIds) : null
   const normalized = query.trim().toLocaleLowerCase('ko-KR')
-  const roles = representativeRolesForDomain(domainId).filter((role) => !normalized || [role.title, role.summary].join(' ').toLocaleLowerCase('ko-KR').includes(normalized))
+  const roles = representativeRolesForDomain(domainId).filter((role) => {
+    if (selectedGroupRoleIds && !selectedGroupRoleIds.has(role.id)) return false
+    if (!normalized) return true
+    const document = researchDocumentForCatalog(role)
+    return [role.title, role.summary, ...document.rawTitles, ...document.actualWork].join(' ').toLocaleLowerCase('ko-KR').includes(normalized)
+  })
   const selectedId = roles.some((role) => role.id === view.researchRoleId) ? view.researchRoleId : roles[0]?.id
   const selectedCatalogRole = roles.find((role) => role.id === selectedId) || roles[0]
   const selectRole = (catalogRole) => updateWeekZero(updateProgress, {
     viewedRoleIds: unique([...(progress.weekZero.viewedRoleIds || []), catalogRole.id]),
     view: { ...view, researchDomainId: domainId, researchRoleId: catalogRole.id },
   })
-  return <div className="research-role-explorer"><header className="research-role-toolbar"><label><Filter size={16} /><select value={domainId} onChange={(event) => updateWeekZero(updateProgress, { view: { ...view, researchDomainId: event.target.value, researchRoleId: representativeRolesForDomain(event.target.value)[0]?.id || null } })} aria-label="전문 분야 선택">{researchDomains.map((domain) => <option key={domain.id} value={domain.id}>{domain.title}</option>)}</select></label><label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="이 분야의 역할 검색" aria-label="대표 역할 검색" /></label></header><section className="research-role-index" aria-label={`${researchDomainById[domainId].title} 대표 역할`}><header><div><span>{researchDomainById[domainId].shortTitle}</span><h2>대표 역할</h2><p>모든 역할이 독립 채용공고 제목이라는 뜻은 아닙니다. 상세 근거 카드가 연결된 역할은 공고·공식 체계 근거를 더 읽을 수 있습니다.</p></div><span>{roles.length}개 표시</span></header><div>{roles.map((role, index) => <button type="button" key={role.id} className={selectedCatalogRole?.id === role.id ? 'selected' : ''} onClick={() => selectRole(role)}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{role.title}</strong><p>{role.summary}</p></div><small>{role.detailRoleId ? '상세 근거' : '대표 역할'}</small><ChevronRight size={16} /></button>)}{!roles.length && <p className="empty-state-copy">검색과 일치하는 역할이 없습니다.</p>}</div></section>{selectedCatalogRole && <RoleDetail role={researchDocumentForCatalog(selectedCatalogRole)} progress={progress} updateProgress={updateProgress} />}</div>
+  const changeDomain = (nextDomainId) => updateWeekZero(updateProgress, {
+    view: {
+      ...view,
+      researchDomainId: nextDomainId,
+      researchRoleGroupId: null,
+      researchRoleId: representativeRolesForDomain(nextDomainId)[0]?.id || null,
+    },
+  })
+  const changeRoleGroup = (nextGroupId) => {
+    const group = roleGroups.find((item) => item.id === nextGroupId)
+    updateWeekZero(updateProgress, {
+      view: {
+        ...view,
+        researchDomainId: domainId,
+        researchRoleGroupId: group?.id || null,
+        researchRoleId: group?.roleIds[0] || representativeRolesForDomain(domainId)[0]?.id || null,
+      },
+    })
+  }
+  return <div className="research-role-explorer">
+    <header className="research-role-toolbar">
+      <label><Filter size={16} /><select value={domainId} onChange={(event) => changeDomain(event.target.value)} aria-label="전문 분야 선택">{researchDomains.map((domain) => <option key={domain.id} value={domain.id}>{domain.title}</option>)}</select></label>
+      <label><Filter size={16} /><select value={roleGroupId} onChange={(event) => changeRoleGroup(event.target.value)} aria-label="직무군 선택"><option value="all">직무군 전체</option>{roleGroups.map((group) => <option key={group.id} value={group.id}>{group.title}</option>)}</select></label>
+      <label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="역할·업무·원문 직무명 검색" aria-label="대표 역할 검색" /></label>
+    </header>
+    <section className="research-role-index" aria-label={`${researchDomainById[domainId].title} 대표 역할`}><header><div><span>{researchDomainById[domainId].shortTitle}</span><h2>{selectedGroup?.title || '대표 역할'}</h2><p>모든 역할이 독립 채용공고 제목이라는 뜻은 아닙니다. 역할을 선택하면 검증된 실제 공고와 반복 요구사항을 함께 확인할 수 있습니다.</p></div><span>{roles.length}개 표시</span></header><div>{roles.map((role, index) => <button type="button" key={role.id} className={selectedCatalogRole?.id === role.id ? 'selected' : ''} onClick={() => selectRole(role)}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{role.title}</strong><p>{role.summary}</p></div><small>{role.detailRoleId ? '상세 근거' : '대표 역할'}</small><ChevronRight size={16} /></button>)}{!roles.length && <p className="empty-state-copy">검색과 일치하는 역할이 없습니다.</p>}</div></section>
+    {selectedCatalogRole && <RoleDetail role={researchDocumentForCatalog(selectedCatalogRole)} progress={progress} updateProgress={updateProgress} />}
+  </div>
 }
 
 function DetailList({ title, items, label = null }) {
@@ -285,7 +323,10 @@ function researchDocumentForCatalog(catalogRole) {
   const roleGroup = representativeRoleGroupsForDomain(catalogRole.domainId).find((group) => group.roleIds.includes(catalogRole.id))
   if (detailed) return {
     ...detailed,
+    catalogRoleId: catalogRole.id,
+    catalogRoleTitle: catalogRole.title,
     linkedDomainIds: unique([...detailed.linkedDomainIds, ...catalogRole.relatedDomainIds]),
+    groupId: roleGroup?.id,
     groupTitle: roleGroup?.title,
     workContext: catalogRole.workContext,
   }
@@ -293,9 +334,12 @@ function researchDocumentForCatalog(catalogRole) {
   const family = researchFamiliesForDomain(catalogRole.domainId)[0]
   return {
     id: catalogRole.id,
+    catalogRoleId: catalogRole.id,
+    catalogRoleTitle: catalogRole.title,
     domainId: catalogRole.domainId,
     linkedDomainIds: catalogRole.relatedDomainIds,
     familyId: family?.id,
+    groupId: roleGroup?.id,
     groupTitle: roleGroup?.title,
     workContext: catalogRole.workContext,
     title: catalogRole.title,
@@ -314,8 +358,12 @@ function RoleDetail({ role, progress, updateProgress }) {
   const domain = researchDomainById[role.domainId]
   const family = researchFamilyById[role.familyId]
   const linkedDomains = role.linkedDomainIds.map((id) => researchDomainById[id]).filter(Boolean)
-  const markViewed = () => updateWeekZero(updateProgress, { viewedRoleIds: unique([...(progress.weekZero.viewedRoleIds || []), role.id]) })
-  return <article className="research-role-document" aria-label={`${role.title} 상세`} tabIndex="0" onFocus={markViewed}><header><div><span>{domain?.shortTitle}</span><h2>{role.title}</h2><p>{role.summary}</p></div><ResearchEvidenceBadge level={role.evidence.level} /></header><section className="research-role-identity"><div><small>직무군</small><strong>{role.groupTitle || family?.title || '분야 대표 역할'}</strong></div><div><small>공고 원문에서 쓰인 이름</small><p>{role.rawTitles.join(' · ')}</p></div></section><section className="research-role-columns"><DetailList title="이 직무가 하는 일" items={role.actualWork} /><DetailList title="대표 산출물" items={role.deliverables} /></section><DetailList title="준비할 기초" items={role.foundations} /><section><h3>연결되는 분야</h3><div className="tag-list"><span>{domain?.shortTitle}</span>{linkedDomains.map((item) => <span key={item.id}>{item.shortTitle}</span>)}</div></section>{role.workContext && <section className="research-role-context"><h3>조직·제품 개발 맥락</h3><p>{role.workContext}</p></section>}<section><h3>학습 축</h3><div className="tag-list">{role.learningAxes.map((axis) => <span key={axis}>{axis}</span>)}</div></section><section className="research-role-evidence"><h3>실제 공고·직무 체계 근거</h3><ResearchEvidenceBadge level={role.evidence.level} /><ul>{role.evidence.sources.map((source) => <li key={source}>{source}</li>)}</ul><p>{role.evidence.reportSource?.note || '외부 공고 URL이 보존되지 않은 인용은 링크를 표시하지 않습니다. 모집 상태도 별도로 판정하지 않습니다.'}</p></section><section className="research-role-limitations"><h3>근거와 한계</h3><p>{role.evidence.limitations}</p></section></article>
+  const catalogRoleId = role.catalogRoleId || role.id
+  const markViewed = (event) => {
+    if (event.target !== event.currentTarget) return
+    updateWeekZero(updateProgress, { viewedRoleIds: unique([...(progress.weekZero.viewedRoleIds || []), catalogRoleId]) })
+  }
+  return <article className="research-role-document" aria-label={`${role.title} 상세`} tabIndex="0" onFocus={markViewed}><header><div><span>{domain?.shortTitle}</span><h2>{role.title}</h2><p>{role.summary}</p></div><ResearchEvidenceBadge level={role.evidence.level} /></header><section className="research-role-identity"><div><small>직무군</small><strong>{role.groupTitle || family?.title || '분야 대표 역할'}</strong></div><div><small>기존 리서치에서 확인한 원문 직무명</small><p>{role.rawTitles.join(' · ')}</p></div></section><section className="research-role-columns"><DetailList title="이 직무가 하는 일" items={role.actualWork} /><DetailList title="대표 산출물" items={role.deliverables} /></section><DetailList title="준비할 기초" items={role.foundations} /><section><h3>연결되는 분야</h3><div className="tag-list"><span>{domain?.shortTitle}</span>{linkedDomains.map((item) => <span key={item.id}>{item.shortTitle}</span>)}</div></section>{role.workContext && <section className="research-role-context"><h3>조직·제품 개발 맥락</h3><p>{role.workContext}</p></section>}<section><h3>학습 축</h3><div className="tag-list">{role.learningAxes.map((axis) => <span key={axis}>{axis}</span>)}</div></section><Suspense fallback={<section className="role-posting-loading" role="status">검증된 채용공고와 반복 요구사항을 불러오는 중입니다.</section>}><RolePostingResearch key={catalogRoleId} roleId={catalogRoleId} /></Suspense><section className="research-role-evidence"><h3>직무 설명의 기존 근거</h3><ResearchEvidenceBadge level={role.evidence.level} /><ul>{role.evidence.sources.map((source) => <li key={source}>{source}</li>)}</ul><p>{role.evidence.reportSource?.note || '외부 공고 URL이 보존되지 않은 인용은 링크를 표시하지 않습니다. 모집 상태도 별도로 판정하지 않습니다.'}</p></section><section className="research-role-limitations"><h3>기존 직무 설명의 한계</h3><p>{role.evidence.limitations}</p></section></article>
 }
 
 function PostingExplorer({ progress, updateProgress }) {

@@ -11,15 +11,18 @@ npm run dev
 
 기본 개발 주소는 `http://localhost:5173/`입니다.
 
-## 로컬 UI 콘텐츠 편집
+## Windows 설치
 
-`npm run dev`로 연 모든 페이지의 우측 아래에 `페이지 편집` 버튼이 나타납니다. 버튼을 누른 뒤 기존 화면에서 바꿀 문구를 직접 선택하면 패널 입력값이 즉시 원래 화면에 미리 보이며, `코드에 저장`을 누르면 경로·화면 위치·원문과 함께 `src/content/localContentOverrides.json`에 기록됩니다. Week 0 보안 용어처럼 선택에 따라 내용이 바뀌는 화면은 원문까지 일치할 때만 해당 수정이 적용됩니다.
+먼저 Git으로 저장소를 clone한 뒤, 프로젝트 폴더에서 [`install.ps1`](./install.ps1)을 실행합니다. 스크립트는 Node.js LTS와 npm을 확인하고, 없으면 `winget`으로 설치한 뒤 잠긴 의존성을 `npm ci`로 설치합니다.
 
-```bash
-git diff -- src/content/localContentOverrides.json
+```powershell
+git clone https://github.com/whysocscs/sectrack-security-learning.git
+cd sectrack-security-learning
+.\install.ps1
+npm run dev
 ```
 
-이 파일은 일반 소스 데이터이므로 커밋·푸시하면 배포 콘텐츠에도 적용됩니다. 편집 버튼과 로컬 저장 API는 Vite 개발 서버에서만 제공되며 GitHub Pages 프로덕션 빌드에는 포함되지 않습니다. 저장된 문구는 편집 패널의 `이 페이지에 저장된 수정` 목록에서 하나씩 되돌릴 수 있습니다.
+설치 후 바로 개발 서버까지 시작하려면 `./install.ps1 -Start`를 사용합니다. `winget`이 없거나 조직 정책으로 설치가 차단되면 Node.js LTS를 먼저 설치한 뒤 다시 실행합니다.
 
 ## 검사
 
@@ -39,7 +42,7 @@ AI 브라우저가 SPA 화면을 실행하지 못하는 경우를 위해 `public
 
 ## 데이터 저장
 
-MVP의 학습 진도, 마인드맵 상태, 실습 증거와 보고서 초안은 브라우저 `localStorage`의 `sectrack-orchestrator-v2` 키에 저장됩니다. 서버 계정이나 외부 API 키는 사용하지 않습니다.
+MVP의 학습 진도, 마인드맵 상태, 실습 증거와 보고서 초안은 브라우저 `localStorage`의 `sectrack-orchestrator-v3` 키에 저장됩니다. 이전 v3 기록에 학습 계획 버전 표지가 빠진 경우에는 원본을 별도 백업한 뒤 현재 형식으로 자동 이관합니다. 서버 계정이나 외부 API 키는 사용하지 않습니다.
 
 ## 실습 안전 경계
 
@@ -55,7 +58,6 @@ MVP의 학습 진도, 마인드맵 상태, 실습 증거와 보고서 초안은 
 
 - `src/courseData.js`: 공개 커리큘럼 조합과 학습 모델
 - `src/data/curriculum/actualClassWeeks.js`: 개인정보를 제거한 Week 1·2·5·6 실제 수업 콘텐츠
-- `src/content/localContentOverrides.json`: 로컬 UI 편집기로 저장한 콘텐츠 변경
 - `src/mindmapData.js`: 보안 마인드맵 노드와 직무·산업 연결
 - `src/reportData.js`: Finding 스키마, 학생 보고서 6개 교육 사례
 - `src/platformLogic.js`: 진도 병합, 보고서 검사, 마스킹, Route 파싱
