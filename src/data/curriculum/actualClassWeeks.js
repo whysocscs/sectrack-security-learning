@@ -40,7 +40,7 @@ function checkpoint(id, prompt, options, answer, explanation) {
   return { id, type: 'checkpoint', prompt, options, answer, explanation }
 }
 
-function guidedLab({ week, id, title, objective, concepts, steps, artifacts, evidenceOptions, correctEvidenceIds, conclusion }) {
+function guidedLab({ week, id, title, objective, concepts, steps, artifacts, evidenceOptions, correctEvidenceIds, conclusion, estimatedMinutes = 35, reflectionMinimum = 40 }) {
   return {
     id,
     week,
@@ -48,7 +48,7 @@ function guidedLab({ week, id, title, objective, concepts, steps, artifacts, evi
     kind: 'guided-observation',
     activityType: 'investigation',
     path: 'required',
-    estimatedMinutes: 35,
+    estimatedMinutes,
     objective,
     prerequisites: concepts,
     requiredTools: ['브라우저', 'SecTrack의 고정 합성 자료'],
@@ -66,8 +66,8 @@ function guidedLab({ week, id, title, objective, concepts, steps, artifacts, evi
       correctEvidenceIds,
       conclusion,
       reflection: {
-        prompt: '선택한 증거 중 두 가지 이상을 시간·호스트·프로세스 또는 통신 정보로 연결해 40자 이상 설명하세요.',
-        minimumLength: 40,
+        prompt: `선택한 증거 중 두 가지 이상을 시간·호스트·프로세스 또는 통신 정보로 연결해 ${reflectionMinimum}자 이상 설명하세요. 각 증거가 무엇을 증명하고 무엇은 증명하지 못하는지도 구분하세요.`,
+        minimumLength: reflectionMinimum,
       },
     },
   }
@@ -112,29 +112,37 @@ const weekFiveLab = guidedLab({
   week: 5,
   id: 'w5-case001-evidence-chain',
   title: 'Case 001 증거 연결: 파일에서 RDP 세션까지',
-  objective: 'Disk, Memory, PCAP, EVTX의 고정 전사를 연결해 확인된 사실과 아직 확인하지 못한 범위를 구분합니다.',
+  objective: 'Autoruns, Disk, Memory, PCAP, EVTX의 고정 전사를 연결해 확인된 사실, 분석가의 해석, 아직 확인하지 못한 범위를 구분합니다.',
   concepts: ['w5-dfir-foundations', 'w5-evidence-workflow', 'w5-disk-analysis', 'w5-memory-network', 'w5-rdp-timeline'],
-  steps: ['Disk 전사에서 파일 경로와 메타데이터 주소를 확인합니다.', 'Memory 전사에서 프로세스와 외부 통신을 확인합니다.', 'PCAP과 EVTX 전사에서 다운로드·RDP 세션 근거를 찾습니다.', '공통 호스트·IP·파일명·시간축을 연결합니다.'],
+  estimatedMinutes: 60,
+  reflectionMinimum: 100,
+  steps: ['Autoruns 단서에서 조사할 파일명과 피해 호스트를 정합니다.', 'Disk 전사에서 파티션 offset, 파일 경로, 메타데이터 주소와 Hash를 확인합니다.', 'Memory 전사에서 같은 파일명의 프로세스와 외부 endpoint를 확인합니다.', 'PCAP에서 파일 유입과 외부·내부 RDP 통신을 각각 찾습니다.', 'EVTX 전사로 RDP 연결 시도와 실제 세션 생성을 구분합니다.', '공통 호스트·IP·파일명·시간축을 연결하고, 민감 파일 접근과 유출처럼 아직 확인되지 않은 항목을 따로 남깁니다.'],
   artifacts: [
+    {
+      title: '초기 단서 · Autoruns 고정 전사',
+      body: '자동 실행 항목은 조사 시작점입니다. 항목이 존재한다는 사실만으로 실행 성공이나 악성 여부가 확정되지는 않습니다.',
+      code: '[Autoruns]\nhost: DC01 (10.42.85.10)\nentry: SystemCoreUpdater\nimage path: C:\\Windows\\System32\\coreupdater.exe\nstatus: unsigned · investigate',
+    },
     {
       title: 'Disk · Memory 고정 전사',
       body: 'Case 001 수업 흐름을 위해 만든 고정 전사입니다. 실제 증거 파일을 읽거나 프로그램을 실행하지 않습니다.',
-      code: '[Disk]\nr/r 87137-128-4: /Windows/System32/coreupdater.exe\nSHA-256: training-hash-redacted\n\n[Memory]\nprocess: coreupdater.exe · host: DC01 · state: observed\nconnection: DC01 10.42.85.10 -> 203.78.103.109:443',
+      code: '[Disk]\npartition start: sector 718848\nr/r 87137-128-4: /Windows/System32/coreupdater.exe\ntype: PE32+ executable\nSHA-256: training-hash-redacted\n\n[Memory]\nprocess: coreupdater.exe · host: DC01 · state: observed\nparent/command line: review required\nconnection: DC01 10.42.85.10 -> 203.78.103.109:443',
     },
     {
       title: 'PCAP · EVTX 고정 전사',
       body: '표시된 주소는 Case 001 교육 시나리오의 식별자이며 외부 접속 대상으로 사용하지 않습니다.',
-      code: '[PCAP]\n10.42.85.10 -> HTTP GET /coreupdater.exe · response 200\n194.61.24.102 -> 10.42.85.10:3389 · RDP observed\n\n[EVTX]\nTerminalServices LocalSessionManager · session created\nsource network address: 194.61.24.102 · destination host: DC01',
+      code: '[PCAP]\n10.42.85.10 -> HTTP GET /coreupdater.exe · response 200\n194.61.24.102 -> 10.42.85.10:3389 · RDP negotiation observed\n10.42.85.10 -> 10.42.85.115:3389 · internal RDP observed\n\n[EVTX]\nprovider: TerminalServices-LocalSessionManager/Operational\nsession state: logon/session created\nsource network address: 194.61.24.102 · destination host: DC01',
     },
   ],
   evidenceOptions: [
+    { id: 'w5-autorun', label: 'Autoruns에서 coreupdater.exe가 DC01의 조사 대상 자동 실행 항목으로 식별됨', detail: '실행 성공과 악성 여부는 아직 별도 증거가 필요합니다.' },
     { id: 'w5-file', label: 'Disk에서 coreupdater.exe의 경로와 메타데이터 주소가 관찰됨' },
     { id: 'w5-process', label: 'Memory에서 같은 파일명의 실행 프로세스와 외부 연결이 관찰됨' },
     { id: 'w5-download', label: 'PCAP에서 /coreupdater.exe 요청과 200 응답이 관찰됨' },
     { id: 'w5-rdp', label: 'PCAP과 EVTX가 194.61.24.102의 RDP 접근과 세션 생성을 함께 지지함' },
     { id: 'w5-exfil', label: '표시된 전사만으로 어떤 기밀 파일이 외부로 유출됐는지 확정됨' },
   ],
-  correctEvidenceIds: ['w5-file', 'w5-process', 'w5-download', 'w5-rdp'],
+  correctEvidenceIds: ['w5-autorun', 'w5-file', 'w5-process', 'w5-download', 'w5-rdp'],
   conclusion: '파일 존재, 실행, 다운로드, 로그인은 서로 다른 증거로 확인해야 합니다. 이 전사만으로 민감 파일 접근이나 실제 유출까지 확정할 수는 없습니다.',
 })
 
@@ -144,8 +152,15 @@ const weekSixLab = guidedLab({
   title: 'Case 001 탐지 공백과 Local Rule 검증',
   objective: 'EVE JSON 고정 전사에서 Traffic, Protocol Event, Alert를 구분하고 탐지되지 않은 내부 RDP 흐름을 Rule로 보완합니다.',
   concepts: ['w6-monitoring-foundations', 'w6-suricata-pipeline', 'w6-packet-alert-model', 'w6-rule-anatomy', 'w6-eve-case001'],
-  steps: ['EVE JSON에서 두 호스트의 통신 존재를 확인합니다.', 'RDP event와 alerted 상태를 구분합니다.', 'Local Rule의 header와 options를 읽습니다.', '재분석 뒤 생성된 Alert가 의도한 5-Tuple과 일치하는지 확인합니다.'],
+  estimatedMinutes: 75,
+  reflectionMinimum: 100,
+  steps: ['기본 분석 결과에서 Event 종류와 Signature 분포를 먼저 집계합니다.', 'IOC를 이용해 외부 RDP, C2, coreupdater.exe HTTP 흔적을 Event와 Alert에서 각각 찾습니다.', 'DC01과 Desktop 사이의 Traffic 존재, RDP 해석, Alert 존재를 세 단계로 나눠 확인합니다.', 'Local Rule의 action·protocol·Source·direction·Destination·options를 왼쪽부터 읽습니다.', '`-T` 검사 뒤 같은 PCAP을 별도 로그 폴더로 재분석합니다.', '생성된 Alert의 5-Tuple과 signature_id를 확인하고 오탐 가능성과 운영 적용 전 조건을 기록합니다.'],
   artifacts: [
+    {
+      title: '기본 Rule 분석 결과 요약',
+      body: '479는 강의 당시 Suricata·Rule set·설정·PCAP 조합에서 얻은 관찰값입니다. 다른 환경의 정답으로 일반화하지 않습니다.',
+      code: 'fast.log lines: 479\nIOC events: 194.61.24.102 · 203.78.103.109 · /coreupdater.exe\ninternal RDP flow: observed\ninternal RDP alert: 0',
+    },
     {
       title: '수정 전 EVE JSON 요약',
       body: '원본 PCAP이나 외부 네트워크에 접근하지 않는 교육용 요약입니다.',
@@ -297,7 +312,7 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w5-dfir-foundations',
         title: 'DFIR의 목적과 Case 001 질문',
-        duration: 35,
+        duration: 50,
         summary: '디지털 증거로 과거의 사건을 재구성하고, 현재의 피해 확산을 제한하는 두 관점을 연결합니다.',
         objectiveIndexes: [0],
         blocks: [
@@ -307,6 +322,15 @@ export const actualClassWeeks = Object.freeze({
             ['Incident Response', '지금 무엇을 해야 하는가?', '탐지·격리·차단·복구·개선'],
           ] },
           { type: 'explanation', title: 'Case 001 사건 개요', paragraphs: ['기업 내부의 중요 파일 유출 정황과 수상한 실행 파일·접속 흔적이 남았습니다. 조사자는 누가, 어떻게 들어와, 무엇을 실행했고, 다른 시스템으로 이동했으며, 어떤 데이터에 접근·반출했는지를 증거별로 확인해야 합니다.', 'DC01은 중심 피해 호스트이고 coreupdater.exe는 분석할 파일명입니다. 외부 접근, 악성 파일 실행, C2 통신, 내부 이동과 데이터 유출은 서로 다른 증거로 나눠 확인합니다.'] },
+          { type: 'explanation', title: '큰 질문을 검증 가능한 주장으로 나누기', paragraphs: ['“공격자가 자료를 빼갔다”는 문장은 한 번에 증명하기에는 너무 큽니다. 먼저 자동 실행 항목이 존재했는지, 실제 파일이 있었는지, 그 파일이 실행됐는지, 외부와 통신했는지, RDP 인증과 세션이 성립했는지, 다른 호스트로 이동했는지, 민감 파일을 열었는지, 외부로 전송했는지를 각각 별도의 주장으로 쪼갭니다.', '각 주장은 필요한 증거가 다릅니다. Disk의 파일 경로는 파일 존재를 지지하지만 실행을 증명하지 않고, PCAP의 TCP/3389는 통신을 지지하지만 로그인 성공을 증명하지 않습니다. DFIR의 핵심은 도구를 많이 실행하는 것이 아니라 주장마다 적절한 증거를 배치하는 것입니다.'] },
+          { type: 'comparison', title: 'Case 001에서 계속 사용할 식별자', columns: ['식별자', '수업에서의 역할', '현재 말할 수 있는 범위'], rows: [
+            ['DC01 · 10.42.85.10', '중심 피해 호스트인 Domain Controller', '외부 RDP·파일 실행·외부 통신·내부 RDP의 연결점'],
+            ['Desktop · 10.42.85.115', '내부 이동 조사 대상', 'DC01에서 이 호스트의 3389/TCP로 향한 Traffic이 관찰됨'],
+            ['194.61.24.102', '외부 RDP 접근 주소', 'PCAP과 EVTX를 연결해 세션 성립 여부를 조사'],
+            ['203.78.103.109', 'C2 후보 주소', 'coreupdater.exe 프로세스·PCAP과 연결해 통신 성격을 조사'],
+            ['coreupdater.exe', '수상한 자동 실행 파일', 'Autoruns·Disk·Memory·HTTP 흔적을 서로 연결할 기준'],
+          ] },
+          { type: 'misconception', title: '처음 분석할 때 자주 섞는 주장', items: ['자동 실행 항목이 있다 = 실제로 성공적으로 실행됐다.', '파일이 PE 형식이다 = 악성코드다.', 'TCP 3389 패킷이 있다 = 로그인이 성공했다.', 'HTTP 200 응답이 있다 = 다운로드한 파일이 실행됐다.', '외부 443 통신이 있다 = 데이터 유출이 확정됐다. 이 등식들은 모두 추가 증거가 필요합니다.'] },
           checkpoint('w5-dfir-foundations-check', '“당시 어떤 프로세스가 실행됐는가?”에 가장 직접적인 증거는?', ['Memory', '프로젝트 일정표', 'Cloud 비용 명세'], 0, '메모리 덤프는 수집 시점의 실행 프로세스와 연결 정보를 관찰하는 데 사용됩니다.'),
           { type: 'summary', title: '핵심 정리', bullets: ['Forensics는 사실 재구성, IR은 피해 제한과 복구에 초점을 둔다.', '하나의 증거가 사건 전체를 설명하지 않는다.', 'Case 001은 침입부터 내부 이동·유출 정황까지 단계별로 확인한다.'] },
         ],
@@ -314,7 +338,7 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w5-evidence-workflow',
         title: '증거 유형과 DFIR 조사 흐름',
-        duration: 40,
+        duration: 55,
         summary: '증거가 답할 수 있는 질문을 먼저 정하고 Identify부터 Report까지 조사 순서를 설계합니다.',
         objectiveIndexes: [1],
         blocks: [
@@ -332,6 +356,14 @@ export const actualClassWeeks = Object.freeze({
             { title: 'Analyze', body: '서로 다른 증거의 호스트·시간·식별자를 연결합니다.' },
             { title: 'Report', body: '확인한 사실, 해석, 한계를 시간순으로 설명합니다.' },
           ] },
+          { type: 'explanation', title: 'Examine과 Analyze는 같은 일이 아니다', paragraphs: ['Examine 단계에서는 도구 출력에서 값을 꺼냅니다. 예를 들어 `fls`의 경로와 메타데이터 주소, `netscan`의 endpoint, EVE JSON의 5-Tuple을 기록합니다. 이때는 관찰값을 가능한 한 원문에 가깝게 보존합니다.', 'Analyze 단계에서는 서로 다른 관찰값을 연결합니다. 파일명, Host, IP, Port, 사용자, 시간대가 일치하는지 확인하고 “같은 사건 흐름으로 볼 수 있는가”를 판단합니다. 도구 출력과 분석가의 결론을 한 문장에 섞지 않아야 다른 사람이 같은 결론을 재검토할 수 있습니다.'] },
+          { type: 'evidence-board', title: '증거별로 증명할 수 있는 것과 없는 것', sections: [
+            { label: 'Disk · E01', items: ['증명 가능: 파일 경로, 크기, 시간 정보, 삭제 흔적, 메타데이터 주소', '단독으로 부족: 실제 실행 여부, 실행한 사용자, 네트워크 통신'] },
+            { label: 'Memory', items: ['증명 가능: 수집 시점의 프로세스, 부모·자식 관계, 명령줄, 일부 네트워크 endpoint', '단독으로 부족: 과거 전체 활동, PCAP에 실제 전송된 모든 byte'] },
+            { label: 'Network · PCAP', items: ['증명 가능: 관찰 지점에 기록된 Packet·Flow·프로토콜·주소·Port', '단독으로 부족: Host에서 어떤 사용자와 프로세스가 의도적으로 만든 통신인지'] },
+            { label: 'Windows Logs · EVTX', items: ['증명 가능: 해당 Provider가 기록한 인증·세션·서비스 사건', '단독으로 부족: 로그가 수집되지 않았거나 삭제된 시간대의 모든 행동'] },
+          ] },
+          { type: 'explanation', title: '무결성과 재현 조건을 함께 남기기', paragraphs: ['원본 증거는 가능한 한 읽기 전용으로 보존하고, 분석에는 검증된 복사본을 사용합니다. 수집본과 분석본의 Hash를 기록하면 파일 이름이 아니라 내용이 동일한지 비교할 수 있습니다.', '명령어, 도구 버전, 입력 파일 Hash, 파티션 offset, 출력 경로를 같이 남겨야 다른 분석자가 같은 절차를 반복할 수 있습니다. Hash가 같다는 사실은 증거 내용의 진실성을 자동으로 보장하는 것이 아니라, 비교한 두 byte stream이 같다는 무결성 근거입니다.'] },
           checkpoint('w5-evidence-workflow-check', '증거를 분석하기 전에 Hash를 남기는 주된 이유는?', ['분석 도구를 빠르게 실행하기 위해', '증거가 변하지 않았음을 검증하기 위해', '파일 이름을 자동 번역하기 위해'], 1, 'Hash는 수집·복사·분석 과정에서 증거가 동일한지 확인하는 무결성 기준입니다.'),
           { type: 'summary', title: '핵심 정리', bullets: ['질문에 맞는 증거를 선택한다.', '수집과 분석 사이에 보존·무결성 확인이 필요하다.', '보고서는 관찰 사실과 해석·한계를 분리한다.'] },
         ],
@@ -339,17 +371,27 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w5-disk-analysis',
         title: 'E01과 Sleuth Kit로 파일 찾기',
-        duration: 60,
+        duration: 80,
         summary: 'E01을 읽기 전용으로 연결하고 Windows 파티션 안의 파일을 찾아 추출·식별·해시합니다.',
         objectiveIndexes: [2],
         blocks: [
           { type: 'explanation', title: '파티션·섹터·메타데이터 주소', paragraphs: ['E01은 디스크의 구조와 데이터를 보존한 증거 이미지입니다. 섹터는 디스크를 읽는 기본 단위이고, 파티션은 디스크 안에서 파일시스템이 놓인 구역입니다. Case 001에서는 Windows 파티션이 섹터 718848에서 시작합니다.', '`fls` 출력의 `d/d`는 디렉터리, `r/r`는 일반 파일을 뜻합니다. NTFS의 `87137-128-4` 같은 값은 파일 내용을 가리키는 메타데이터 주소와 데이터 속성 정보를 포함합니다.'] },
-          { type: 'command-guide', title: 'Case 001 Disk 분석 명령', commands: [
+          { type: 'explanation', title: '718848은 외워서 넣는 숫자가 아니다', paragraphs: ['디스크 이미지에는 부팅용 파티션, 복구 파티션, Windows 파일시스템처럼 여러 구역이 있을 수 있습니다. `fls`가 어느 파일시스템을 읽어야 하는지 알려 주려면 먼저 파티션 표에서 시작 섹터를 확인해야 합니다.', 'Case 001의 718848은 Windows 파티션의 시작 섹터라는 관찰값입니다. 다른 이미지에 그대로 재사용하면 엉뚱한 byte 위치를 읽게 됩니다. 분석 노트에는 offset을 얻은 명령과 결과를 함께 남깁니다.'] },
+          { type: 'command-guide', title: 'Case 001 Disk 분석 명령', intro: '아래 명령은 “이미지 연결 → 파티션 확인 → 파일 위치 찾기 → 내용 추출 → 형식·Hash 확인” 순서입니다. 각 출력이 다음 명령의 입력이 됩니다.', commands: [
             { syntax: 'sudo ewfmount 20200918_0347_CDrive.E01 /mnt/ewf', purpose: 'E01을 분석용 경로에 연결합니다.', options: [{ flag: '/mnt/ewf/ewf1', description: '연결 뒤 Sleuth Kit가 읽을 이미지 경로입니다.' }] },
+            { syntax: 'sudo mmls /mnt/ewf/ewf1', purpose: '파티션 표를 읽어 Windows 파일시스템의 시작 섹터를 확인합니다.', options: [{ flag: 'Start', description: 'Case 001의 Windows 파티션은 718848에서 시작합니다. 이미지마다 다시 확인해야 합니다.' }] },
             { syntax: 'sudo fls -r -p -o 718848 /mnt/ewf/ewf1 | grep -i "coreupdater.exe"', purpose: 'Windows 파티션 전체에서 파일 경로와 메타데이터 주소를 찾습니다.', options: [{ flag: '-r', description: '하위 디렉터리를 재귀적으로 탐색합니다.' }, { flag: '-p', description: '전체 경로를 표시합니다.' }, { flag: '-o 718848', description: '파일시스템 시작 섹터를 지정합니다.' }] },
             { syntax: 'sudo icat -o 718848 /mnt/ewf/ewf1 87137-128-4 > coreupdater.exe', purpose: '메타데이터 주소가 가리키는 파일 내용을 별도 분석 파일로 추출합니다.', options: [{ flag: '>', description: '표준 출력을 로컬 파일에 저장합니다.' }] },
             { syntax: 'file coreupdater.exe && sha256sum coreupdater.exe', purpose: '파일 형식을 식별하고 이후 비교를 위한 Hash를 남깁니다.', options: [] },
           ] },
+          { type: 'code', title: '출력에서 다음 단서 읽기', language: 'text', sourceType: 'educational-reconstruction', description: 'PPT의 Case 001 값으로 재구성한 최소 출력입니다. 실제 도구 출력 전체를 대신하지 않습니다.', code: '[mmls]\nWindows partition start: 718848\n\n[fls]\nr/r 87137-128-4: Windows/System32/coreupdater.exe\n\n[file]\ncoreupdater.exe: PE32+ executable (GUI) x86-64, for MS Windows\n\n[sha256sum]\n[REDACTED-TRAINING-HASH]  coreupdater.exe', annotations: ['`mmls`의 시작 섹터가 `fls`와 `icat`의 `-o` 값이 됩니다.', '`r/r`는 일반 파일이고 뒤의 값은 파일명 대신 내용을 찾는 메타데이터 주소입니다.', '`PE32+`는 Windows 실행 파일 형식이라는 뜻이지 악성 판정이 아닙니다.', 'Hash는 이후 분석본이 같은 byte인지 확인하는 비교 기준입니다.'] },
+          { type: 'comparison', title: '`87137-128-4`를 나눠 읽기', columns: ['부분', '의미', '분석에서의 역할'], rows: [
+            ['87137', 'NTFS MFT 레코드 번호', '어느 파일 레코드를 볼지 지정'],
+            ['128', 'NTFS `$DATA` 속성 유형', '파일 내용이 저장된 데이터 속성을 지정'],
+            ['4', '같은 유형 속성의 식별 번호', '여러 Data stream 중 추출할 속성을 구분'],
+            ['`>`', 'Shell 출력 redirection', '`icat`의 표준 출력을 새 분석 파일에 저장'],
+          ] },
+          { type: 'misconception', title: 'Disk 분석에서 피할 결론', items: ['`fls`에서 파일을 찾았으니 실행됐다.', '`file`이 PE라고 했으니 악성이다.', '확장자가 `.exe`이므로 실제 내용도 반드시 실행 파일이다.', 'Hash가 있으니 원본의 출처와 수집 과정도 자동으로 신뢰할 수 있다. 각 주장은 Memory·로그·수집 기록 같은 별도 근거가 필요합니다.'] },
           { type: 'warning', title: '분석용 파일을 직접 실행하지 않기', body: '파일이 존재하거나 PE 형식이라는 사실만으로 악성 여부가 확정되지는 않습니다. 분석 파일을 업무 시스템에서 직접 실행하지 말고, 실행 여부는 Memory·Prefetch·로그와 같은 별도 증거로 확인합니다.' },
           checkpoint('w5-disk-analysis-check', '`icat`이 Case 001에서 맡는 역할은?', ['파일시스템 이미지의 메타데이터 주소로 파일 내용을 추출', '실행 중 프로세스를 종료', 'PCAP에서 RDP 패킷을 차단'], 0, '`icat`은 이미지와 메타데이터 주소를 입력받아 해당 파일 내용을 표준 출력으로 내보냅니다.'),
           { type: 'sources', title: '도구 공식 문서', items: [sources.sleuthKit, sources.fls, sources.icat] },
@@ -359,7 +401,7 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w5-memory-network',
         title: 'Memory와 PCAP으로 실행·통신 확인',
-        duration: 60,
+        duration: 85,
         summary: '프로세스 실행 증거와 네트워크 통신 증거를 연결하되 서로 대신하지 않도록 구분합니다.',
         objectiveIndexes: [3],
         blocks: [
@@ -369,8 +411,23 @@ export const actualClassWeeks = Object.freeze({
             ['windows.cmdline', '프로세스 명령줄', '자격 증명이나 개인정보는 기록에서 마스킹한다.'],
             ['windows.netscan', '메모리에 남은 네트워크 endpoint', 'PCAP의 실제 패킷·시간과 교차 확인한다.'],
           ] },
+          { type: 'explanation', title: '왜 파일을 찾은 뒤에도 실행 근거를 찾는가', paragraphs: ['Disk의 `coreupdater.exe`는 어느 시점에 파일시스템에 존재했다는 사실을 보여 줍니다. 하지만 사용자가 실행했는지, 자동 실행이 성공했는지, 프로세스가 얼마 동안 살아 있었는지는 알려 주지 않습니다.', 'Memory에서 같은 이름의 프로세스를 찾고 PID, 부모 PID, 명령줄, 네트워크 endpoint를 함께 보면 파일 존재에서 실행 상태로 주장을 한 단계 확장할 수 있습니다. 이름 하나만 같다고 동일한 파일이라고 확정하지 않고 경로·Hash·시간·부모 프로세스를 추가로 비교합니다.'] },
+          { type: 'command-guide', title: 'Volatility 3에서 질문별로 좁히기', intro: '플러그인을 많이 실행하기보다 “프로세스가 있었는가 → 누가 실행했는가 → 어떤 인자였는가 → 어디와 연결됐는가” 순서로 읽습니다.', commands: [
+            { syntax: 'python3 vol.py -f dc01.mem windows.pslist', purpose: '수집 시점에 보이는 프로세스의 PID·PPID·시작·종료 정보를 확인합니다.', options: [{ flag: '-f dc01.mem', description: '분석할 Memory dump를 지정합니다.' }] },
+            { syntax: 'python3 vol.py -f dc01.mem windows.pstree', purpose: '부모·자식 관계를 트리로 보고 비정상적인 실행 계보를 찾습니다.', options: [] },
+            { syntax: 'python3 vol.py -f dc01.mem windows.cmdline', purpose: '프로세스가 어떤 경로와 인자로 시작됐는지 확인합니다.', options: [] },
+            { syntax: 'python3 vol.py -f dc01.mem windows.netscan', purpose: '메모리에 남은 TCP·UDP endpoint를 PID와 연결합니다.', options: [] },
+          ] },
           { type: 'diagram', title: 'Case 001 C2 증거 연결', body: '파일 존재와 실행·통신을 단계별 증거로 연결합니다.', nodes: ['Disk · coreupdater.exe 존재', 'Memory · coreupdater.exe 프로세스 관찰', 'Memory · 203.78.103.109:443 endpoint', 'PCAP · 같은 두 IP의 통신', 'HTTP · /coreupdater.exe 유입 흔적'] },
+          { type: 'evidence-board', title: '같은 통신을 Host와 Network에서 교차 확인', sections: [
+            { label: 'Memory에서 직접 관찰', items: ['DC01에서 `coreupdater.exe` 프로세스가 보임', 'PID와 연결된 203.78.103.109:443 endpoint가 보임', '수집 시점에 가까운 실행 상태를 설명할 수 있음'] },
+            { label: 'PCAP에서 직접 관찰', items: ['10.42.85.10과 203.78.103.109 사이 Packet·Flow가 보임', '시간·방향·Port·전송량을 확인할 수 있음', 'HTTP `/coreupdater.exe` 요청과 응답 상태를 별도 Event로 확인할 수 있음'] },
+            { label: '두 증거를 연결해 해석', items: ['Host·IP·Port·시간이 맞으면 프로세스와 통신의 연관성이 강해짐', '사건 Context상 C2 후보로 분류하고 반복 주기·TLS·전송량을 추가 조사', '암호화된 payload를 읽지 못해도 통신 상대·시각·크기·빈도 같은 metadata는 분석 가능'] },
+            { label: '아직 확정하지 않음', items: ['443을 사용했다는 이유만으로 C2라고 단정하지 않음', 'HTTP 200만으로 다운로드 파일의 실행을 단정하지 않음', '외부 통신만으로 특정 기밀 데이터 유출을 단정하지 않음'] },
+          ] },
           { type: 'code', title: 'Wireshark 표시 필터', language: 'text', sourceType: 'educational-reconstruction', description: 'Case 001에서 이미 수집된 PCAP을 좁혀 읽기 위한 표시 필터입니다. 외부 호스트로 패킷을 보내지 않습니다.', code: 'ip.addr == 10.42.85.10 && ip.addr == 203.78.103.109\nhttp.request.uri contains "coreupdater"' },
+          { type: 'explanation', title: 'Wireshark 필터 결과를 문장으로 바꾸기', paragraphs: ['첫 번째 필터는 두 주소가 Source 또는 Destination으로 함께 등장하는 Packet만 남깁니다. 결과가 있다는 사실은 두 주소 사이 Traffic이 캡처됐다는 뜻입니다. 어떤 프로세스가 만들었는지는 Memory나 Endpoint 로그가 보강해야 합니다.', '두 번째 필터는 HTTP 요청 URI에 `coreupdater` 문자열이 있는 요청을 찾습니다. GET과 응답 200을 확인하면 파일명에 해당하는 리소스를 요청했고 서버가 성공 상태로 응답했다는 데까지 말할 수 있습니다. 저장 완료·실행·악성 행위는 별도 증거로 확인합니다.'] },
+          { type: 'misconception', title: '암호화된 통신을 만났을 때', items: ['payload를 복호화하지 못하면 아무것도 분석할 수 없다.', '443/TCP이면 정상 HTTPS다.', '외부 IP와 통신했으므로 C2가 확정됐다. 실제로는 주소·시간·방향·빈도·전송량·TLS metadata와 Host 증거를 먼저 연결하고, 복호화는 합법적인 키와 수집 조건이 있을 때만 별도 수행합니다.'] },
           checkpoint('w5-memory-network-check', 'Disk에서 파일을 찾은 뒤 Memory에서 같은 프로세스를 확인하는 이유는?', ['파일 존재와 실제 실행은 다른 주장이라서', 'Hash 값을 짧게 만들기 위해', 'PCAP을 자동 삭제하기 위해'], 0, 'Disk의 파일 존재와 Memory의 실행 상태는 서로 다른 사실이므로 별도 증거가 필요합니다.'),
           { type: 'sources', title: '분석 도구 공식 문서', items: [sources.volatility, sources.wireshark] },
           { type: 'summary', title: '핵심 정리', bullets: ['파일 존재, 프로세스 실행, 네트워크 통신을 구분한다.', 'Memory endpoint와 PCAP 패킷을 호스트·IP·시간으로 교차 확인한다.', 'C2라는 결론은 시나리오 Context와 반복 통신·프로세스 근거를 함께 요구한다.'] },
@@ -379,11 +436,30 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w5-rdp-timeline',
         title: 'RDP 침입·내부 이동과 사건 타임라인',
-        duration: 55,
+        duration: 85,
         summary: 'PCAP의 RDP 통신과 EVTX 세션 기록을 연결해 외부 침입과 내부 이동을 구분합니다.',
         objectiveIndexes: [4],
         blocks: [
           { type: 'explanation', title: '연결 시도와 로그인 성공은 다르다', paragraphs: ['TCP 3389 연결이나 RDP 프로토콜 협상이 보였다는 사실만으로 사용자 인증과 세션 생성까지 확정할 수는 없습니다. PCAP은 통신 주체와 프로토콜 흐름을 보여 주고, TerminalServices EVTX는 세션 생성·종료와 사용자·Source Address 같은 Host 사건을 보강합니다.', 'Case 001에서는 외부 주소 194.61.24.102에서 DC01로 향한 RDP 접근을 확인한 뒤, 관련 EVTX에서 실제 세션 생성 여부를 찾습니다. 이후 DC01에서 Desktop 10.42.85.115로 향한 RDP는 외부 초기 침입과 구분해 내부 이동 후보로 배치합니다.'] },
+          { type: 'comparison', title: 'RDP 흐름을 다섯 단계로 나눠 보기', columns: ['단계', '관찰 대상', '말할 수 있는 범위'], rows: [
+            ['1 · TCP 연결', 'Source·Destination IP, 3389/TCP, SYN 흐름', '두 endpoint 사이 연결 시도가 있었음'],
+            ['2 · RDP 협상', 'RDP protocol handshake·capability', 'RDP로 해석 가능한 통신이 진행됨'],
+            ['3 · 인증', 'Windows 인증·보안 로그와 계정', '어떤 계정의 인증이 성공 또는 실패했는지'],
+            ['4 · 세션 생성', 'TerminalServices-LocalSessionManager Event', '원격 세션이 생성·연결·재연결됐는지'],
+            ['5 · 세션 사용', '프로세스·파일·명령·후속 Network 증거', '로그인 뒤 실제로 수행한 행동'],
+          ] },
+          { type: 'command-guide', title: 'RDP EVTX를 찾고 문맥까지 읽기', intro: 'PCAP에서 얻은 Source IP와 시간대를 기준으로 Host 로그를 좁힙니다. Event ID 한 줄만 보지 않고 같은 Event의 계정·Source Address·Session ID를 함께 읽습니다.', commands: [
+            { syntax: "sudo fls -r -p -o 718848 /mnt/ewf/ewf1 | grep 'TerminalServices-LocalSessionManager%4Operational.evtx'", purpose: 'Windows 파티션 전체에서 RDP 세션 Provider의 EVTX 경로와 메타데이터 주소를 찾습니다.', options: [{ flag: '-r -p', description: '하위 경로를 재귀적으로 탐색하고 전체 경로를 출력합니다.' }] },
+            { syntax: 'sudo icat -o 718848 /mnt/ewf/ewf1 <metadata-address> > TerminalServices-LSM.evtx', purpose: '`fls`에서 확인한 메타데이터 주소로 EVTX 내용을 분석 파일에 추출합니다.', options: [{ flag: '<metadata-address>', description: '환경마다 달라지므로 `fls` 결과의 값을 사용합니다.' }] },
+            { syntax: "grep -n -B 15 -A 25 -E '<EventID[^>]*>(21|22|24|25)</EventID>' TerminalServices-LSM.xml", purpose: 'EVTX를 XML로 변환한 뒤 세션 관련 Event의 앞뒤 문맥에서 시간·계정·Source Address를 함께 확인합니다.', options: [{ flag: '-n', description: '결과의 줄 번호를 표시합니다.' }, { flag: '-B 15 -A 25', description: 'Event ID 앞 15줄과 뒤 25줄을 같이 표시합니다.' }, { flag: '-E', description: '여러 Event ID를 하나의 확장 정규식으로 찾습니다.' }] },
+          ] },
+          { type: 'comparison', title: 'LocalSessionManager Event를 읽는 기준', columns: ['Event ID', '일반적 의미', 'Case 001에서 확인할 필드'], rows: [
+            ['21', '세션 로그온 성공', 'User, Session ID, Source Network Address, TimeCreated'],
+            ['22', '원격 세션 Shell 시작', 'User와 Session ID가 Event 21과 이어지는지'],
+            ['24', '세션 연결 해제', '같은 Session ID의 종료가 아니라 일시 분리인지'],
+            ['25', '세션 재연결', '재연결 Source Address와 계정이 앞선 세션과 같은지'],
+          ] },
+          { type: 'warning', title: 'Event ID는 Provider와 Channel까지 함께 기록', body: '같은 숫자라도 다른 Windows Provider에서는 뜻이 달라질 수 있습니다. 보고서에는 숫자만 적지 말고 `Microsoft-Windows-TerminalServices-LocalSessionManager/Operational`, Event ID, 시각, 계정, Source Address를 함께 기록합니다.' },
           { type: 'timeline', title: '현재까지 확인한 Case 001 흐름', items: [
             { title: '외부 RDP 접근', body: '194.61.24.102에서 DC01 10.42.85.10:3389로 통신' },
             { title: 'RDP 세션 근거 확인', body: 'PCAP과 TerminalServices EVTX를 교차 확인' },
@@ -393,6 +469,12 @@ export const actualClassWeeks = Object.freeze({
             { title: '다음 조사', body: 'Desktop 실행·통신, 민감 파일 접근, 실제 유출 증거 확인' },
           ] },
           { type: 'code', title: 'RDP 관련 표시 필터', language: 'text', sourceType: 'educational-reconstruction', description: 'Case 001 PCAP 안에서 통신 존재를 확인하는 교육용 필터입니다.', code: 'ip.addr == 194.61.24.102 && tcp.port == 3389\nip.src == 10.42.85.10 && ip.dst == 10.42.85.115 && tcp.dstport == 3389' },
+          { type: 'evidence-board', title: '현재 타임라인의 주장 수준', sections: [
+            { label: '직접 관찰', items: ['194.61.24.102 ↔ DC01:3389의 Packet·RDP 흐름', 'TerminalServices EVTX의 세션 관련 Event와 Source Address', 'DC01 → Desktop 10.42.85.115:3389의 내부 Traffic'] },
+            { label: '여러 증거가 함께 지지', items: ['외부 주소에서 DC01로 RDP 접근 후 세션이 성립한 흐름', 'DC01이 이후 내부 Desktop으로 RDP를 시도한 내부 이동 후보', 'coreupdater.exe의 Disk 존재·Memory 실행·외부 통신 연결'] },
+            { label: '아직 추가 조사', items: ['Desktop에서 실제 세션과 프로세스가 생성됐는지', 'Desktop에서도 coreupdater.exe가 실행되고 C2에 연결됐는지', '민감 파일·archive 접근과 외부 전송이 있었는지'] },
+          ] },
+          { type: 'misconception', title: '빈 구간을 추측으로 채우지 않기', items: ['DC01에서 Desktop으로 3389 Traffic이 있으니 내부 이동이 성공했다.', '외부 세션이 있었으니 그 사용자가 coreupdater.exe를 실행했다.', '민감 파일 유출 신고가 있으니 PCAP의 외부 통신이 곧 유출이다. 현재 증거가 지지하지 않는 연결은 가설 또는 다음 조사 항목으로 남깁니다.'] },
           checkpoint('w5-rdp-timeline-check', 'PCAP에서 TCP 3389 연결이 보인 뒤 로그인 성공을 확인하려면 무엇을 추가로 봐야 하는가?', ['RDP 세션 관련 EVTX', '프로젝트 예산표', '브라우저 테마 설정'], 0, 'Host의 RDP 세션 로그를 함께 확인해야 인증·세션 생성 주장을 보강할 수 있습니다.'),
           { type: 'practice-link', title: 'Case 001 증거 연결 활동', body: '고정 전사에서 직접 관찰한 증거만 골라 사건 흐름을 연결합니다.', labIds: ['w5-case001-evidence-chain'] },
           { type: 'summary', title: '핵심 정리', bullets: ['연결 시도·인증·세션 생성을 같은 주장으로 묶지 않는다.', '외부 침입과 내부 이동을 Source·Destination·시간으로 구분한다.', '현재 증거가 지지하지 않는 유출 범위는 다음 조사 항목으로 남긴다.'] },
@@ -400,11 +482,11 @@ export const actualClassWeeks = Object.freeze({
       },
     ],
     labs: [weekFiveLab],
-    deliverables: ['Case 001 증거 연결표와 사건 타임라인', 'Disk·Memory·PCAP·EVTX별 직접 관찰 사실', '확인된 사실과 추가 조사 항목을 분리한 DFIR 노트'],
+    deliverables: ['Case 001 증거 연결표와 단계별 사건 타임라인', 'Disk·Memory·PCAP·EVTX 명령·출력 해석표', '확인된 사실·분석가 해석·추가 조사 항목을 분리한 DFIR 노트'],
     recordBlueprint: {
       title: 'Case 001 DFIR 분석 노트',
       description: '도구 출력 자체보다 어떤 질문에 어떤 증거가 답했는지 시간순으로 연결합니다.',
-      sections: ['사건 질문과 증거 범위', 'Disk·Memory·PCAP·EVTX 관찰', '외부 침입·실행·C2·내부 이동 타임라인', '확인하지 못한 범위와 다음 조사'],
+      sections: ['사건 질문과 증거·도구·Hash 범위', 'Autoruns·Disk·Memory·PCAP·EVTX 직접 관찰', '명령별 입력·option·출력 해석', '외부 침입·실행·C2·내부 이동 타임라인', '관찰·해석·확인하지 못한 범위와 다음 조사'],
     },
     reportConnection: '증거별 관찰 사실, 서로 연결한 해석, 확인하지 못한 영향을 분리해 사건 보고서의 근거로 사용합니다.',
   },
@@ -430,11 +512,18 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w6-monitoring-foundations',
         title: '수동 분석에서 보안관제로',
-        duration: 35,
+        duration: 50,
         summary: 'Wireshark로 한 흐름을 깊게 보는 일과 IDS가 대량 트래픽에서 후보를 찾는 일을 연결합니다.',
         objectiveIndexes: [0],
         blocks: [
           { type: 'explanation', title: '왜 자동 탐지가 필요한가', paragraphs: ['Wireshark 수동 분석은 필터·Stream·패킷 내용을 세밀하게 확인하는 데 강합니다. 하지만 트래픽이 커지면 모든 패킷을 사람이 같은 깊이로 읽을 수 없습니다.', 'Network Security Monitoring은 Source·Destination IP와 Port, 프로토콜, Flow, 알려진 공격 패턴과 비정상 통신 특징을 기록해 분석가가 우선 볼 대상을 빠르게 찾도록 합니다. Alert는 결론이 아니라 조사할 후보입니다.'] },
+          { type: 'timeline', title: '보안관제에서 Alert를 다루는 순서', items: [
+            { title: '수집', body: 'Sensor가 Packet·Flow·DNS·HTTP·TLS 같은 Network telemetry를 기록합니다.' },
+            { title: '탐지', body: 'Rule 또는 분석 모델이 조건과 일치한 Traffic에 Alert를 붙입니다.' },
+            { title: '분류', body: '자산 중요도, 사용자, 시간대, 과거 활동과 연결해 우선순위를 정합니다.' },
+            { title: '검증', body: '원본 Packet과 Endpoint·인증 로그를 확인해 오탐과 실제 침해 후보를 구분합니다.' },
+            { title: '대응·개선', body: '필요한 대응을 수행하고 탐지 공백·과도한 조건을 Rule에 반영합니다.' },
+          ] },
           { type: 'comparison', title: 'IDS와 IPS', columns: ['구분', 'IDS', 'IPS'], rows: [
             ['목적', '공격 의심 행위 탐지', '탐지와 정책 기반 차단'],
             ['배치', '미러링된 트래픽 또는 저장 PCAP 관찰', '통신 경로 Inline'],
@@ -442,6 +531,13 @@ export const actualClassWeeks = Object.freeze({
             ['운영 위험', '직접 차단 영향이 낮음', '오탐·설정 오류가 정상 통신에 영향'],
             ['이번 수업', '오프라인 PCAP 탐지', '사용하지 않음'],
           ] },
+          { type: 'comparison', title: '탐지 품질을 판단하는 네 가지 결과', columns: ['실제 상태', '탐지 결과', '이름', '의미'], rows: [
+            ['침해 행위 있음', 'Alert 있음', 'True Positive', '의도한 위협을 탐지함'],
+            ['정상 행위', 'Alert 있음', 'False Positive', '정상 활동을 위협으로 잘못 탐지함'],
+            ['정상 행위', 'Alert 없음', 'True Negative', '불필요한 Alert를 만들지 않음'],
+            ['침해 행위 있음', 'Alert 없음', 'False Negative', '탐지 공백이 존재함'],
+          ] },
+          { type: 'misconception', title: 'Alert가 많으면 좋은 IDS인가', items: ['Alert 수가 많을수록 보안이 강하다.', 'Alert가 없으면 공격이 없었다.', 'IPS로 바꾸면 모든 문제를 자동으로 차단한다. 탐지 품질은 건수가 아니라 실제 Context에서 오탐·미탐과 분석 가능성을 함께 평가해야 합니다.'] },
           checkpoint('w6-monitoring-foundations-check', '이번 수업에서 Suricata를 사용하는 방식은?', ['운영망 Inline 차단', '저장된 PCAP의 오프라인 IDS 분석', '외부 서버 자동 스캔'], 1, '수업은 Case 001 PCAP을 읽어 Alert와 Event를 분석하며 운영 통신을 차단하지 않습니다.'),
           { type: 'summary', title: '핵심 정리', bullets: ['수동 분석은 깊이, IDS는 대량 트래픽의 우선순위화에 강하다.', 'IDS는 탐지하고 IPS는 통신 경로에서 차단할 수 있다.', 'Alert는 분석 시작점이며 사고 확정이 아니다.'] },
         ],
@@ -449,11 +545,19 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w6-suricata-pipeline',
         title: 'Suricata 처리 구조와 현대 보안 도구',
-        duration: 40,
+        duration: 65,
         summary: '패킷 분석·프로토콜 해석·Rule 비교·로그 출력 흐름과 SIEM·EDR·XDR의 역할을 구분합니다.',
         objectiveIndexes: [1],
         blocks: [
           { type: 'diagram', title: 'Suricata가 Traffic을 처리하는 흐름', body: '패킷을 Flow로 묶고 응용 프로토콜을 해석한 뒤 Rule과 비교해 Event·Alert를 출력합니다.', nodes: ['Network Traffic 또는 PCAP', 'Packet decode', 'Flow tracking', 'HTTP·DNS·TLS·RDP protocol parsing', 'Detection Rule matching', 'EVE JSON · fast.log', '분석가 판단'] },
+          { type: 'comparison', title: '처리 단계마다 새로 생기는 정보', columns: ['단계', '입력', '추가되는 해석', '대표 출력'], rows: [
+            ['Packet decode', '캡처된 frame·byte', 'IP·TCP·UDP header와 주소·Port', 'packet metadata'],
+            ['Flow tracking', '같은 5-Tuple의 Packet', '양방향 세션·상태·전송량', '`event_type: flow`'],
+            ['Protocol parsing', 'Flow payload와 상태', 'HTTP Method·URL, DNS query, TLS, RDP 같은 응용 의미', '`event_type: http·dns·tls·rdp`'],
+            ['Rule matching', 'Packet·Flow·Protocol field', '활성 Rule 조건 일치 여부', '`event_type: alert`'],
+            ['Output', '해석된 Event와 Alert', 'JSON field 또는 한 줄 Alert 요약', '`eve.json` · `fast.log`'],
+          ] },
+          { type: 'explanation', title: 'PCAP 분석도 같은 엔진을 사용한다', paragraphs: ['실시간 IDS에서는 네트워크 인터페이스가 입력이고, 이번 수업에서는 저장된 `case001.pcap`이 입력입니다. 입력 방식만 바뀌며 Packet decode, Flow tracking, Protocol parsing, Rule matching은 같은 논리로 진행됩니다.', '따라서 오프라인 재분석은 Rule 변경 전후를 같은 Packet으로 비교하기 좋습니다. 다만 실제 운영망의 Packet loss, 비대칭 routing, 암호화 키, Inline 차단 효과까지 그대로 재현하는 것은 아닙니다.'] },
           { type: 'comparison', title: '영역별 보안 솔루션', columns: ['영역', '솔루션', '주요 데이터'], rows: [
             ['Network', 'IDS · IPS · NDR', 'Packet·Flow·DNS·HTTP·TLS'],
             ['Endpoint', 'EDR', '프로세스·파일·Registry 행위'],
@@ -464,7 +568,10 @@ export const actualClassWeeks = Object.freeze({
             { syntax: 'suricata -V', purpose: '설치된 Suricata 버전을 확인합니다.', options: [] },
             { syntax: 'sudo suricata -T -c /etc/suricata/suricata.yaml', purpose: '실제 분석 전에 설정과 Rule 로딩 가능 여부를 검사합니다.', options: [{ flag: '-T', description: 'Test mode로 설정을 검증하고 종료합니다.' }, { flag: '-c', description: '사용할 설정 파일을 지정합니다.' }] },
             { syntax: 'sudo suricata-update', purpose: '환경에서 사용하는 Rule source를 갱신합니다.', options: [] },
+            { syntax: 'mkdir -p ~/week6/logs/default', purpose: '`-l`로 지정할 출력 디렉터리를 분석 전에 만듭니다.', options: [{ flag: '-p', description: '상위 디렉터리가 없어도 함께 만들고, 이미 있어도 오류를 내지 않습니다.' }] },
+            { syntax: 'sudo suricata -r ~/week6/case001.pcap -c /etc/suricata/suricata.yaml -l ~/week6/logs/default', purpose: '저장된 PCAP을 기본 Rule 구성으로 처음부터 끝까지 읽고 결과를 별도 폴더에 남깁니다.', options: [{ flag: '-r', description: '실시간 인터페이스 대신 PCAP 파일을 입력으로 사용합니다.' }, { flag: '-c', description: '설정 파일과 그 안의 변수·출력·Rule 구성을 사용합니다.' }, { flag: '-l', description: 'fast.log와 eve.json을 저장할 디렉터리를 지정합니다.' }] },
           ] },
+          { type: 'explanation', title: '정상 종료 메시지와 재현 조건', paragraphs: ['오프라인 분석에서 `pcap: read 1 file, 411797 packets`처럼 입력을 끝까지 읽었다는 통계가 나오면 처리 범위를 확인할 수 있습니다. 파일 끝에서 엔진이 멈췄다는 메시지는 항상 오류를 뜻하지 않으므로 종료 코드와 Error 줄을 함께 봅니다.', '강의자료의 기본 Rule 수나 479 Alert는 당시 환경의 관찰값입니다. Suricata 버전, `suricata.yaml`, HOME_NET, 활성 Rule source, Rule 업데이트 날짜, PCAP Hash가 달라지면 결과도 달라질 수 있습니다. 분석 노트에 이 조건을 적어야 숫자를 재현할 수 있습니다.'] },
           checkpoint('w6-suricata-pipeline-check', 'Suricata가 HTTP 요청을 의미 있는 필드로 해석하는 단계는?', ['프로토콜 분석', '프로젝트 예산 승인', '사용자 이름 공개'], 0, '프로토콜 분석 단계에서 원시 패킷을 HTTP, DNS, TLS, RDP 같은 의미 있는 Event로 해석합니다.'),
           { type: 'sources', title: '공식 문서', items: [sources.suricata] },
           { type: 'summary', title: '핵심 정리', bullets: ['Suricata는 Packet·Flow·프로토콜·Rule의 여러 층을 처리한다.', 'SIEM·EDR·XDR은 관찰 영역과 데이터가 다르다.', '버전과 설정 검사를 먼저 해 수업 결과의 재현 조건을 남긴다.'] },
@@ -473,7 +580,7 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w6-packet-alert-model',
         title: 'Packet에서 Incident까지',
-        duration: 35,
+        duration: 55,
         summary: '개별 패킷이 Flow와 Event로 묶이고 Rule과 일치할 때 Alert가 되며, 분석 뒤에야 Incident로 판단됩니다.',
         objectiveIndexes: [2],
         blocks: [
@@ -485,7 +592,16 @@ export const actualClassWeeks = Object.freeze({
             ['Incident', '여러 증거를 분석해 실제 보안 사고로 판단한 사건', 'Case 001 침해 흐름'],
           ] },
           { type: 'diagram', title: '5-Tuple로 Flow 구분하기', body: '방향과 프로토콜을 포함해야 같은 통신 흐름을 일관되게 찾을 수 있습니다.', nodes: ['Source IP · 10.42.85.10', 'Source Port · 62613', 'Destination IP · 203.78.103.109', 'Destination Port · 443', 'Protocol · TCP'] },
+          { type: 'explanation', title: '5-Tuple은 “누가 누구에게”를 보존한다', paragraphs: ['IP 두 개만 같아도 DNS, Kerberos, HTTPS, RDP처럼 여러 통신이 동시에 존재할 수 있습니다. Source·Destination Port와 Protocol까지 포함해야 분석할 Flow를 구분할 수 있습니다.', '방향도 중요합니다. `10.42.85.10:any → 10.42.85.115:3389/TCP`는 DC01이 Desktop의 RDP 서비스로 접속하는 흐름이고, 반대 방향 Rule은 같은 의미가 아닙니다. 응답 Packet은 역방향이므로 Suricata의 Flow 방향과 Rule 방향을 함께 봅니다.'] },
+          { type: 'evidence-board', title: '하나의 Case 001 통신이 여러 Event로 보이는 이유', sections: [
+            { label: 'Flow Event', items: ['5-Tuple, 시작·종료, Packet·byte 수, `app_proto`, `alerted` 같은 세션 요약', '통신 존재와 전체 규모를 확인하는 출발점'] },
+            { label: 'RDP Event', items: ['Suricata가 payload와 상태를 RDP로 해석한 프로토콜 Event', 'RDP로 분류됐다는 뜻이며 Windows 인증 성공을 직접 증명하지 않음'] },
+            { label: 'Alert Event', items: ['같은 Traffic이 활성 Rule 조건과 일치했을 때만 생성', '`alert.signature`, category, severity, signature_id를 포함'] },
+            { label: 'Incident 판단', items: ['Network Event에 Host·계정·시간·자산 Context를 결합한 분석가의 결론', '자동으로 생성되는 단일 JSON Event가 아님'] },
+          ] },
           { type: 'warning', title: 'Traffic 존재와 Alert 존재를 혼동하지 않기', body: 'Suricata가 Flow나 RDP Event를 기록했더라도 활성화된 Rule과 일치하지 않으면 Alert는 없을 수 있습니다. 반대로 Alert가 있어도 Context와 Host 증거를 확인하기 전에는 Incident를 확정하지 않습니다.' },
+          { type: 'case', title: '빈 출력도 분석 결과가 될 수 있다', body: 'DC01 → Desktop:3389 조건의 Flow와 RDP Event는 존재하지만 같은 5-Tuple의 Alert query가 빈 결과라면, “Traffic 없음”이 아니라 “현재 로드된 Rule 중 이 조건과 일치해 Alert를 만든 Rule 없음”으로 기록합니다.', facts: ['Traffic query 결과가 존재함', '`event_type: rdp` 또는 `app_proto: rdp`가 존재함', '`event_type: alert`와 동일 5-Tuple query는 0건', 'Rule set·설정·분석 로그 경로가 동일한지 확인함'] },
+          { type: 'misconception', title: '단계를 건너뛴 결론', items: ['`event_type: rdp`이므로 공격이다.', '`alerted: false`이므로 RDP가 없었다.', 'Alert가 있으므로 Incident가 확정됐다.', 'Incident로 확인됐으므로 모든 관련 Traffic에는 반드시 기존 Alert가 있다. 각 단계는 서로 다른 질문에 답합니다.'] },
           checkpoint('w6-packet-alert-model-check', 'Suricata가 RDP Event를 기록했지만 alerted=false라면 맞는 설명은?', ['통신은 관찰됐지만 현재 Rule에 의한 Alert는 없음', 'RDP 통신 자체가 존재하지 않음', '운영망에서 자동 차단이 완료됨'], 0, '프로토콜 Event와 Alert는 다른 층입니다. Traffic이 있어도 Rule이 일치하지 않으면 Alert는 없을 수 있습니다.'),
           { type: 'summary', title: '핵심 정리', bullets: ['5-Tuple은 Flow를 구분하는 기본 열쇠다.', 'Event는 해석된 활동, Alert는 Rule 일치 결과다.', 'Incident는 Alert 하나가 아니라 Context와 여러 증거의 분석 결과다.'] },
         ],
@@ -493,11 +609,13 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w6-rule-anatomy',
         title: 'Suricata Rule 읽기와 쓰기',
-        duration: 55,
+        duration: 90,
         summary: 'Action·Protocol·Source·Direction·Destination과 msg·sid·rev를 읽고 Case 001 내부 RDP 조건을 표현합니다.',
         objectiveIndexes: [3],
         blocks: [
-          { type: 'code', title: 'Rule의 기본 구조', language: 'suricata', sourceType: 'educational-reconstruction', description: 'Case 001의 내부 RDP 흐름을 탐지하기 위한 교육용 Local Rule입니다.', code: 'alert tcp 10.42.85.10 any -> 10.42.85.115 3389 (msg:"CASE001 Suspicious Internal RDP"; sid:1000001; rev:1;)', annotations: ['`alert`는 탐지 결과를 생성합니다.', '`tcp`와 Source·Destination·Port가 볼 Traffic을 정합니다.', '`msg`는 분석가가 읽을 이름, `sid`는 Rule 식별자, `rev`는 개정 번호입니다.', 'Source Port는 접속마다 바뀔 수 있어 `any`로 두었습니다.'] },
+          { type: 'explanation', title: 'Rule은 사건의 관찰값을 기계가 비교할 조건으로 바꾼 것', paragraphs: ['Rule을 쓸 때 먼저 “어떤 Packet·Flow·Protocol field가 이 행동을 다른 Traffic과 구분하는가”를 묻습니다. IP와 Port만 쓰면 빠르게 만들 수 있지만 환경이 바뀌면 쉽게 놓치고, 정상 관리 Traffic까지 잡을 수 있습니다.', 'Case 001에서는 이미 확인한 DC01 → Desktop:3389 흐름을 재현하는 좁은 Rule부터 시작합니다. 이 Rule은 수업 PCAP의 탐지 공백을 보여 주는 데 적합하지만, 모든 내부 이동을 탐지하는 일반 Rule은 아닙니다.'] },
+          { type: 'code', title: '예시 1 · HTTP URI 특징을 보는 Rule', language: 'suricata', sourceType: 'educational-reconstruction', description: 'PPT의 coreupdater 요청 예시를 별도 SID로 재구성했습니다. 실제 환경에서는 기존 SID와 겹치지 않는지 확인합니다.', code: 'alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"CASE001 coreupdater request"; flow:established,to_server; http.uri; content:"/coreupdater.exe"; nocase; sid:1000002; rev:1;)', annotations: ['`http`는 Suricata가 HTTP로 해석한 Traffic을 검사합니다.', '`flow:established,to_server`는 성립된 Flow에서 서버 방향 요청을 봅니다.', '`http.uri`는 다음 `content`가 HTTP URI buffer를 대상으로 하게 합니다.', '`nocase`는 문자열 비교에서 대소문자를 구분하지 않습니다.'] },
+          { type: 'code', title: '예시 2 · Case 001 내부 RDP 5-Tuple Rule', language: 'suricata', sourceType: 'educational-reconstruction', description: 'Case 001의 DC01에서 Desktop으로 향한 내부 RDP 흐름을 탐지하는 교육용 Local Rule입니다.', code: 'alert tcp 10.42.85.10 any -> 10.42.85.115 3389 (msg:"CASE001 Suspicious Internal RDP"; sid:1000001; rev:1;)', annotations: ['`alert`는 조건이 맞으면 탐지 결과를 생성합니다.', '`tcp`와 Source·Destination·Port가 볼 Traffic을 정합니다.', '`msg`는 분석가가 읽을 이름, `sid`는 Rule 식별자, `rev`는 개정 번호입니다.', 'Source Port는 클라이언트 연결마다 바뀔 수 있어 `any`로 두었습니다.'] },
           { type: 'comparison', title: 'Header와 Options', columns: ['구역', '항목', '역할'], rows: [
             ['Header', 'action · protocol', '탐지 결과와 검사할 프로토콜을 정함'],
             ['Header', 'src_ip · src_port · direction', '통신의 출발 조건과 방향을 정함'],
@@ -505,10 +623,32 @@ export const actualClassWeeks = Object.freeze({
             ['Options', 'msg', 'Alert에 표시할 분석가용 설명'],
             ['Options', 'sid · rev', 'Rule 식별자와 개정 상태'],
           ] },
+          { type: 'comparison', title: 'Header 값을 읽는 방법', columns: ['항목', '쓸 수 있는 값 예시', '읽는 기준'], rows: [
+            ['Action', '`alert` · `pass` · `drop` · `reject`', '`drop`·`reject`는 Inline IPS 조건과 운영 영향을 함께 검토'],
+            ['Protocol', '`tcp` · `udp` · `icmp` · `http` · `dns` · `tls`', '전송 계층 또는 Suricata가 해석한 응용 프로토콜'],
+            ['IP', '`10.0.0.5` · `10.0.0.0/24` · `[A,B]` · `any` · `!A` · `$HOME_NET`', '단일 주소·대역·목록·전체·제외·설정 변수'],
+            ['Port', '`80` · `[80,443]` · `1024:` · `1:1023` · `any` · `!80`', '단일·목록·범위·전체·제외'],
+            ['Direction', '`->` · `<>`', '한 방향 또는 양방향이며 Source와 Destination 순서가 의미를 가짐'],
+          ] },
+          { type: 'comparison', title: 'Options를 왼쪽부터 해석하기', columns: ['Option', '이번 Rule의 값', 'Alert에 미치는 영향'], rows: [
+            ['`msg`', '`CASE001 Suspicious Internal RDP`', '`fast.log`와 EVE alert signature에 보일 분석가용 이름'],
+            ['`sid`', '`1000001`', 'Local Rule을 고유하게 식별하며 다른 Rule과 중복되면 안 됨'],
+            ['`rev`', '`1`', '조건이나 설명을 바꿀 때 올리는 Rule 개정 번호'],
+            ['`flow`', '`established,to_server`', '성립된 Flow의 서버 방향처럼 상태·방향을 더 제한'],
+            ['`content`', '`/coreupdater.exe`', '선택한 buffer에서 찾을 byte·문자열 특징'],
+          ] },
           { type: 'command-guide', title: 'Local Rule 검사와 재분석', commands: [
             { syntax: 'sudo suricata -T -c /etc/suricata/suricata.yaml -S ~/week6/case001.rules', purpose: 'Local Rule 문법과 설정 로딩을 먼저 검사합니다.', options: [{ flag: '-S', description: '지정한 Rule 파일만 로드합니다.' }] },
             { syntax: 'sudo suricata -r ~/week6/case001.pcap -c /etc/suricata/suricata.yaml -S ~/week6/case001.rules -l ~/week6/logs/local', purpose: '같은 PCAP을 Local Rule로 다시 분석해 결과를 별도 디렉터리에 저장합니다.', options: [{ flag: '-r', description: '저장된 PCAP을 오프라인으로 읽습니다.' }, { flag: '-l', description: '결과 로그 디렉터리를 지정합니다.' }] },
           ] },
+          { type: 'retest', title: 'Rule을 통과시켜야 하는 최소 재시험', intro: '한 PCAP에서 Alert 한 건이 생긴 것만 확인하지 말고, 의도한 조건과 인접한 정상 조건을 비교합니다.', rows: [
+            { label: '의도한 Case 001 Flow', check: '10.42.85.10 → 10.42.85.115:3389/TCP', expected: 'SID 1000001 Alert 생성' },
+            { label: '반대 방향', check: '10.42.85.115 → 10.42.85.10:3389/TCP', expected: '`->` Rule이면 같은 조건으로 Alert하지 않음' },
+            { label: '다른 목적지 Port', check: '10.42.85.10 → 10.42.85.115:443/TCP', expected: 'RDP Rule Alert 없음' },
+            { label: '정상 관리 RDP', check: '승인된 관리자·점프 호스트의 RDP', expected: '운영 적용 전 allowlist·시간·자산 Context 검토' },
+            { label: '재분석 분리', check: 'default와 local 로그 경로·PCAP Hash 비교', expected: 'Rule 변경 외 입력 조건이 같음을 설명 가능' },
+          ] },
+          { type: 'warning', title: '이 Rule은 사건 재현용 탐지부터 시작한다', body: '특정 IP 두 개와 Port를 고정한 Rule은 Case 001 PCAP에서 설명하기 쉽지만 주소가 바뀌면 탐지하지 못합니다. 운영용으로 확장할 때는 허가된 RDP 경로, 사용자·자산 Context, 시간대, 빈도, Endpoint 근거를 SIEM 등에서 함께 연결하고 오탐을 검토합니다.' },
           checkpoint('w6-rule-anatomy-check', 'Rule에서 `sid`의 역할은?', ['Rule을 고유하게 식별', 'PCAP을 삭제', '사용자 비밀번호를 저장'], 0, '`sid`는 Rule을 식별해 Alert와 개정 이력을 연결하는 숫자입니다.'),
           { type: 'sources', title: 'Rule 공식 문서', items: [sources.suricataRules] },
           { type: 'summary', title: '핵심 정리', bullets: ['Header는 어떤 Traffic을 볼지 정한다.', 'Options는 Alert의 의미와 Rule 식별 정보를 붙인다.', '적용 전 `-T` 검사, 적용 뒤 같은 PCAP 재분석이 필요하다.'] },
@@ -517,7 +657,7 @@ export const actualClassWeeks = Object.freeze({
       {
         id: 'w6-eve-case001',
         title: 'EVE JSON으로 Case 001 탐지 검증',
-        duration: 70,
+        duration: 110,
         summary: 'fast.log와 EVE JSON을 구분하고 jq로 Event 종류·IOC·HTTP·RDP·Alert를 단계적으로 좁힙니다.',
         objectiveIndexes: [4],
         blocks: [
@@ -525,14 +665,43 @@ export const actualClassWeeks = Object.freeze({
             ['fast.log', 'Alert 한 건을 한 줄 텍스트로 요약', '탐지 건수와 Signature를 빠르게 훑기'],
             ['eve.json', '한 줄에 JSON Event 하나', 'alert·flow·http·dns·tls·rdp·fileinfo 등을 필드 단위로 분석'],
           ] },
-          { type: 'command-guide', title: 'EVE JSON 분석 순서', commands: [
+          { type: 'explanation', title: 'EVE JSON은 하나의 큰 JSON 배열이 아니다', paragraphs: ['기본 EVE 파일은 보통 한 줄에 Event 객체 하나가 기록되는 JSON Lines 형태입니다. 그래서 전체 파일을 한 번에 배열처럼 읽기보다 `jq`가 각 줄을 순서대로 처리하도록 사용합니다.', '모든 Event가 같은 필드를 갖지는 않습니다. `flow`에는 세션 요약이 있고, `http`에는 Method·Hostname·URL이 있으며, `alert`에는 `alert.signature`가 있습니다. 존재하지 않는 필드를 바로 출력하면 `null`이 나올 수 있으므로 먼저 `event_type`으로 대상을 좁힙니다.'] },
+          { type: 'code', title: '서로 다른 EVE Event의 최소 구조', language: 'json', sourceType: 'educational-reconstruction', description: '같은 Flow와 관련될 수 있지만 Event별 목적과 필드가 다름을 보여 주는 합성 예시입니다.', code: '{"timestamp":"…","event_type":"flow","src_ip":"10.42.85.10","src_port":62613,"dest_ip":"10.42.85.115","dest_port":3389,"proto":"TCP","app_proto":"rdp","flow":{"alerted":false}}\n{"timestamp":"…","event_type":"rdp","src_ip":"10.42.85.10","dest_ip":"10.42.85.115","dest_port":3389}\n{"timestamp":"…","event_type":"alert","src_ip":"10.42.85.10","dest_ip":"10.42.85.115","dest_port":3389,"alert":{"signature_id":1000001,"signature":"CASE001 Suspicious Internal RDP"}}', annotations: ['첫 줄은 통신과 Flow 상태를 요약합니다.', '둘째 줄은 Suricata가 RDP로 해석한 프로토콜 Event입니다.', '셋째 줄은 Local Rule 재분석 뒤에만 기대하는 Alert Event입니다.'] },
+          { type: 'command-guide', title: 'EVE JSON 분석 순서', intro: '전체 규모 → Event 종류 → Signature → IOC → HTTP → 내부 RDP 탐지 공백 순으로 좁히면 큰 로그에서도 질문을 잃지 않습니다.', commands: [
+            { syntax: "EVE=~/week6/logs/default/eve.json; FAST=~/week6/logs/default/fast.log", purpose: '반복해서 사용할 로그 경로를 Shell 변수로 정합니다.', options: [{ flag: 'EVE · FAST', description: '현재 Terminal 세션에서만 쓰는 경로 별칭이며 파일 내용을 바꾸지 않습니다.' }] },
+            { syntax: 'wc -l "$FAST"', purpose: 'fast.log의 한 줄을 Alert 한 건으로 보고 기본 Alert 수를 확인합니다.', options: [] },
             { syntax: "jq -r '.event_type' ~/week6/logs/default/eve.json | sort | uniq -c | sort -nr", purpose: '어떤 Event 종류가 얼마나 있는지 먼저 집계합니다.', options: [] },
+            { syntax: "jq -r 'select(.event_type==\"alert\") | .alert.signature' \"$EVE\" | sort | uniq -c | sort -nr | head -20", purpose: '많이 발생한 Signature를 집계해 반복 Alert와 우선 검토 대상을 찾습니다.', options: [] },
             { syntax: "jq -r 'select(.event_type==\"alert\") | [.timestamp,.src_ip,.src_port,.dest_ip,.dest_port,.alert.signature] | @tsv' ~/week6/logs/default/eve.json", purpose: 'Alert의 시간·5-Tuple·Signature를 표 형식으로 확인합니다.', options: [] },
             { syntax: "jq -c 'select(.src_ip==\"194.61.24.102\" or .dest_ip==\"194.61.24.102\")' ~/week6/logs/default/eve.json", purpose: '외부 RDP 주소가 포함된 모든 Event를 찾습니다.', options: [] },
+            { syntax: "jq -c 'select(.src_ip==\"203.78.103.109\" or .dest_ip==\"203.78.103.109\")' \"$EVE\"", purpose: 'C2 후보 주소와 관련된 Flow·Protocol Event·Alert를 함께 찾습니다.', options: [] },
+            { syntax: "jq -r 'select(.event_type==\"http\") | [.timestamp,.src_ip,.dest_ip,.http.http_method,.http.hostname,.http.url,.http.status] | @tsv' \"$EVE\"", purpose: 'HTTP 요청·응답에서 누가 어느 Host의 어떤 URL을 요청했고 어떤 상태가 기록됐는지 확인합니다.', options: [] },
+            { syntax: "jq -c 'select(.src_ip==\"10.42.85.10\" and .dest_ip==\"10.42.85.115\")' \"$EVE\" | head", purpose: '1단계로 DC01과 Desktop 사이에 어떤 종류든 통신이 존재하는지 확인합니다.', options: [] },
             { syntax: "jq -c 'select(.src_ip==\"10.42.85.10\" and .dest_ip==\"10.42.85.115\" and .dest_port==3389)' ~/week6/logs/default/eve.json", purpose: 'DC01에서 Desktop으로 향한 내부 RDP 흐름과 alerted 상태를 확인합니다.', options: [] },
+            { syntax: "jq -c 'select(.event_type==\"alert\" and .src_ip==\"10.42.85.10\" and .dest_ip==\"10.42.85.115\" and .dest_port==3389)' \"$EVE\"", purpose: '3단계로 같은 5-Tuple에 실제 Alert Event가 존재하는지 확인합니다.', options: [] },
             { syntax: 'grep -i "coreupdater" ~/week6/logs/default/eve.json', purpose: '파일명과 HTTP URL이 포함된 Event를 찾습니다.', options: [] },
           ] },
+          { type: 'evidence-board', title: '내부 RDP 탐지 공백을 증명하는 세 단계', sections: [
+            { label: '1 · Traffic 존재', items: ['`10.42.85.10 → 10.42.85.115` 조건의 Event가 반환됨', 'DNS·Kerberos 등 다른 통신도 섞일 수 있으므로 아직 RDP라고 단정하지 않음'] },
+            { label: '2 · RDP로 좁힘', items: ['목적지 Port 3389와 `event_type: rdp` 또는 `app_proto: rdp` 확인', '`flow.alerted: false`이면 그 Flow에서 Alert가 없었다는 상태를 확인'] },
+            { label: '3 · Alert query', items: ['동일 5-Tuple과 `event_type: alert` 조건은 0건', '기본 Rule 구성에서 이 내부 RDP를 Alert로 만든 Rule이 없었다고 기록'] },
+            { label: '4 · Local Rule 재시험', items: ['SID 1000001 Rule을 `-T`로 검사', '같은 PCAP을 `logs/local`로 재분석', '같은 5-Tuple의 Alert와 signature_id가 생성됐는지 확인'] },
+          ] },
           { type: 'explanation', title: '479 Alerts를 읽는 방법', paragraphs: ['강의 환경의 기본 Rule과 PCAP 조합에서는 fast.log에 479개 Alert가 관찰됐습니다. 이 숫자는 Suricata 버전, 활성 Rule, Rule 업데이트 시점, 설정에 따라 달라질 수 있으므로 보편적인 정답이 아니라 해당 분석 환경의 관찰값으로 기록합니다.', '먼저 전체 Alert 수와 Signature 분포를 보고, 다음으로 194.61.24.102, 203.78.103.109, coreupdater.exe 같은 Case 001 IOC를 Event와 Alert에서 각각 찾습니다. 마지막으로 내부 RDP가 Event로만 존재하고 Alert가 없는 탐지 공백을 Local Rule로 보완합니다.'] },
+          { type: 'comparison', title: '검색 결과를 보고서 문장으로 바꾸기', columns: ['관찰 결과', '가능한 문장', '피해야 할 과장'], rows: [
+            ['`http.url=/coreupdater.exe`, GET, status 200', 'DC01이 해당 URL을 요청했고 성공 상태 응답이 기록됨', '파일이 실행됐고 악성 행위를 완료함'],
+            ['203.78.103.109 관련 Flow 존재', '두 주소 사이 통신이 캡처됨', '이 Flow로 기밀 자료가 유출됨'],
+            ['RDP Event + `alerted:false`', 'Suricata가 RDP로 해석했으나 해당 Flow Alert는 없음', 'RDP 통신이 존재하지 않음'],
+            ['Local SID 1000001 Alert 생성', '작성한 조건이 동일 PCAP의 Flow와 일치함', '운영망의 모든 내부 이동을 탐지함'],
+          ] },
+          { type: 'retest', title: 'Default와 Local 결과 비교표', intro: '두 실행의 입력 조건을 고정하고 Rule 차이 때문에 생긴 결과만 비교합니다.', rows: [
+            { label: '입력 동일성', check: 'case001.pcap Hash와 파일 경로', expected: 'default·local 분석에서 동일' },
+            { label: '환경 기록', check: 'Suricata 버전·설정·HOME_NET', expected: '차이가 있으면 결과 해석에 명시' },
+            { label: '기본 결과', check: '내부 RDP Flow·RDP Event·Alert 수', expected: 'Traffic과 RDP는 존재, 동일 5-Tuple Alert는 0' },
+            { label: 'Local 결과', check: 'signature_id 1000001과 5-Tuple', expected: '의도한 내부 RDP Flow에 Alert 생성' },
+            { label: '과잉 탐지', check: 'SID 1000001의 다른 5-Tuple', expected: 'Rule header 밖의 Traffic에는 생성되지 않음' },
+          ] },
+          { type: 'misconception', title: '로그 숫자와 검색 결과를 과신하지 않기', items: ['479는 어느 환경에서나 나와야 하는 정답이다.', '`grep` 검색 결과 한 줄이 곧 하나의 독립 사건이다.', 'IOC가 로그에 있으면 해당 Event는 모두 악성이다.', 'Local Rule Alert가 생겼으니 실제 운영 차단도 검증됐다. 숫자는 입력·Rule·설정과 함께, IOC는 사건 Context와 함께 해석합니다.'] },
           checkpoint('w6-eve-case001-check', 'EVE JSON에 RDP Event는 있지만 Alert가 없을 때 다음 행동으로 가장 적절한 것은?', ['통신이 없었다고 결론내린다', 'Context를 확인해 필요한 Local Rule을 만들고 같은 PCAP으로 재시험한다', '실제 외부 IP에 접속해 반응을 확인한다'], 1, '관찰된 Traffic과 사건 Context를 바탕으로 제한된 Local Rule을 작성하고 오프라인 PCAP으로 검증합니다.'),
           { type: 'practice-link', title: '탐지 공백 검증 활동', body: '고정 EVE JSON 전사와 Local Rule 결과를 비교합니다.', labIds: ['w6-case001-detection-gap'] },
           { type: 'sources', title: 'EVE JSON 공식 문서', items: [sources.suricataEve] },
@@ -541,11 +710,11 @@ export const actualClassWeeks = Object.freeze({
       },
     ],
     labs: [weekSixLab],
-    deliverables: ['Case 001 EVE JSON 분석표', '내부 RDP 탐지 공백과 Local Rule', 'Rule 검사·재분석·Alert 검증 기록'],
+    deliverables: ['Case 001 EVE JSON Event·Alert 분석표', '내부 RDP 탐지 공백의 세 단계 검증과 Local Rule', 'Default·Local Rule 검사·재분석·오탐 검토 기록'],
     recordBlueprint: {
       title: 'Case 001 Detection Engineering Note',
       description: 'Traffic 존재, 프로토콜 Event, Rule Alert와 Incident 판단을 분리해 기록합니다.',
-      sections: ['분석 환경·Suricata·Rule set 조건', 'Event 종류와 IOC 관찰', '탐지 공백과 Local Rule 설계', '구문 검사·PCAP 재분석·Alert 검증', '오탐 가능성과 운영 적용 전 확인 사항'],
+      sections: ['분석 환경·PCAP Hash·Suricata·Rule set 조건', 'Event 종류·Signature 분포·IOC 관찰', 'Traffic·RDP Event·Alert 단계별 탐지 공백 증명', 'Local Rule Header·Options 설계 근거', '구문 검사·동일 PCAP 재분석·Alert 검증', '오탐·미탐 가능성과 운영 적용 전 확인 사항'],
     },
     reportConnection: '탐지 Rule은 사건 Context, 직접 관찰한 Traffic, 재시험 결과와 함께 기록해 과도한 일반화를 피합니다.',
   },
@@ -564,6 +733,8 @@ export const actualClassQuizzes = Object.freeze({
     ['w5-disk-analysis', '`fls -r -p -o 718848`의 목적은?', ['지정한 파티션에서 전체 경로를 재귀 탐색', '메모리 프로세스 종료', 'RDP 세션 생성'], 0, 'offset으로 파일시스템 시작점을 정하고 재귀·전체 경로로 파일을 찾습니다.'],
     ['w5-memory-network', 'Disk에서 파일이 존재한다는 사실만으로 확인할 수 없는 것은?', ['파일 경로', '메타데이터 주소', '실제 실행 여부'], 2, '실제 실행 여부는 Memory, Prefetch, 로그 같은 추가 증거로 확인해야 합니다.'],
     ['w5-rdp-timeline', 'TCP 3389 연결 뒤 로그인 성공을 보강할 증거는?', ['TerminalServices EVTX', '프로젝트 색상표', 'Cloud 청구서'], 0, 'RDP 세션 관련 EVTX로 인증과 세션 생성 여부를 확인합니다.'],
+    ['w5-disk-analysis', 'Case 001의 `-o 718848`에서 718848이 뜻하는 것은?', ['모든 E01에서 같은 암호', '해당 이미지의 Windows 파티션 시작 섹터', 'coreupdater.exe의 PID'], 1, '파티션 표에서 확인한 파일시스템 시작 섹터이며 다른 이미지에서는 다시 확인해야 합니다.'],
+    ['w5-memory-network', 'HTTP GET `/coreupdater.exe`와 status 200만으로 직접 확인되는 범위는?', ['요청과 성공 상태 응답', '파일 실행과 C2 명령 수행', '민감 파일 유출 완료'], 0, '요청과 응답 상태는 확인할 수 있지만 저장·실행·유출은 Host와 다른 Network 증거가 필요합니다.'],
   ]),
   6: quiz(6, [
     ['w6-monitoring-foundations', 'IDS와 IPS의 가장 중요한 차이는?', ['IDS는 탐지, IPS는 Inline 차단 가능', 'IDS만 로그 생성', 'IPS는 패킷을 보지 않음'], 0, 'IPS는 통신 경로에서 정책에 따라 차단할 수 있어 운영 영향도 함께 고려합니다.'],
@@ -571,5 +742,7 @@ export const actualClassQuizzes = Object.freeze({
     ['w6-packet-alert-model', 'Traffic이 존재하지만 Alert가 없을 수 있는 이유는?', ['활성 Rule과 조건이 일치하지 않아서', 'Packet이 항상 Incident이기 때문에', 'EVE JSON이 IP를 저장하지 않아서'], 0, 'Flow나 프로토콜 Event가 있어도 Rule이 일치하지 않으면 Alert는 생성되지 않을 수 있습니다.'],
     ['w6-rule-anatomy', 'Suricata Rule의 Header가 정하는 것은?', ['검사할 통신 조건', '보고서 작성자 이름', '프로젝트 예산'], 0, 'Header는 action, protocol, Source, direction, Destination으로 볼 Traffic을 정합니다.'],
     ['w6-eve-case001', 'Local Rule을 만든 뒤 가장 적절한 검증 순서는?', ['외부 IP 접속 후 운영 차단', '`-T` 검사 후 같은 PCAP 재분석과 Alert 확인', 'fast.log 삭제 후 종료'], 1, '문법·설정 검사를 먼저 하고 같은 PCAP을 다시 분석해 의도한 Signature가 생성되는지 확인합니다.'],
+    ['w6-eve-case001', '`event_type:"rdp"`와 `alerted:false`를 함께 봤을 때 가장 정확한 설명은?', ['RDP 통신이 없었다', 'RDP로 해석된 Flow는 있지만 해당 Flow Alert는 없었다', 'RDP 로그인이 반드시 성공했다'], 1, '프로토콜 Event와 Rule Alert는 다른 층이며 Windows 로그인 성공은 Host 로그로 별도 확인합니다.'],
+    ['w6-rule-anatomy', 'IP 두 개와 3389/TCP를 고정한 Local Rule의 가장 큰 한계는?', ['Case 001 PCAP에서도 절대 동작하지 않는다', '주소가 바뀐 내부 이동과 정상 관리 RDP Context를 일반적으로 구분하지 못한다', 'EVE JSON을 생성할 수 없다'], 1, '사건 재현에는 유용하지만 운영 탐지로 확장하려면 자산·사용자·시간·행위 Context와 오탐 검토가 필요합니다.'],
   ]),
 })

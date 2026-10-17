@@ -32,11 +32,15 @@ The Finding editor supports a staged report structure, autosave, Source/Transfor
 
 ## Week 5 · DFIR Case 001
 
-Learners distinguish Digital Forensics from Incident Response, map Disk, Memory, Network, and Log evidence to investigation questions, and follow Identify, Collect, Preserve, Examine, Analyze, and Report. The Case 001 lesson connects an E01 image, `fls` and `icat`, file identification and hashing, Volatility process and connection evidence, Wireshark filters, RDP traffic, TerminalServices EVTX, and a bounded incident timeline.
+Learners distinguish Digital Forensics from Incident Response, map Disk, Memory, Network, and Log evidence to investigation questions, and follow Identify, Collect, Preserve, Examine, Analyze, and Report. The Case 001 lesson connects an Autoruns clue, E01 image, partition offset, `fls` and `icat`, MFT and `$DATA` metadata, file identification and hashing, Volatility process and connection evidence, Wireshark filters, RDP traffic, TerminalServices EVTX, and a bounded incident timeline.
+
+Every step states what the evidence proves and what it does not prove. File existence is separated from execution, HTTP response from execution, TCP/3389 from authentication, a session from post-login activity, and external traffic from confirmed data exfiltration. The expanded lesson includes command-by-command interpretation, reconstructed output, common misconceptions, and a 60-minute guided evidence-correlation exercise.
 
 ## Week 6 · network intrusion detection
 
-Learners move from manual PCAP inspection to Network Security Monitoring, distinguish IDS from IPS, and follow Suricata from Packet and Flow through protocol Event and Alert. They read rule headers and options, analyze `fast.log` and EVE JSON with `jq`, identify a Case 001 internal-RDP detection gap, validate a local rule, and re-run the same training PCAP.
+Learners move from manual PCAP inspection to Network Security Monitoring, distinguish IDS from IPS, and follow Suricata from Packet and Flow through protocol Event and Alert. They inspect every Rule header field and option, compare an HTTP URI Rule with a Case-specific RDP 5-Tuple Rule, analyze `fast.log` and EVE JSON with progressively narrower `jq` queries, identify a Case 001 internal-RDP detection gap, validate a local rule, and re-run the same training PCAP.
+
+The lesson explicitly demonstrates the three different claims “Traffic exists,” “Suricata parsed it as RDP,” and “an active Rule generated an Alert.” It then compares default and local outputs, records environment-dependent values such as the 479-alert classroom observation, and adds positive, negative, direction, port, and false-positive retest cases before any operational interpretation.
 
 ## Security and privacy
 
