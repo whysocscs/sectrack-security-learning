@@ -390,6 +390,7 @@ export function getNextTask(weeks, progress) {
     return (Array.isArray(attempts) ? attempts.at(-1) : undefined) || state.quizScores?.[weekIndex]
   }
   for (const week of availableWeeks) {
+    if (week.notTaught) continue
     if (week.index === 0) {
       if (!activityRecorded('w0-map')) return { type: 'lab', week: 0, id: 'w0-map', title: '나의 보안 지도 만들기', label: '나의 보안 지도', estimatedMinutes: 0, route: { page: 'week', week: 0, tab: 'map' } }
       const latestQuiz = latestQuizAttempt(0)

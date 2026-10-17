@@ -18,18 +18,18 @@ import {
 import { parseHash, routeToHash } from '../src/platformLogic.js'
 
 export const EXPECTED_CONTENT_INVENTORY = Object.freeze({
-  weeks: 16,
-  modules: 90,
-  blocks: 975,
-  usedBlockTypes: 27,
-  declaredBlockTypes: 28,
-  labs: 46,
-  quizQuestions: 102,
-  checkpoints: 148,
-  quizRoutes: 16,
-  recordRoutes: 15,
+  weeks: 11,
+  modules: 55,
+  blocks: 483,
+  usedBlockTypes: 23,
+  declaredBlockTypes: 29,
+  labs: 24,
+  quizQuestions: 64,
+  checkpoints: 77,
+  quizRoutes: 10,
+  recordRoutes: 9,
   conceptLinks: 20,
-  objectiveMappings: 60,
+  objectiveMappings: 41,
 })
 
 const codeArtifactTypes = new Set([
@@ -256,6 +256,12 @@ function validateRouteContracts(errors, inventory, manifest) {
 
 function validateLearningObjectives(errors, inventory) {
   for (const week of inventory.weekList) {
+    if (week.notTaught) {
+      if (week.modules.length || week.labs.length || week.assessment || week.weeklyRecord) {
+        addError(errors, 'NOT_TAUGHT_CONTENT', `week[${week.index}]`, 'a not-taught week must not expose modules, labs, assessment, or a weekly record')
+      }
+      continue
+    }
     if (!Array.isArray(week.objectives) || week.objectives.length === 0 || week.objectives.some((objective) => !hasText(objective))) {
       addError(errors, 'WEEK_OBJECTIVES', `week[${week.index}]`, 'week objectives must be a non-empty text array')
     }
@@ -315,6 +321,7 @@ function validateObjectiveEvidence(errors, inventory, evidenceMap) {
   }
 
   for (const week of inventory.weekList) {
+    if (week.notTaught) continue
     const entries = evidenceMap[week.index]
     const modules = new Map(inventory.modules.filter((entry) => entry.week.index === week.index).map((entry) => [entry.module.id, entry.module]))
     const labs = new Map(inventory.labs.filter((entry) => entry.week.index === week.index).map((entry) => [entry.lab.id, entry.lab]))
@@ -446,6 +453,7 @@ function validateQuizContracts(errors, inventory, rules) {
   }
 
   for (const week of inventory.weekList) {
+    if (week.notTaught) continue
     const path = `quizRules[${week.index}]`
     const questions = inventory.questions.filter((entry) => entry.weekIndex === week.index).map(({ question }) => question)
     const rule = rules[week.index]

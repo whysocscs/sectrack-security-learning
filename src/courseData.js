@@ -14,6 +14,7 @@ import { applySystemIntroWeekDesign } from './content/systemIntroSessions.js'
 import { web3FuzzingLab, web3FuzzingModules, web3FuzzingQuizQuestions } from './content/week7Web3Blocks.js'
 import { supplyChainLab, supplyChainModules, supplyChainQuizQuestions } from './content/week8SupplyChainBlocks.js'
 import { otSecurityWeek, otSecurityQuizQuestions } from './data/curriculum/otSecurityWeek.js'
+import { actualClassQuizzes, actualClassWeeks } from './data/curriculum/actualClassWeeks.js'
 
 export const masteryLabels = {
   unknown: '아직 모름',
@@ -526,7 +527,22 @@ function reindexWeek(week, index) {
   } : designed
 }
 
+function prepareActualClassWeek(week) {
+  return {
+    ...week,
+    displayWeek: week.index,
+    curriculumId: week.id,
+    legacyPrefix: `w${week.index}`,
+    route: `/learn/week/${week.index}`,
+    labs: (week.labs || []).map((lab) => ({ ...lab, week: week.index })),
+  }
+}
+
 const mergedWeekOne = mergeLinuxWeeks(baseWeekContent[1], baseWeekContent[2])
+export const legacyCourseDrafts = Object.freeze({
+  weeks: baseWeekContent,
+  mergedWeekOne,
+})
 function mergeSystemWeeks(weeks, id) {
   const [first] = weeks
   return {
@@ -553,12 +569,14 @@ const reversingIntroWeek = mergeSystemWeeks([baseLaterWeekContent[7], baseLaterW
 const pwnIntroWeek = mergeSystemWeeks([baseLaterWeekContent[10], baseLaterWeekContent[11]], 'pwn-intro')
 const curriculumDefinitions = [
   weekZeroDefinition,
-  reindexWeek(mergedWeekOne, 1),
-  reindexWeek(baseWeekContent[3], 2),
+  prepareActualClassWeek(actualClassWeeks[1]),
+  prepareActualClassWeek(actualClassWeeks[2]),
   reindexWeek(reversingIntroWeek, 3),
   reindexWeek(pwnIntroWeek, 4),
+  prepareActualClassWeek(actualClassWeeks[5]),
+  prepareActualClassWeek(actualClassWeeks[6]),
   ...Object.values(baseLaterWeekContent)
-    .filter((week) => week.index >= 12 && week.index <= 15)
+    .filter((week) => week.index >= 14 && week.index <= 15)
     .map((week) => reindexWeek(week, week.index - 7)),
   reindexWeek(otSecurityWeek, 9),
   reindexWeek(baseLaterWeekContent[16], 10),
@@ -580,7 +598,7 @@ export const roadmap = Object.values(weekContent).map((week) => ({
   requiredMinutes: week.requiredMinutes,
   extensionMinutes: week.extensionMinutes,
   estimatedMinutes: week.estimatedMinutes,
-  status: week.index === 1 ? 'current' : 'available',
+  status: week.notTaught ? 'not-taught' : week.index === 1 ? 'current' : 'available',
   keyConcepts: week.keyConcepts || week.objectives?.slice(0, 3) || [],
 }))
 
@@ -635,19 +653,19 @@ function enrichQuizQuestion(question) {
 
 export const quizzes = Object.fromEntries([
   [0, baseQuizzes[0]],
-  [1, [...baseQuizzes[1], ...baseQuizzes[2]].filter((question) => ['w1q1', 'w1q4', 'w1q5', 'w2q2'].includes(question.id))],
+  [1, actualClassQuizzes[1]],
   [3, [...baseQuizzes[7], ...baseQuizzes[8], ...baseQuizzes[9]].filter((question) => ['w7q1', 'w7q2', 'w8q1', 'w8q2', 'w9q1', 'w9q5'].includes(question.id))],
   [4, [...baseQuizzes[10], ...baseQuizzes[11]].filter((question) => ['w10q1', 'w10q3', 'w10q4', 'w10q5', 'w11q2', 'w11q5'].includes(question.id))],
+  [5, actualClassQuizzes[5]],
+  [6, actualClassQuizzes[6]],
   [7, [...baseQuizzes[14], ...web3FuzzingQuizQuestions]],
   [8, [...baseQuizzes[15], ...supplyChainQuizQuestions]],
   [9, otSecurityQuizQuestions],
   ...Object.entries(baseQuizzes)
-    .filter(([index]) => [3, 12, 13, 16].includes(Number(index)))
+    .filter(([index]) => Number(index) === 16)
     .map(([index, questions]) => {
       const sourceIndex = Number(index)
-      if (sourceIndex === 3) return [2, questions]
-      if (sourceIndex === 16) return [10, questions]
-      return [sourceIndex - 7, questions]
+      return [sourceIndex - 6, questions]
     }),
 ].map(([weekIndex, questions]) => [weekIndex, questions.map(enrichQuizQuestion)]))
 
@@ -657,9 +675,10 @@ function unique(values) {
 
 export const objectiveEvidence = Object.freeze(Object.fromEntries(Object.values(weekContent).map((week) => {
   const mappings = objectiveModuleAlignment[week.index] || []
+  const availableModuleIds = new Set(week.modules.map((module) => module.id))
   const entries = week.objectives.map((objective, index) => {
     const explanationModuleIds = [...new Set([
-      ...(mappings[index] || []),
+      ...(mappings[index] || []).filter((moduleId) => availableModuleIds.has(moduleId)),
       ...week.modules.filter((module) => module.objectiveIndexes?.includes(index)).map((module) => module.id),
     ])]
     const moduleSet = new Set(explanationModuleIds)
@@ -695,10 +714,12 @@ const baseCoreQuizQuestionIds = {
 
 const coreQuizQuestionIds = Object.fromEntries([
   [0, baseCoreQuizQuestionIds[0]],
-  [1, [...baseCoreQuizQuestionIds[1], ...baseCoreQuizQuestionIds[2]]],
+  [1, actualClassQuizzes[1].slice(0, 3).map((question) => question.id)],
   [2, baseCoreQuizQuestionIds[3]],
   [3, ['w7q1', 'w8q2', 'w9q1']],
   [4, ['w10q1', 'w10q4', 'w11q5']],
+  [5, actualClassQuizzes[5].slice(0, 3).map((question) => question.id)],
+  [6, actualClassQuizzes[6].slice(0, 3).map((question) => question.id)],
   [7, ['w14q1', 'w14q2', 'w7web3q2']],
   [8, ['w8supplyq1', 'w8supplyq2', 'w15q2']],
   [9, ['w9otq1', 'w9otq3', 'w9otq4']],
