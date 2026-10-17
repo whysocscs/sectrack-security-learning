@@ -11,8 +11,8 @@ Detailed AI-readable context: https://whysocscs.github.io/sectrack-security-lear
 - Pre-course: security terminology, fields, careers, and a personal learning map.
 - Week 1: orientation, major security fields and roles, authorization boundaries, and realistic portfolio project scope.
 - Week 2: no class. The public roadmap intentionally does not invent substitute material.
-- Week 5: DFIR foundations and Case 001 reconstruction across Disk, Memory, PCAP, and EVTX evidence.
-- Week 6: IDS/IPS, Suricata processing, Packet-to-Alert concepts, EVE JSON analysis, and a local detection rule for the Case 001 training PCAP.
+- Week 5: detailed Case 001 reconstruction from Autoruns through E01, partition and NTFS metadata, Volatility, PCAP, RDP EVTX, evidence limits, and an incident timeline.
+- Week 6: IDS/IPS and NSM foundations, Suricata processing, line-by-line Rule reading, progressively narrowed EVE JSON analysis, default-versus-local retesting, and false-positive limits.
 
 ## Safety boundary
 

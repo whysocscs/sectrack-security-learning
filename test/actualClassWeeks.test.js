@@ -36,6 +36,22 @@ test('Case 001 connects DFIR evidence to the Week 06 detection handoff', () => {
   }
 })
 
+test('Week 05 and 06 retain the detailed explanations reconstructed from the source slides', () => {
+  const weekFiveBlocks = weekContent[5].modules.flatMap((module) => module.blocks)
+  const weekSixBlocks = weekContent[6].modules.flatMap((module) => module.blocks)
+  const weekFiveText = JSON.stringify(weekFiveBlocks)
+  const weekSixText = JSON.stringify(weekSixBlocks)
+
+  assert.ok(weekFiveBlocks.length >= 45)
+  assert.ok(weekSixBlocks.length >= 45)
+  for (const expected of ['Autoruns', '718848', '87137-128-4', 'MFT', 'PE32+', 'windows.netscan', 'TerminalServices-LocalSessionManager', 'Event ID']) {
+    assert.match(weekFiveText, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+  }
+  for (const expected of ['False Positive', '411797 packets', 'flow:established,to_server', 'http.uri', 'event_type', 'alerted', 'signature_id', 'Default와 Local']) {
+    assert.match(weekSixText, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+  }
+})
+
 test('the public PPT-derived source excludes direct personal identifiers and workspace links', async () => {
   const source = await readFile(new URL('../src/data/curriculum/actualClassWeeks.js', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /\b(?:19|20)\d{7}\b/u)
